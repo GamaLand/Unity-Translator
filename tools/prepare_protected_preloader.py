@@ -1,4 +1,4 @@
-"""Sabit upstream kaynakta shim/root-log yazımını kaldırır; loader çalıştırmaz."""
+"""Remove registered shim/root-log writes from pinned source without running the loader."""
 
 import argparse
 import json
@@ -101,8 +101,10 @@ def main() -> int:
         encoding="utf-8",
     )
     changes["RuntimeFixes/HarmonyInteropFix.cs"] = {"before": before, "after": hash_file(path)}
-    helper = root / "adapters/bepinex-protected" / (
-        "PortableRuntimeDiagnostics.cs" if args.portable else "ProtectedRuntimeDiagnostics.cs"
+    helper = (
+        root
+        / "adapters/bepinex-protected"
+        / ("PortableRuntimeDiagnostics.cs" if args.portable else "ProtectedRuntimeDiagnostics.cs")
     )
     shutil.copyfile(helper, source / "ProtectedRuntimeDiagnostics.cs")
     version = source / "ProtectedVersion.cs"

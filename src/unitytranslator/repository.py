@@ -1,4 +1,4 @@
-"""Yerel tek yazarlı SQLite proje deposu ve değişmez kaynak/çeviri revizyonları."""
+"""Single-writer local SQLite store with immutable source/translation revisions."""
 
 import json
 import sqlite3
@@ -57,13 +57,13 @@ class ProjectLock:
             raise ValueError("Proje başka bir uygulama tarafından yazmaya açık.") from exc
 
     def close(self) -> None:
-        self.stream.close()  # İşletim sistemi kilidini de serbest bırakır.
+        self.stream.close()  # The operating-system file lock is released as well.
 
 
 class ProjectRepository:
     @staticmethod
     def existing_paths(project: Path) -> ProjectPaths:
-        """Kayıtlı oyun bağlantısını salt okunur bulur; eksik proje oluşturmaz."""
+        """Read the stored game binding without creating a missing project."""
         root = checked_path(project)
         database = checked_path(root / "project.sqlite3")
         if not database.is_file():

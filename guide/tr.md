@@ -41,7 +41,7 @@ edin. Uyumluluk deneyseldir; otomatik kontroller kalite garantisi değildir.
 
 Ekleri kuran projeden kaldırın. Çakışan `winhttp.dll`/`doorstop_config.ini` dosyalarını
 körlemesine silmeyin ve özgün envanteri sıfırlamayın. Eski projeyi açıp sahiplik denetimli
-kaldırmayı kullanın. [Geliştirici düzeltme rehberi](../docs/development.md).
+kaldırmayı kullanın. [Geliştirici düzeltme rehberi](../docs/installation.md).
 
 Paylaşılabilir ZIP onaylı çevirileri ve gerekli çalışma bileşenlerini içerir. Arkadaşınız
 ZIP’i çıkarıp `Kur.cmd` ile eşleşen oyun klasörünü seçer; `Kaldir.cmd` sahipliği/hash’i

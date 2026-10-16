@@ -1,4 +1,4 @@
-"""Koruma değişiklikli loader'ı ayrı proje ağacına hazırlar; oyun başlatmaz."""
+"""Stage the protected loader in a separate project tree without starting a game."""
 
 import argparse
 import json

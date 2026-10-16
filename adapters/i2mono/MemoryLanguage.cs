@@ -5,7 +5,7 @@ using I2.Loc;
 
 namespace UnityTranslator.I2Mono
 {
-    // Sabit ve statik doğrulanmış I2 alanları. Veri reflection hedefi seçemez.
+    // Fixed, statically verified I2 fields; data cannot select reflection targets.
     public static class MemoryLanguage
     {
         private static readonly string[] Names = new string[] {

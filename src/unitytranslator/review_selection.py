@@ -1,4 +1,4 @@
-"""Sayfa veya tüm proje için açık kullanıcı onayını atomik uygular."""
+"""Atomically apply explicit human approval to a page or the whole project."""
 
 from typing import Any
 

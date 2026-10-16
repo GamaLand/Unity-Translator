@@ -1,4 +1,4 @@
-"""Yerel ve CI sentetik doğrulaması; oyun/model/sunucu girdisi yoktur."""
+"""Local and CI synthetic checks with no game, model or server input."""
 
 import argparse
 import os
@@ -47,11 +47,16 @@ def main() -> int:
                 str(base / "protected-diagnostics"),
             ]
         )
-        commands.append([
-            "dotnet", "run", "--project",
-            "adapters/bepinex-protected/tests/PortableTests.csproj", "--",
-            str(base / "portable-diagnostics"),
-        ])
+        commands.append(
+            [
+                "dotnet",
+                "run",
+                "--project",
+                "adapters/bepinex-protected/tests/PortableTests.csproj",
+                "--",
+                str(base / "portable-diagnostics"),
+            ]
+        )
     for command in commands:
         result = subprocess.run(command, cwd=root, env=env, check=False)
         if result.returncode:

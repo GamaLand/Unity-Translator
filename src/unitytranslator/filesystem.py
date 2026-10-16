@@ -1,4 +1,4 @@
-"""Keşif çıktıları için kısıtlı yol politikası; oyun köküne yazma API'si yoktur."""
+"""Confined project output paths; no API writes into the original game tree."""
 
 import json
 import os

@@ -1,4 +1,4 @@
-"""Paketleme girişi uygulama paketinden ayrı tutulur."""
+"""Packaging entry kept separate from the application package."""
 
 import sys
 from pathlib import Path

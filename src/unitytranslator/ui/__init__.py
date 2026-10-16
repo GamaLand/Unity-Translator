@@ -1,1 +1,1 @@
-"""Qt Widgets katmanı; çekirdek burada widget bağımlılığı edinmez."""
+"""Qt Widgets presentation layer; the core does not depend on widgets."""

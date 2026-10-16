@@ -1,123 +1,90 @@
-# Development and safe installation recovery
+# Development
 
-## Architecture
+## Architecture and source map
 
-The Python core owns the SQLite project store, revision history, model requests and
-installation receipts. PySide6 Widgets is the desktop interface. An independent asyncio
-thread performs network work; window minimization does not pause translation. Unity
-extraction runs in a separate worker process. Readers, translation and application adapters
-are separate, so extraction support never implies installation support.
+Python 3.12 owns project state, translation jobs, validation and deployment plans.
+PySide6 Widgets is a presentation layer. `ApplicationSession` dispatches work through
+the Qt bridge to an independent asyncio/SQLite-owner thread; minimization does not
+pause translation. Unity parsing runs in a separate process to contain reader crashes.
+No game assembly is executed for extraction.
 
-The current application adapter is an experimental, fingerprint-matched Mono/I2 adapter.
-It never rewrites original game assets. A separate portable runtime variant supports
-shareable packages without requiring UnityTranslator or a model on the recipient's machine.
-Runtime components are not part of the source repository; their build/preparation tools,
-hash catalogs and license/source handling live in `tools/` and `adapters/`.
+| Location | Responsibility |
+| --- | --- |
+| `src/unitytranslator/application.py` | Shared application session/commands |
+| `domain.py`, `repository.py`, `resources/schema-v*.sql` | Data contracts, revisions and migrations |
+| `jobs.py`, `providers.py`, `policy.py`, `validation.py` | Durable queue, local HTTP, policies and checks |
+| `discovery.py`, `profiles.py`, `i2*.py`, `managed_schema.py`, `workers/` | Read-only discovery and current I2 extraction |
+| `deployment.py`, `installation.py`, `runtime_*.py`, `shareable.py` | Additive install plans, runtime data and ownership |
+| `editor_drafts.py`, `review_selection.py`, `portable.py`, `reports.py` | Review, drafts, history interchange and reports |
+| `ui/`, `resources/locales/` | Qt views, bridge and eight offline interface catalogs |
+| `guide/` | Eight localized user guides |
+| `adapters/` | I2/protected-loader C# sources, synthetic tests and original notices |
+| `tools/` | Verification, source tracing and packaging utilities |
 
-## Develop and check
+The current reader and deployment implementation is an identified Mono/I2 integration.
+The generic adapter registry and JSON/CSV readers are [planned work](roadmap.md).
+A translation-project JSON import/export is not a game JSON reader. See the independent
+support results in [compatibility.md](compatibility.md).
+
+## Setup and checks
 
 ```powershell
 uv sync --locked --extra ui
-uv run --extra ui python tools/check.py
-uv run --extra ui python tools/check.py --with-dotnet
+uv run --locked --extra ui unitytranslator gui
+uv run --locked --extra ui python tools/check.py
+uv run --locked --extra ui python tools/check.py --with-dotnet
 uv build
 uv run python tools/check_distribution.py
+uv run python tools/check_documentation.py
 ```
 
-The C# checks require the compatible .NET SDK indicated by the test projects. Tests use
-synthetic fixtures, not installed games or real translation projects. The check script
-allocates a new temporary directory inside `.cache/`. Never point pytest's `--basetemp`
-at a folder containing work you want to keep. A local pass is not a claim that remote CI
-or a clean Windows installation has been tested.
+C# checks require the compatible .NET SDK indicated by their projects. Tests use
+synthetic fixtures, not installed games or user projects. `tools/check.py` allocates a
+new directory under `.cache/`; never point pytest's `--basetemp` at work to preserve.
+Use targeted checks first. Repeat broad tests only after new changes or unresolved
+failures. CI success does not prove a clean Windows installation or new game support.
 
-## Existing loader files block installation
+## Compatibility and persistence
 
-An installation may be owned by an older project even if the current project shows no
-installed patch. `winhttp.dll` and `doorstop_config.ini` are shared game-root targets;
-their presence must block a second installation. Never overwrite or blindly delete them.
+Schema 4, old project interchange, I2 record identities and v1/v2 runtime payloads are
+compatibility inputs. Keep numbered migrations and fixtures; an old file is not
+obsolete simply because a newer format exists. Imports preserve existing approvals
+and treat archived approvals as history. Protect user drafts and optimistic versions.
+The source set must become scoped before independently ingesting several files.
 
-1. Close the game and the application that owns the affected project.
-2. Read the older project's `artifacts/deployment.json`, original inventory and recorded
-   plan. The INI's runtime path is a clue to the old workspace, **not ownership proof**.
-3. Verify game identity, the saved plan, each file's SHA-256, device/file identity and
-   single-link status. Verify the original game hashes and that the game is closed.
-4. Use that project's **Apply to game → Disable translation and remove added files**.
-   The underlying `DeploymentService.uninstall(user_action=True)` removes only owned,
-   unchanged additions. Modified/replaced files are preserved and require investigation.
-5. Reopen the new project and prepare a fresh plan; the user reviews installation separately.
+Original-file inventories and ownership receipts form a separate protection boundary.
+Never reset them to work around a conflict. [Installation](installation.md) explains
+safe conflict handling and recovery. [Runtime components](runtime-components.md)
+describes the source/binary provenance chain; keep its build/audit tools and notices.
 
-If the files belong to another mod, use that mod's removal procedure. Missing ownership
-records are not permission to claim or delete the files.
+## English-first source and localization
 
-### A failed attempt already captured the old loader in its original inventory
+Use English for source identifiers, CLI help, new diagnostics, comments and public docs.
+Keep localized UI text in the eight UTF-8 catalogs and guides in `guide/{code}.md`.
+Source labels use `tr(...)`; preserve placeholders such as `{p1}` and Qt progress tokens.
+Do not translate game content, IDs, paths, model names or persisted protocol values as
+interface labels. Legacy diagnostic/protocol strings are compatibility data and must
+not be mass-rewritten without dedicated tests and a migration plan.
 
-Do not delete `original-inventory.json` and rescan blindly: that would redefine originals
-and could hide real game changes. Preserve the complete old inventory as a separate backup.
-If a prior trusted, game-matched inventory exists, verify every original hash and the exact
-set difference. Only proven program-owned additions may be separated out. Carry over only
-the specific variable-file rules already approved by the user; never exclude a whole Logs
-folder or reset hashes for changed game assets. Explain the exact repair and obtain explicit
-approval before changing this protection boundary.
+The UI language defaults to English and changes on restart. The project language pair
+is independent. `UNITYTRANSLATOR_UI_LANGUAGE` selects an isolated test locale;
+`UNITYTRANSLATOR_CONFIG_HOME` redirects preference storage during tests. Language
+normalization/default style live in `language.py`; old custom policies remain user data.
 
-Hold the project lock during repair, remove the old additions through their original receipt,
-restore the verified inventory atomically and record the backup path and before/after hashes.
-Keep translation tables, drafts, revisions and approvals untouched. Compare logical database
-table contents against a consistent snapshot; SQLite may create or remove empty WAL/SHM
-sidecars without changing those records. Finally verify originals again and test preparation
-against an isolated project copy. Do not launch the game or install the new patch as part of
-inventory repair.
+Source checkouts open help from `guide/`; wheels use bundled `resources/guides/`;
+new Windows builds ship `guide/`. Published RC7 archives retain their original layout.
+All three delivery modes must resolve a guide without a network request.
 
-`InstallationSession.prepare()` now checks conflicting loader targets **before** staging
-runtime files or capturing an original inventory. Regression tests ensure foreign files
-remain unchanged and no baseline is created on conflict.
+## Packaging and publishing
 
-## Interface translations
+Keep `.local/`, `.cache/`, environments, real games/models, user projects, secrets and
+build outputs out of Git. Local AI instructions/specifications remain ignored and
+excluded from source distributions, including case/name variants. The public roadmap
+and architecture above are intentionally available to every contributor.
 
-English source messages are wrapped in `tr(...)`. Eight UTF-8 JSON catalogs live in
-`src/unitytranslator/resources/locales/`; placeholders such as `{p1}` and Qt progress
-tokens must remain exact. Catalogs are bundled and work offline. Do not translate game
-text, model IDs, paths, language codes or persisted approval protocol values as interface
-labels. Whole-project approval displays a localized phrase but submits an invariant internal
-confirmation. The UI preference is stored outside the project in the user's app settings.
-
-Use `UNITYTRANSLATOR_UI_LANGUAGE=en` (or another supported code) for an isolated language
-test. `UNITYTRANSLATOR_CONFIG_HOME` can direct preference storage to a test directory.
-Legacy UI regression fixtures explicitly select Turkish; separate tests verify the English
-default and all eight catalogs. Language changes take effect after reopening the app.
-
-## Publishing source
-
-Keep `.local/`, `.cache/`, game/model files, generated binaries and secrets out of commits.
-Local AI instruction/specification files remain available in the workspace but are ignored
-and excluded from source distributions. `.gitignore` does not untrack files already committed:
-review the Git index before pushing and remove accidentally tracked private files from it.
-Do not publish an old Git history containing private data. Review the source archive with
-`tools/check_distribution.py`; the repository-ready ZIP is source only, not a Windows release.
-
-
-### Multilingual game projects
-
-`language.py` normalizes editable language tags and resolves source columns. UI locale
-selection does not change a project's saved language pair. Existing styles remain
-user-owned data; the default style is language-neutral. Universal validation checks
-run for every pair. English/Turkish negation and condition heuristics stay limited
-to that pair. Add specialized semantic checks with their own language-scoped tests.
-
-Runtime payload schema v2 carries `source_language`. The C# parser also accepts the
-legacy v1 schema with an implicit English source. Source hashes, language-column
-ambiguity checks, approval gates and rollback apply to both versions. Rebuild the
-plugin and its runtime catalogs when changing this contract; do not combine v2
-payloads with an old plugin. Font injection and plural-category conversion are not
-provided. Current source branch structure is preserved and requires human review.
-
-Use a new output folder when building while an earlier application is open:
-
-```powershell
-uv run --extra ui --group build python tools/build_windows.py --output-root dist/windows-next
-uv run --extra ui python tools/package_notices.py --output-root dist/windows-next
-uv run python tools/package_windows.py --output-root dist/windows-next --label rc.next
-```
-
-The build refuses an existing application output folder. It never implicitly deletes
-or replaces a running release. New multilingual regression cases live in
-`tests/test_multilingual.py` and `adapters/i2mono/tests/SourceWrapperTests.cs`.
+Review the Git index before committing. `.gitignore` does not untrack previously
+committed files. Audit wheel/sdist contents with `tools/check_distribution.py` and
+Markdown links/layout with `tools/check_documentation.py`. Build new Windows candidates
+in new output folders as described in [windows-package.md](windows-package.md).
+Keep the matching dependency sources and original license notices with every release.
+A cleanup task does not authorize a push, release or game installation.

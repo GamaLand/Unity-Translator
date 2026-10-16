@@ -35,6 +35,8 @@ jobs:
           uv sync --locked --extra ui --python 3.12
       - name: Synthetic Python and C# checks
         run: uv run --locked --extra ui python tools/check.py --with-dotnet
+      - name: Check documentation and guide layout
+        run: uv run --locked --extra ui python tools/check_documentation.py
       - name: Build source packages
         run: uv build
       - name: Inspect source packages for private data

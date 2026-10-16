@@ -41,7 +41,7 @@ você mesmo para verificar caracteres, disposição e significado. A integraçã
 
 Remova os arquivos adicionados pelo projeto que os instalou. Não sobrescreva nem apague
 `winhttp.dll`/`doorstop_config.ini` sem verificar a propriedade, e não redefina o inventário
-original. Consulte o [guia de desenvolvimento](../docs/development.md).
+original. Consulte o [guia de desenvolvimento](../docs/installation.md).
 
 O destinatário de um ZIP compartilhável usa `Kur.cmd` para selecionar a pasta da versão
 correspondente do jogo e `Kaldir.cmd` para remover apenas os arquivos próprios sem alterações.

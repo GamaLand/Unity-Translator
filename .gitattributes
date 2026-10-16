@@ -7,6 +7,8 @@
 AGENTS.md export-ignore
 GOAL.md export-ignore
 TECHNICAL_DESIGN.md export-ignore
+technical.design.md export-ignore
+agents.md export-ignore
 .agents export-ignore
 .codex export-ignore
 .claude export-ignore

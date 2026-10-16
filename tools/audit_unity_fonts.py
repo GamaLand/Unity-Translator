@@ -1,4 +1,4 @@
-"""Salt okunur, süreçte izole Unity Font keşfi; oyun içi görünüm kanıtı değildir."""
+"""Read-only isolated Unity font discovery; not proof of in-game rendering."""
 
 import argparse
 import io
@@ -40,7 +40,7 @@ def embedded_coverage(data: bytes) -> dict:
                 "missing": "".join(char for char in REQUIRED if char not in present),
             }
     except Exception:
-        # Dosyadan gelen hata metni ve font ikili verisi rapora taşınmaz.
+        # Do not copy source-supplied error text or font binaries into the report.
         return {"status": "unknown", "reason": "invalid_or_unsupported_font"}
 
 
@@ -113,7 +113,8 @@ def inspect_asset(path: Path, game: Path) -> dict:
                     head = obj.parse_monobehaviour_head()
                     script = script_for(obj, head.m_Script)
                     if script is None or (script.m_Namespace, script.m_ClassName) != (
-                        "TMPro", "TMP_FontAsset"
+                        "TMPro",
+                        "TMP_FontAsset",
                     ):
                         continue
                     try:
@@ -156,7 +157,7 @@ def audit_asset(path: Path, game: Path) -> dict:
     if not path.is_file() or path.stat().st_size > 1024 * 1024 * 1024:
         raise ValueError("Asset bulunamadı veya boyut sınırı aşıldı.")
     before = hash_file(path)
-    # Native Unity okuyucusu geliştiricinin ana sürecinde çalışmaz.
+    # Run native Unity parsing outside the developer's main process.
     process = subprocess.run(
         [sys.executable, str(Path(__file__).resolve()), "--worker", str(path), "--game", str(game)],
         capture_output=True,

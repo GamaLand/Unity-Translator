@@ -1,4 +1,4 @@
-"""Windows süreçlerini yalnızca sorgular; süreç başlatma/durdurma yetkisi yoktur."""
+"""Read-only Windows process inspection; never starts or stops a process."""
 
 import ctypes
 import os
@@ -86,7 +86,9 @@ def windows_process_snapshot() -> tuple[ProcessImage, ...]:
                     kernel.CloseHandle(handle)
             rows.append(ProcessImage(int(entry.th32ProcessID), str(entry.szExeFile), image))
             success = kernel.Process32NextW(snapshot, ctypes.byref(entry))
-        if ctypes.get_last_error() != 18:  # ERROR_NO_MORE_FILES dışında eksik listeyi kabul etme.
+        if (
+            ctypes.get_last_error() != 18
+        ):  # Only ERROR_NO_MORE_FILES proves the process enumeration completed.
             raise OSError("Process enumeration incomplete")
         return tuple(rows)
     finally:
@@ -107,7 +109,7 @@ def classify_game_processes(
             if process.name.casefold() in names:
                 ambiguous.append(process.pid)
             continue
-        # Başka kurulumdaki aynı adlı exe, seçili oyunun çalıştığı anlamına gelmez.
+        # An identically named EXE in another installation is not the selected game.
         image = process.image
         if not image.is_absolute():
             if process.name.casefold() in names:

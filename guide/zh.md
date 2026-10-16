@@ -38,7 +38,7 @@ uv run --extra ui unitytranslator gui
 
 通过原安装项目删除新增文件。不要直接覆盖或删除冲突的 `winhttp.dll`、`doorstop_config.ini`，
 也不要重置原始文件清单。应打开旧项目，按所有权和哈希验证结果卸载。
-详见[开发者修复指南](../docs/development.md)。
+详见[开发者修复指南](../docs/installation.md)。
 
 可分享 ZIP 包含已批准译文和所需运行组件。接收者解压后运行 `Kur.cmd`，选择匹配版本的游戏目录；
 `Kaldir.cmd` 只删除属于该包且未修改的文件。接收者不需要模型或 UnityTranslator。

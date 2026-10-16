@@ -12,32 +12,41 @@ from unitytranslator.repository import ProjectRepository
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="UnityTranslator — salt okunur keşif prototipi")
+    parser = argparse.ArgumentParser(description="UnityTranslator - local Unity game translation")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("gui", help="Open the desktop interface")
     for command, description in (
-        ("scan", "Uyumluluk göstergelerini tara"),
-        ("probe", "Tek Unity kaynağını ayrı süreçte incele"),
-        ("extract", "Yapılandırılmış kaynağı SQLite proje deposuna çıkar"),
-        ("project", "Yerel çeviri projesi oluştur/aç"),
+        ("scan", "Scan read-only compatibility indicators"),
+        ("probe", "Inspect one Unity source in an isolated process"),
+        ("extract", "Extract a supported source into the SQLite project"),
+        ("project", "Create or open a translation project"),
     ):
         item = sub.add_parser(command, help=description)
-        item.add_argument("--game", required=True, type=Path, help="Oyun klasörü")
-        item.add_argument("--project", required=True, type=Path, help="Ayrı yerel çalışma klasörü")
+        item.add_argument("--game", required=True, type=Path, help="Game installation directory")
+        item.add_argument(
+            "--project",
+            required=True,
+            type=Path,
+            help="Separate local translation project directory",
+        )
         if command in ("probe", "extract"):
-            item.add_argument("--source", required=True, help="Oyun köküne göreli kaynak yolu")
+            item.add_argument(
+                "--source", required=True, help="Source path relative to the game directory"
+            )
         if command in ("project", "probe"):
             item.add_argument("--source-language", default="en")
             item.add_argument("--target-language", default="tr")
-    models = sub.add_parser("models", help="Yerel sunucunun bildirdiği model kimliklerini listele")
+    models = sub.add_parser("models", help="List model identifiers reported by the local server")
     models.add_argument("--provider", choices=("lm-studio", "llama-cpp"), required=True)
-    models.add_argument("--address", required=True, help="Yerel sunucu adresi")
-    sample = sub.add_parser("sample", help="Tek sentetik metinde üretim ve biçim kontrolü")
+    models.add_argument("--address", required=True, help="Local server address")
+    sample = sub.add_parser(
+        "sample", help="Generate one synthetic translation and check its format"
+    )
     sample.add_argument("--provider", choices=("lm-studio", "llama-cpp"), required=True)
     sample.add_argument("--address", required=True)
-    sample.add_argument("--model", required=True, help="Açıkça seçilen model kimliği")
+    sample.add_argument("--model", required=True, help="Explicitly selected model identifier")
     sample.add_argument(
-        "--json-schema", action="store_true", help="Sağlayıcının şemalı çıktısını dene"
+        "--json-schema", action="store_true", help="Request structured output from the provider"
     )
     args = parser.parse_args()
     try:
@@ -83,7 +92,7 @@ def main() -> int:
         print(json.dumps(summary, ensure_ascii=True, indent=2))
         return 0
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
-        print(f"Keşif tamamlanamadı: {exc}", file=sys.stderr)
+        print(f"Operation failed: {exc}", file=sys.stderr)
         return 1
 
 

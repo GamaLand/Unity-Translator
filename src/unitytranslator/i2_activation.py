@@ -1,4 +1,4 @@
-"""I2 geliştirici denemesinin etkin ayar önizlemesi; hazırlık kurulmaz."""
+"""Review active I2 trial settings without installing during preparation."""
 
 from dataclasses import asdict
 from pathlib import Path

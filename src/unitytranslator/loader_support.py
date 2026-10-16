@@ -1,4 +1,4 @@
-"""Çevrimdışı yükleyici destek paketi; kurulum veya çalıştırma yetkisi yoktur."""
+"""Offline loader support packaging; never installs or executes components."""
 
 import re
 from hashlib import sha256
@@ -54,7 +54,7 @@ def stage_loader_support(
     source_cache: Path,
     catalog_root: Path,
 ) -> dict[str, Any]:
-    """Yerel geliştirici kataloğunu doğrular; manifest etkinleştirme izni değildir."""
+    """Validate the local catalog; its manifest is not installation permission."""
     loader, source_cache, catalog_root = map(checked_path, (loader, source_cache, catalog_root))
     catalog_path = confined(catalog_root, "loader-components.json")
     if catalog_path.stat().st_size > 1024 * 1024:

@@ -1,4 +1,4 @@
-"""Standalone GUI'nin sentetik, ağsız doğrulama girişi."""
+"""Synthetic offline verification entry for the standalone GUI."""
 
 import json
 import os
@@ -28,7 +28,7 @@ from unitytranslator.ui.window import (
 
 
 def verify_worker_launch(paths: ProjectPaths) -> bool:
-    """GUI standart girişi geçersizken gerçek okuyucu süreci başlatılır."""
+    """Launch the real reader subprocess with an invalid GUI standard input handle."""
     import ctypes
     from ctypes import wintypes
 
@@ -57,10 +57,10 @@ def verify_worker_launch(paths: ProjectPaths) -> bool:
 
 
 def verify_installation(paths: ProjectPaths, app: QApplication) -> bool:
-    """Sadece yeni sentetik dizinde gerçek dialog/plan/kaldırma; DLL yürütmez."""
+    """Exercise dialogs/plans/removal in a synthetic directory without executing DLLs."""
     from unitytranslator import runtime_kit
 
-    # Paketle gelen gerçek bileşenlerin bütünlüğü de ayrı doğrulanır; yüklenmezler.
+    # Separately verify bundled component integrity without loading the DLLs.
     RuntimeKit().validate()
     PortableRuntimeKit().validate()
     game = paths.output("verification-installation/game")
@@ -183,8 +183,10 @@ def verify_installation(paths: ProjectPaths, app: QApplication) -> bool:
                 with ProjectRepository(ProjectPaths(game, project)) as repo:
                     shared = shareable.export_shareable_patch(repo)
                 shareable_verified = (
-                    shared["records"] == 1 and not shared["game_written"]
-                    and not shared["requires_unitytranslator"] and Path(shared["path"]).is_file()
+                    shared["records"] == 1
+                    and not shared["game_written"]
+                    and not shared["requires_unitytranslator"]
+                    and Path(shared["path"]).is_file()
                 )
             finally:
                 shareable.PortableRuntimeKit = previous_portable
@@ -205,7 +207,7 @@ def verify_installation(paths: ProjectPaths, app: QApplication) -> bool:
 
 
 def verify_runtime_export(paths: ProjectPaths, app: QApplication) -> bool:
-    """Frozen kodda sentetik onay/seçim/veri üretimi; DLL yürütmez."""
+    """Exercise frozen approval, selection and data export without executing DLLs."""
     game = paths.output("verification-runtime/game")
     assembly = game / "Synthetic_Data/Managed/Assembly-CSharp.dll"
     assembly.parent.mkdir(parents=True)

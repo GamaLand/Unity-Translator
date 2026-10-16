@@ -1,4 +1,4 @@
-"""Dış JSON sınırında yinelenen alan ve standart dışı sayı reddi."""
+"""Reject duplicate keys and non-standard numbers at external JSON boundaries."""
 
 import json
 from typing import Any

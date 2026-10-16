@@ -1,4 +1,4 @@
-"""Qt/PySide kaynaklarını sabit resmî hash'lerle ayrı teslim arşivine alır."""
+"""Package official Qt/PySide source archives with pinned source hashes."""
 
 import argparse
 import json
@@ -17,7 +17,7 @@ def main() -> int:
     parser.add_argument(
         "--download",
         action="store_true",
-        help="Eksik resmî kaynakları indir; oyun/model verisi göndermez",
+        help="Download missing official sources; never uploads game or model data",
     )
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]

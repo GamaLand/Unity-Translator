@@ -72,9 +72,9 @@ does not change the project's source or target language.
 
 ## Guides
 
-[English](rehber/en.md) · [Türkçe](rehber/tr.md) · [Deutsch](rehber/de.md) ·
-[Français](rehber/fr.md) · [Español](rehber/es.md) · [Português](rehber/pt.md) ·
-[Русский](rehber/ru.md) · [简体中文](rehber/zh.md)
+[English](guide/en.md) · [Türkçe](guide/tr.md) · [Deutsch](guide/de.md) ·
+[Français](guide/fr.md) · [Español](guide/es.md) · [Português](guide/pt.md) ·
+[Русский](guide/ru.md) · [简体中文](guide/zh.md)
 
 ## Compatibility
 
@@ -88,11 +88,17 @@ Automated checks cannot guarantee translation meaning. Clean Windows validation 
 pending. Some technical diagnostics retain their original wording. Interface translations
 have automated resource checks; native-speaker review is welcome.
 
-## Development and troubleshooting
+## Development and roadmap
 
-See [development and safe installation recovery](docs/development.md) for architecture,
-checks and loader conflicts. Real game files, models, user projects, local AI instructions
-and build outputs are excluded from the public source package.
+Start with the [documentation index](docs/README.md) and [developer guide](docs/development.md).
+The [next milestone](docs/roadmap.md) adds built-in adapter contracts, JSON/CSV game-source
+readers, independent capability reports and a second verified I2 profile. These are
+planned features; [current compatibility](docs/compatibility.md) remains separate.
+For loader conflicts, see [installation and recovery](docs/installation.md).
+
+The repository uses English developer-facing names and documentation. Guides and UI
+catalogs remain available in eight languages. Real game files, models, user projects,
+local AI working documents and build outputs are excluded from public source packages.
 
 ## License
 

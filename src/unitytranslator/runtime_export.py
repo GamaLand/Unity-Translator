@@ -1,4 +1,4 @@
-"""İncelenen küçük seçimden yalnızca deneysel I2 metin verisi üretir."""
+"""Export a reviewed selection as experimental I2 runtime text data."""
 
 from hashlib import sha256
 from pathlib import Path

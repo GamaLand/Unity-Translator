@@ -1,4 +1,4 @@
-"""stdout yalnızca JSON IPC; hiçbir oyun dosyasına yazılmaz."""
+"""JSON-only stdout IPC; game files are never written."""
 
 import json
 import sys
@@ -17,7 +17,7 @@ from unitytranslator.i2_serialized import read_managed_i2
 def probe(
     path: Path, source: str, game: Path | None = None, source_language: str = "en"
 ) -> dict[str, Any]:
-    # Stream kullanımı klasörü ve komşu ses/doku dosyalarını otomatik yüklemez.
+    # Using a stream avoids auto-loading the directory and neighboring audio/textures.
     with checked_path(path).open("rb") as stream:
         env = UnityPy.load(stream)
         types: Counter[str] = Counter()

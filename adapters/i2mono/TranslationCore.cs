@@ -64,7 +64,7 @@ namespace UnityTranslator.I2Mono
             }
             if (selected.Count != required.Count)
             {
-                applied.Clear(); // Yok edilmiş sahne nesnelerine referans tutulmaz.
+                applied.Clear(); // Release references to destroyed scene objects.
                 return 0;
             }
             bool changed = false;
@@ -204,7 +204,7 @@ namespace UnityTranslator.I2Mono
             }
         }
 
-        // Önce bütün ilişkiler doğrulanır. Bir kaynak eksikse belleğe yazılmaz.
+        // Validate every relationship before writing; a missing source aborts the operation.
         public static int Apply(Payload payload, IList<ISource> sources)
         {
             return Apply(payload, sources, null, null);

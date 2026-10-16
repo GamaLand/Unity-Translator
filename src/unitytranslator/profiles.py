@@ -1,4 +1,4 @@
-"""Uygulamayla gelen açık oyun profilleri; dosya ipucu destek kanıtı değildir."""
+"""Built-in discovery profiles; a file hint is not proof of compatibility."""
 
 from dataclasses import dataclass
 

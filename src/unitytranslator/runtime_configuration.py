@@ -1,4 +1,4 @@
-"""Oyun dışı runtime ayarları; oluşturma kurulum veya başlatma değildir."""
+"""Prepare external runtime settings without installing or starting components."""
 
 from pathlib import Path
 from typing import Any

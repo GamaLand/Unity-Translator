@@ -1,4 +1,4 @@
-"""Deneysel preloader CIL'inde bilinen yazma yollarını denetler; CLR çalıştırmaz."""
+"""Audit known preloader CIL write paths without executing the CLR."""
 
 import argparse
 import json
@@ -76,7 +76,8 @@ def main() -> int:
         "known_persistent_calls_absent": not denied.intersection(calls),
         "interop_assembly_reference_absent": "HarmonyXInterop" not in references,
         "diagnostic_policy_valid": (
-            diagnostic_opcodes == ["ldc.i4.0", "ret"] if args.portable
+            diagnostic_opcodes == ["ldc.i4.0", "ret"]
+            if args.portable
             else create_modes == [["ldc.i4.1", "ldc.i4.2", "ldc.i4.0"]]
         ),
         "external_runtime_entry_guard_present": any(

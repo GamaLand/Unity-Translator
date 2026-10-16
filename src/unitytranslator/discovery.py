@@ -1,4 +1,4 @@
-"""CLI ve ileride UI tarafından paylaşılan salt okunur keşif servisleri."""
+"""Read-only discovery services shared by the CLI and desktop application."""
 
 import json
 import re
@@ -150,7 +150,7 @@ def save_report(paths: ProjectPaths, kind: str, report: dict[str, Any]) -> Path:
 
 
 def extract_to_project(paths: ProjectPaths, relative: str) -> dict[str, Any]:
-    # Tek yazarlı kilit çıkarma boyunca tutulur; DB transaction'ı worker boyunca açık değildir.
+    # Hold the writer lock during extraction, but no transaction while the worker runs.
     with ProjectRepository(paths) as repository:
         report = probe_source(paths, relative, source_language=repository.source_language)
         output = save_report(paths, "extract", report)

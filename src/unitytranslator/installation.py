@@ -1,4 +1,4 @@
-"""Son kullanıcı kurulum akışı; aynı envanter/sahiplik kapıları kullanılır."""
+"""End-user installation through the shared inventory and ownership gates."""
 
 from collections.abc import Callable
 from pathlib import Path

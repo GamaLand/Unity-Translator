@@ -1,4 +1,4 @@
-"""pyside6-deploy ile standalone; yalnızca özel üretilmiş spec değiştirilebilir."""
+"""Build a standalone package using a generated private pyside6-deploy specification."""
 
 import argparse
 import configparser
@@ -52,8 +52,8 @@ def main() -> int:
     result = subprocess.run(command, cwd=root, env=environment, check=False)
     if result.returncode:
         return result.returncode
-    # Qt'nin otomatik gelen PDF image plugin'i bu uygulamada kullanılmaz.
-    # Yalnızca yeni üretilmiş paket içindeki bu iki dosya kaldırılır.
+    # The automatically included Qt PDF image plugin is unused.
+    # Remove these files only from the newly generated package.
     for entry in target.rglob("*"):
         if entry.name.casefold() in {"qpdf.dll", "qt6pdf.dll"}:
             path = checked_path(entry)

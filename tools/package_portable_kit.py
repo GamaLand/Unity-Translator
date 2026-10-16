@@ -1,4 +1,4 @@
-"""İzlenen portable preloader derlemesini kaynak/lisanslarıyla ayrı kite alır."""
+"""Package the traced portable preloader build and matching sources/licenses."""
 
 import argparse
 import json
@@ -40,8 +40,11 @@ def main() -> int:
     trace_project = root / ".cache" / ("portable-source-" + uuid4().hex)
     upstream = next(path for path in (original.root / "SOURCES").glob("BepInEx-BepInEx-*.zip"))
     traced = stage_protected_source(
-        ProjectPaths(trace_game, trace_project), build=build, archive=upstream,
-        catalog_root=root / "adapters/i2mono", own_root=root,
+        ProjectPaths(trace_game, trace_project),
+        build=build,
+        archive=upstream,
+        catalog_root=root / "adapters/i2mono",
+        own_root=root,
     )
     shutil.copytree(original.root, target)
     shutil.copyfile(binary, target / "core/BepInEx.Preloader.dll")
@@ -51,9 +54,13 @@ def main() -> int:
         for path in sorted(traced_root.rglob("*")):
             if path.is_file():
                 zipped.write(path, path.relative_to(traced_root).as_posix())
-        for name in ("tools/prepare_protected_preloader.py", "tools/package_portable_kit.py",
-                     "adapters/bepinex-protected/PortableRuntimeDiagnostics.cs", "LICENSE",
-                     "docs/shareable-patch.md"):
+        for name in (
+            "tools/prepare_protected_preloader.py",
+            "tools/package_portable_kit.py",
+            "adapters/bepinex-protected/PortableRuntimeDiagnostics.cs",
+            "LICENSE",
+            "docs/shareable-patch.md",
+        ):
             if name not in zipped.namelist():
                 zipped.write(root / name, name)
     with zipfile.ZipFile(archive) as zipped:
@@ -62,16 +69,20 @@ def main() -> int:
     notices = json.loads((target / "RUNTIME-NOTICES.json").read_text(encoding="utf-8"))
     for component in notices["components"]:
         if component["path"] == "core/BepInEx.Preloader.dll":
-            component.update(sha256=hash_file(binary), modified=True,
-                             modification="Portable subtree; no persistent shim or diagnostics",
-                             source_archive="SOURCES/protected-preloader.zip")
+            component.update(
+                sha256=hash_file(binary),
+                modified=True,
+                modification="Portable subtree; no persistent shim or diagnostics",
+                source_archive="SOURCES/protected-preloader.zip",
+            )
     (target / "RUNTIME-NOTICES.json").write_text(
         json.dumps(notices, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     catalog = dict(original.catalog)
     catalog["files"] = {
         path.relative_to(target).as_posix(): hash_file(path)
-        for path in sorted(target.rglob("*")) if path.is_file()
+        for path in sorted(target.rglob("*"))
+        if path.is_file()
     }
     catalog["runtime_files"] = {name: catalog["files"][name] for name in sorted(RUNTIME_NAMES)}
     catalog["variant"] = "portable-owned-subtree-v1"

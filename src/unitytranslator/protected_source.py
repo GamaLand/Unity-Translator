@@ -1,4 +1,4 @@
-"""Deneysel preloader için çevrimdışı kaynak/ikili izlenebilirliği; kurulum yapmaz."""
+"""Offline source/binary traceability for the experimental preloader; no installation."""
 
 import re
 import zipfile

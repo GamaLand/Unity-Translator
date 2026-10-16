@@ -1,4 +1,4 @@
-"""Standalone giriş noktası: aynı binary hem GUI hem izole Unity worker açar."""
+"""Standalone entry: the same binary runs the GUI and isolated Unity reader."""
 
 import json
 import sys

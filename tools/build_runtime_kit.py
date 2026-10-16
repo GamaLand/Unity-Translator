@@ -1,4 +1,4 @@
-"""Denetlenmiş yerel bileşenleri kaynak/lisanslarıyla runtime kit'e toplar."""
+"""Collect audited local runtime components with corresponding sources and licenses."""
 
 import argparse
 import json
@@ -69,7 +69,7 @@ def main() -> int:
     for item in support["files"]:
         if item["kind"] in ("notice", "source"):
             pending.append((confined(args.support, item["path"]), item["path"], item["sha256"]))
-    # Kaynak izleme paketi kişisel referans yolları veya oyun DLL'si içermez.
+    # The source trace contains no personal reference paths or proprietary game DLLs.
     source_trace = strict_json(confined(args.protected_source, "source-manifest.json").read_bytes())
     if source_trace["status"] != "prepared":
         raise ValueError("Koruma kaynak paketi hazır değil.")
@@ -148,12 +148,12 @@ def main() -> int:
         archive.write(root / "LICENSE", "LICENSE")
         archive.write(root / "tools/build_i2mono.py", "tools/build_i2mono.py")
     (output / "README.txt").write_text(
-        "UnityTranslator deneysel I2 Mono runtime bileşenleri.\n"
-        "Bunları oyun klasörüne elle kopyalamayın; uygulamadaki dosya planını kullanın.\n"
-        "Üçüncü taraf lisansları LICENSES, kaynak arşivleri SOURCES klasöründedir.\n"
-        "Korumalı preloader upstream'den değiştirilmiştir; "
-        "tam kaynak ve değişiklik izleri dahildir.\n"
-        "Genel oyun uyumluluğu doğrulanmış değildir.\n",
+        "UnityTranslator experimental I2 Mono runtime components.\n"
+        "Use the application's reviewed file plan; do not copy these files manually into a game.\n"
+        "Third-party licenses are in LICENSES; corresponding sources are in SOURCES.\n"
+        "The protected preloader differs from upstream; "
+        "full source and change evidence are included.\n"
+        "General game compatibility is not verified.\n",
         encoding="utf-8",
     )
     inventory = {

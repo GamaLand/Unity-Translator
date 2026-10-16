@@ -42,7 +42,7 @@ juego sigue siendo experimental.
 
 Desinstala los añadidos desde el proyecto original. No sobrescribas ni borres a ciegas
 `winhttp.dll`/`doorstop_config.ini` y no reinicies el inventario original.
-Consulta la [guía para desarrolladores](../docs/development.md).
+Consulta la [guía para desarrolladores](../docs/installation.md).
 
 Quien recibe un ZIP compartible usa `Kur.cmd` para elegir la carpeta de la misma versión
 del juego y `Kaldir.cmd` para retirar únicamente los añadidos propios sin modificar.

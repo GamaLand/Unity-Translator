@@ -1,4 +1,4 @@
-"""İnsan düzenleme taslakları; model adayı ve onay durumundan ayrı saklanır."""
+"""Human editor drafts stored separately from model candidates and approvals."""
 
 from typing import Any
 
@@ -64,8 +64,8 @@ class EditorDraftStore:
                 raise ValueError("Projenin toplam taslak boyut sınırı aşıldı.")
             if old and old["text"] == text:
                 return old
-            # AUTOINCREMENT silinen taslağın belirtecini tekrar kullanmaz.
-            # Eski pencere yeni oluşturulan taslağı kaldırıp kaydedemez (ABA).
+            # AUTOINCREMENT never reuses a removed draft token.
+            # A stale window cannot overwrite or remove a replacement draft (ABA).
             db.execute("DELETE FROM editor_drafts WHERE unit_id=?", (unit_id,))
             db.execute(
                 "INSERT INTO editor_drafts(unit_id,source_revision,base_version,text,updated_at) "

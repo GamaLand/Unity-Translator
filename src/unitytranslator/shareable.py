@@ -1,4 +1,4 @@
-"""Yalnızca insan onaylı çeviriden bağımsız, yerel dağıtım ZIP'i üretir."""
+"""Build a self-contained local distribution ZIP from approved translations."""
 
 import json
 import zipfile

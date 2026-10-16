@@ -40,7 +40,7 @@ check glyphs, layout and meaning. Installation remains experimental.
 
 Remove additions through the same project and screen. Never overwrite conflicting
 `winhttp.dll`/`doorstop_config.ini` files or delete the original inventory. Open the
-owning old project to remove its unchanged additions; see [developer recovery](../docs/development.md).
+owning old project to remove its unchanged additions; see [developer recovery](../docs/installation.md).
 
 A shareable ZIP contains approved translations and the required runtime. Its recipient
 extracts the ZIP and runs `Kur.cmd` to select the matching game folder; `Kaldir.cmd`

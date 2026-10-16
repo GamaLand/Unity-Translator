@@ -1,4 +1,4 @@
-"""Değişmez sözlük/üslup sürümleri ve ilgili kuralların seçimi."""
+"""Immutable glossary/style versions and selection of applicable rules."""
 
 import json
 import re

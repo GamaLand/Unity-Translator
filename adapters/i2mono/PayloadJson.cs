@@ -4,7 +4,7 @@ using System.Text;
 
 namespace UnityTranslator.I2Mono
 {
-    // Sabit veri şeması; reflection, tür seçimi ve Unity serializer bağımlılığı yok.
+    // Fixed data schema without reflection, type selection or Unity serializer dependencies.
     public static class PayloadJson
     {
         public static Payload Parse(string json)

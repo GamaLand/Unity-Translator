@@ -1,4 +1,4 @@
-"""Doğrulanmış yerel loader/kaynak önbelleğinden çevrimdışı destek paketi."""
+"""Prepare offline support from a verified local loader/source cache."""
 
 import argparse
 import json

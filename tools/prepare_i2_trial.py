@@ -1,4 +1,4 @@
-"""Onaylı küçük I2 denemesini proje içinde hazırlar; kurulum/başlatma yapmaz."""
+"""Prepare a small approved I2 trial inside a project; never installs or starts it."""
 
 import argparse
 import json

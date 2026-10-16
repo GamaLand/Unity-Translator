@@ -68,6 +68,8 @@ def test_real_window_and_approval_phrase_in_each_language(tmp_path, language):
     )
     code = """
 import json,time
+from pathlib import Path
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QApplication,QMessageBox
 from unitytranslator.ui.i18n import active_language,tr,settings_path
 from unitytranslator.ui.window import MainWindow,AllApprovalDialog
@@ -83,6 +85,13 @@ assert len(window.language_actions.actions())==8
 assert window.source_language.currentText()=='en'
 expected_target=active_language() if active_language()!='en' else 'tr'
 assert window.target_language.currentText()==expected_target
+opened=[]
+open_url=QDesktopServices.openUrl
+QDesktopServices.openUrl=lambda url: opened.append(Path(url.toLocalFile())) or True
+window.open_help_document('README-WINDOWS.md')
+QDesktopServices.openUrl=open_url
+assert len(opened)==1 and opened[0].is_file()
+assert opened[0].parent.name=='guide' and opened[0].name==active_language()+'.md'
 dialog=AllApprovalDialog({'count':201,'warnings':4,'excluded':2},window)
 assert dialog.phrase==tr('approve {p0} translations',p0='201')
 assert canonical_all_confirmation(201) != ''

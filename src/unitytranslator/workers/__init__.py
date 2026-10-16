@@ -1,1 +1,1 @@
-"""Dosya başına ayrı Unity okuma süreci."""
+"""Isolated Unity reading in a separate process per source file."""

@@ -1,47 +1,41 @@
-# Arkadaşla paylaşılabilir çeviri
+# Shareable translation patches
 
-**Dışa aktar → Arkadaşla paylaşılabilir çeviri ZIP'i oluştur** güncel insan
-onaylı metinleri, yükleyiciyi ve gerekli bağımlılıkları tek ZIP'e alır.
-Alıcının UnityTranslator, Python, LM Studio veya model kurması gerekmez.
-Model, proje veritabanı, kaynak İngilizce metin ve oyun DLL'leri eklenmez.
-Kaynak hash'leri ve çeviri anahtarları veri olarak bulunur.
+Use **Export -> Create a shareable translation ZIP** to package current approved
+translations for a supported, fingerprint-matched installation. The recipient does
+not need UnityTranslator, Python, LM Studio or the model used for translation.
 
-Alıcı ZIP'i ayrı bir klasöre çıkarır, **Kur.cmd** dosyasını açar ve oyunun
-EXE'sinin bulunduğu klasörü seçer. Yönetici yetkisi varsayılan olarak
-istenmez; klasör yazılabilir olmalıdır. Windows PowerShell 5.1/.NET kullanılır.
-Çeviri veya oyun kendiliğinden başlatılmaz. Kullanıcı oyunu normal
-başlatıcısından açar. Kurulumdan sonra ZIP'in çıkarıldığı klasöre gerek yoktur;
-kaldırmak için aynı paketin **Kaldir.cmd** dosyasını saklayın.
+## Recipient use
 
-Oyun köküne yeni `winhttp.dll`, `doorstop_config.ini` ve ayrı
-`UnityTranslatorPatch` klasörü eklenir. BepInEx, eklenti, çeviri ve kaynak/
-lisanslar bu klasördedir. INI'deki preloader yolu alıcının seçtiği oyun
-klasörüne göre oluşturulur. Gönderenin çalışma yolu pakete sabitlenmez.
-Oyun klasörü taşınacaksa önce bu paketi kaldırıp yeni yerde yeniden kurun.
+1. Extract the entire ZIP into a separate directory.
+2. Close the game, run `Install.cmd` and select its installation directory.
+3. Review the result and launch the game normally yourself.
+4. To remove the patch, close the game and run `Uninstall.cmd`.
 
-Kurulum oyun kapalıyken, gerekli motor/assembly/kaynak hash'leri eşleşirse
-çalışır. Eski mod/deneme veya hedef klasör varsa mevcut dosyayı ezmeden
-durur. Mevcut dış runtime denemesini önce onu kuran UnityTranslator
-projesindeki Oyuna uygula sekmesinden kaldırın. Paket oluşturmak mevcut
-denemeyi taşımaz veya değiştirerek kurulmaz.
+`Kur.cmd` and `Kaldir.cmd` are retained as legacy aliases. The installer uses built-in
+Windows PowerShell/.NET, does not download code and never starts the game.
 
-Kaldırıcı NTFS/Windows dosya kimliğini, tek link olmasını ve hash'i kontrol
-eder. Değiştirilmiş, değiştirilip yerine yenisi konmuş veya hard link verilmiş
-dosya korunur. Yabancı dosyalar veya dolu klasörler özyinelemeli silinmez.
-BepInEx kendi ayar dosyasını çalışırken yeniden yazabilir; böyle bir dosya
-da değişmiş sayılıp korunur. İşlem hangi dosyanın kaldığını bildirir.
+## Layout and ownership
 
-Oyun içine konan bileşenler mevcut runtime'ın ayrı portable varyantıdır:
-sabit `UnityTranslatorPatch/BepInEx` yolu ve paket işaretçisi doğrulanır,
-shim ve hata günlüğü yazımı kapalıdır. Normal dış runtime'ın preloader'ı
-bu amaçla sessizce yeniden kullanılmaz. Tam değişiklik kaynakları ve MIT/
-diğer bağımlılık lisansları `support` altında bulunur. Üçüncü taraflar kendi
-lisanslarını korur.
+The package adds `UnityTranslatorPatch/`, `winhttp.dll` and `doorstop_config.ini`.
+The runtime and approved `translation.json` live below
+`UnityTranslatorPatch/BepInEx/`. The INI is generated on the recipient's computer and
+points to that owned runtime, not to the author's project path. Component licenses,
+sources and notices accompany the bundle.
 
-Boyut dışa aktarım sonucunda gösterilir. Çalışırken model veya çeviri
-programı yüklenmez; kaynak ZIP'leri yalnızca dağıtım/lisans içindir, çalıştırılmaz.
-Bu yerleşimin FPS/RAM etkisi veya oyun içi davranışı henüz ölçülmedi.
-Sentetik Windows dosyalarında kurulum, kaldırma, çakışma, değiştirilmiş
-dosya/hard link/kimlik koruması ve bozuk paket reddi doğrulanır.
-Yeni portable yerleşimin gerçek oyun testi yapılmadı; uyumluluk deneysel
-ve yalnızca hash'leri eşleşen Windows x64/Mono sürüm kapsamındadır.
+Installation refuses existing targets, wrong game hashes, unsafe paths and a running
+or uncertain game process. It never overwrites an original language asset. Removal
+checks recorded ownership, file identity, single-link status and hashes; modified
+files are preserved. A prior project-managed trial must be removed through its owning
+project before testing a shareable installation on the same game.
+
+The normal **Apply to game** action uses an external project runtime instead; see
+[installation.md](installation.md). Copying its two root files alone does not create a
+portable patch. Moving a game requires removing and reinstalling its owned patch.
+
+## Compatibility limits
+
+The portable preloader is separately built/cataloged. Current game compatibility is
+experimental and fingerprint-specific. Synthetic install/remove checks are not proof
+of every in-game font, language, scene or callback behavior. Check a representative
+screen and dynamic text before distributing a patch. No model, project database,
+proprietary game DLL or original game asset belongs in the distribution.

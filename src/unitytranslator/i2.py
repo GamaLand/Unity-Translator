@@ -14,7 +14,7 @@ def extract_i2(
     diagnostics: list[dict[str, Any]] | None = None,
     source_language: str = "en",
 ) -> list[TextUnitDraft]:
-    # Bazı I2 sürümleri LanguageSourceData'yı mSource alanında saklar.
+    # Some I2 versions store LanguageSourceData inside mSource.
     data = tree.get("mSource", tree)
     if not isinstance(data, dict) or "mTerms" not in data or "mLanguages" not in data:
         return []
@@ -33,7 +33,7 @@ def extract_i2(
         if not isinstance(term, dict):
             raise ValueError("I2 terim nesnesi çözülemedi.")
         key = term.get("Term")
-        # I2 eTermType.Text = 0; font, sprite ve varlık referansları çevrilmez.
+        # I2 eTermType.Text = 0; font, sprite and asset references are not translated.
         if term.get("TermType") != 0:
             continue
         values = term.get("Languages")

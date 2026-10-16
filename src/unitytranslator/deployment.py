@@ -1,8 +1,7 @@
-"""Yeni dosya planı ve sahiplik kontrollü kaldırma; okuyuculardan bağımsızdır.
+"""Additive file plans and ownership-checked removal, independent of readers.
 
-Henüz gerçek oyun adaptörü yoktur. Bu servis UI/CLI'dan etkinleştirmeye açık
-değildir; yalnızca doğrulanmış adaptörün açık kullanıcı eylemine bağlanmalıdır.
-"""
+Normal and explicitly reviewed experimental installation paths share the same
+original-file inventory, create-new write and ownership protections."""
 
 import os
 from collections.abc import Callable
@@ -113,7 +112,7 @@ class DeploymentService:
             if path.as_posix().casefold() in sources:
                 raise ValueError("Çıkarılmış oyun kaynağı dışlanamaz.")
             relative = path.relative_to(self.paths.game)
-            # Dar, tek dosyalı bölgeler: wildcard/dizin veya Unity/loader varlığı yok.
+            # Only narrow single-file rules; no wildcard/directory or Unity/loader exclusions.
             if (
                 len(relative.parts) != 2
                 or relative.parts[0].casefold() != folders[rule.kind]
@@ -193,7 +192,7 @@ class DeploymentService:
         return path
 
     def inventory(self) -> dict[str, str]:
-        """Seçilmiş değişken veri ayrı raporlanır; kurulum varlığı sessizce dışlanmaz."""
+        """Report mutable data separately; never silently exclude installation assets."""
         self.require_game_closed()
         excluded = {
             self.target(rule["path"]).as_posix().casefold() for rule in self.exclusion_rules()
@@ -340,7 +339,7 @@ class DeploymentService:
     def install_experimental_trial(
         self, plan: DeploymentPlan, *, user_action: bool, experimental_trial_reviewed: bool
     ) -> dict[str, Any]:
-        """Açık geliştirici denemesi; normal adaptör desteği/onayı oluşturmaz."""
+        """Explicit reviewed trial; does not establish normal adapter support or approval."""
         if user_action is not True or experimental_trial_reviewed is not True:
             raise ValueError("Deneysel kurulum ayrı, açık kullanıcı deneme seçimi gerektirir.")
         if (
@@ -361,7 +360,7 @@ class DeploymentService:
         old = self.read_manifest()
         if old is not None and old["status"] != "removed":
             raise ValueError("Önce eski uygulama eklerini kaldırın veya kurtarın.")
-        # Plan dış JSON'dan alınmaz: hazırlanan yerel plan tam olarak karşılaştırılır.
+        # Compare the exact locally prepared plan; imported JSON is not installation authority.
         recorded = strict_json(self.paths.output(f"artifacts/plans/{plan.id}.json").read_bytes())
         if canonical(recorded) != canonical(asdict(plan)):
             raise ValueError("Plan hazırlamadan sonra değişti.")
@@ -382,7 +381,7 @@ class DeploymentService:
             "status": "installing",
             "files": [asdict(f) | {"state": "planned"} for f in plan.files],
         }
-        self.save_manifest(manifest)  # Yeni oyun dosyası oluşturulmadan önce kalıcıdır.
+        self.save_manifest(manifest)  # Persist the receipt before creating a game-root file.
         try:
             for item in manifest["files"]:
                 self.require_game_closed(manifest)
@@ -392,7 +391,9 @@ class DeploymentService:
                 with path.open("xb") as output:
                     info = os.fstat(output.fileno())
                     item.update(state="created", device=info.st_dev, inode=info.st_ino)
-                    self.save_manifest(manifest)  # Yazmadan önce dosya sahipliği kaydedilir.
+                    self.save_manifest(
+                        manifest
+                    )  # Record file ownership before writing its contents.
                     with self.paths.output(item["source"]).open("rb") as source:
                         for block in iter(lambda: source.read(1024 * 1024), b""):
                             output.write(block)
@@ -414,7 +415,7 @@ class DeploymentService:
                 "excluded_observations": self.excluded_observations(),
             }
         except Exception:
-            # Kısmi dosya/hash/manifest sorunu gizlenmez. Özgün dosyaya geri yazma yoktur.
+            # Report partial file/hash/receipt failures; never restore over an original file.
             try:
                 self._remove_owned(manifest)
             except GameNotClosedError:

@@ -1,4 +1,4 @@
-"""Küçük I2 denemesi için proje içi önizleme; kurulum yetkisi üretmez."""
+"""Project-local I2 trial previews; preparation does not authorize installation."""
 
 import shutil
 from dataclasses import asdict
@@ -310,7 +310,7 @@ def validate_i2_trial(repo: ProjectRepository, manifest_relative: str) -> dict[s
 def prepare_i2_deployment_preview(
     repo: ProjectRepository, manifest_relative: str, service: DeploymentService
 ) -> dict[str, Any]:
-    """Hazır özgün envantere bağlı iki dosya planı; oyuna yazma yetkisi yok."""
+    """Two-file plan bound to a trusted original inventory; does not authorize game writes."""
     if service.repository is not repo:
         raise ValueError("Deneme ve koruma servisi aynı proje oturumunda olmalı.")
     if service.read_baseline() is None:

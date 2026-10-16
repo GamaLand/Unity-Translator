@@ -1,4 +1,4 @@
-"""Yerel koruma derlemesinin kaynak/lisans/hash paketini hazırlar; kurmaz."""
+"""Prepare matching source, license and hash evidence for a local protected build."""
 
 import argparse
 import json

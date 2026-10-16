@@ -1,3 +1,3 @@
-"""Qt ve model çalışma ortamından bağımsız yerelleştirme çekirdeği."""
+"""Localization core independent of Qt and model runtime libraries."""
 
 __version__ = "0.1.0"

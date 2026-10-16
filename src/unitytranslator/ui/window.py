@@ -131,7 +131,7 @@ class ReviewModel(QAbstractTableModel):
 
 
 class PluralEditorDialog(QDialog):
-    """Bir kaydın dallarını gösterir; DB'ye yazmaz veya onay vermez."""
+    """Display one record's branches without database writes or approval."""
 
     labels = {"Plural": tr("Default (plural)"), "One": tr("Singular (1)"), "Zero": tr("Zero (0)")}
 
@@ -225,7 +225,7 @@ class PluralEditorDialog(QDialog):
                     "them, then reopen the current record."
                 )
             )
-            return  # Pencere açık kalır; kullanıcının düzenlemesi kaybolmaz.
+            return  # Keep the window open so the human edit is not lost.
         self.value = self.candidate_text()
         self.accept()
 
@@ -628,7 +628,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(tr("UnityTranslator — Local translation project"))
         if not QFontDatabase.families():
-            # Qt offscreen font keşfi bulunmayabilir; Windows fontu yalnızca okunur.
+            # Offscreen Qt font discovery may fail; read an installed Windows font only.
             fonts = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
             for name in ("segoeui.ttf", "msyh.ttc"):
                 font = fonts / name
@@ -1283,9 +1283,7 @@ class MainWindow(QMainWindow):
         )
         document = folder / name
         if name == "README-WINDOWS.md":
-            guides = (
-                folder / "rehber" if getattr(sys, "frozen", False) else folder.parent / "rehber"
-            )
+            guides = folder / "guide" if getattr(sys, "frozen", False) else folder.parent / "guide"
             document = guides / (active_language() + ".md")
         if not document.is_file() and not getattr(sys, "frozen", False):
             resource = (
@@ -2124,7 +2122,7 @@ class MainWindow(QMainWindow):
                 result["project_id"] != self.current_project_id
                 or result["request_token"] != self.game_process_token
             ):
-                return  # Eski oturum/istek sonucu yeni durum etiketi değildir.
+                return  # A stale session/request result must not replace the current status.
             labels = {
                 "closed": tr("The game was observed closed."),
                 "running": tr("The game is running. Close it before installing/removing files."),
@@ -2564,7 +2562,7 @@ class MainWindow(QMainWindow):
             self.setEnabled(True)
             self.installation_state.setText(message)
         if command.startswith("editor_draft_"):
-            return  # Taslak controller'ı tek uçuşlu isteğin hatasını işler.
+            return  # The draft controller handles its single in-flight request failure.
         if command == "open":
             self.setEnabled(True)
             if not self.project_open:

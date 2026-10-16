@@ -1,5 +1,6 @@
-"""Wheel/sdist içerik denetimi. Standalone DLL'leri bu denetimin konusu değildir."""
+"""Audit wheel/sdist contents; standalone runtime DLLs are checked separately."""
 
+import argparse
 import tarfile
 import zipfile
 from pathlib import Path
@@ -7,9 +8,12 @@ from pathlib import Path
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    archives = [*root.glob("dist/*.whl"), *root.glob("dist/*.tar.gz")]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dist-dir", type=Path, default=root / "dist")
+    directory = parser.parse_args().dist_dir
+    archives = [*directory.glob("*.whl"), *directory.glob("*.tar.gz")]
     if not archives:
-        raise ValueError("Önce uv build ile wheel/sdist üretin.")
+        raise ValueError("Build a wheel and sdist with uv build first.")
     private = {
         ".local",
         ".cache",
@@ -29,6 +33,7 @@ def main() -> int:
         "gemini.md",
         "goal.md",
         "technical_design.md",
+        "technical.design.md",
         ".cursorrules",
         ".windsurfrules",
         "copilot-instructions.md",
@@ -43,7 +48,7 @@ def main() -> int:
             with tarfile.open(archive, "r:gz") as tar:
                 names = tar.getnames()
                 if any(item.issym() or item.islnk() for item in tar.getmembers()):
-                    raise ValueError("Kaynak arşivinde bağlantı girdisi bulundu.")
+                    raise ValueError("Source archives must not contain symbolic or hard links.")
         forbidden = [
             name
             for name in names
@@ -55,15 +60,15 @@ def main() -> int:
             )
         ]
         if forbidden:
-            raise ValueError(f"{archive.name} içinde özel/binary veri bulundu: {forbidden[:5]}")
+            raise ValueError(f"{archive.name} contains private or binary data: {forbidden[:5]}")
         for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
             if not any(name.endswith("/locales/" + code + ".json") for name in names):
                 raise ValueError("Missing interface language: " + code)
             if archive.suffix != ".whl" and not any(
-                name.endswith("/rehber/" + code + ".md") for name in names
+                name.endswith("/guide/" + code + ".md") for name in names
             ):
                 raise ValueError("Missing user guide: " + code)
-        print(f"{archive.name}: {len(names)} girdi; özel oyun/model/önbellek dosyası yok.")
+        print(f"{archive.name}: {len(names)} entries; no private game/model/cache data.")
     return 0
 
 

@@ -1,4 +1,4 @@
-"""Kaynak kategorisi ve uzunluğa göre tekrar üretilebilir, sınırlı pilot seçimi."""
+"""Deterministic bounded pilot selection by source category and length."""
 
 from unitytranslator.repository import ProjectRepository
 
@@ -29,7 +29,7 @@ def select_pilot(repository: ProjectRepository, limit: int = 200) -> list[str]:
             ).fetchone()
             if row is not None:
                 candidates.append(str(row[0]))
-        # Round-robin sınırı son turu kesebilir; uzun uç örnek ikinci sıradadır.
+        # The last round may be truncated; put the long-edge example second.
         if len(candidates) > 2:
             candidates = [candidates[0], candidates[-1], *candidates[1:-1]]
         groups.append(candidates)

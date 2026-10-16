@@ -1,4 +1,4 @@
-"""Qt taslak eşgüdümü: kısa gecikmeli, tek uçuşlu yerel saklama."""
+"""Debounced single-flight coordination of local Qt editor drafts."""
 
 from uuid import uuid4
 
@@ -84,7 +84,7 @@ class DraftController(QObject):
             return
         for unit, entry in self.entries.items():
             if self.action == ("discard", unit):
-                continue  # Açık kaldırma seçimi son yazılmış metni saklamaz.
+                continue  # An explicit discard must not save the most recently edited text.
             if self.dirty(entry) and not entry.get("error"):
                 self.send(
                     "put",

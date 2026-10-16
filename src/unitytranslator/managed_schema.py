@@ -1,8 +1,7 @@
-"""Dar Unity 2017 Mono serializer şeması, yalnızca statik .NET metaverisinden.
+"""Narrow Unity 2017 Mono serialization schema from static .NET metadata.
 
-Oyun assembly'si CLR'ye yüklenmez. Bilinmeyen tip, döngü veya desteklenmeyen
-kalıtım reddedilir. Bu okuyucu type tree'si olmayan I2 LanguageSource içindir.
-"""
+Game assemblies are never loaded into the CLR. Unknown types, cycles and
+unsupported inheritance are rejected. This fallback handles I2 sources without a type tree."""
 
 import struct
 from dataclasses import dataclass

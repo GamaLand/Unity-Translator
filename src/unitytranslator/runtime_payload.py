@@ -1,4 +1,4 @@
-"""Deneysel I2 Mono adaptörüne yalnızca güncel, elle onaylı metin verisi."""
+"""Only current human-approved data enters the experimental I2 Mono runtime."""
 
 import json
 import re
@@ -61,7 +61,7 @@ def export_runtime_payload(
             "\0".join(("i2-v1", source_set, row["original_key"])).encode()
         ).hexdigest()
         if identity != row["unit_id"]:
-            continue  # Başka okuyucu/kaynak kümesi uygulanmaz.
+            continue  # Do not apply records from another reader or source set.
         if selected_unit_ids is not None and row["unit_id"] not in selected_unit_ids:
             continue
         if format_issues(row["source_text"], row["text"]):

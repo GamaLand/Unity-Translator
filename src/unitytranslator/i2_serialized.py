@@ -1,4 +1,4 @@
-"""I2 script kimliğiyle seçilen, metaveri tabanlı salt okunur fallback."""
+"""Read-only metadata fallback selected by the I2 script identity."""
 
 from pathlib import Path
 from typing import Any

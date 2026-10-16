@@ -1,4 +1,4 @@
-"""Uygulamayla gelen sabit runtime bileşenleri; ağ veya oyun yazma yoktur."""
+"""Pinned bundled runtime components; no network access or game writes."""
 
 import struct
 import sys

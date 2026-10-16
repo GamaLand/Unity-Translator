@@ -22,11 +22,11 @@ namespace UnityTranslator.I2Mono
 
         private void Awake()
         {
-            // Sabit aşama kodları metin, dosya yolu veya exception mesajı içermez.
+            // Fixed check codes contain no game text, paths or exception details.
             int check = 1;
             try
             {
-                // Yalnızca eklentinin yanındaki sabit veri dosyası okunur.
+                // Read only the fixed data file next to this plugin.
                 string path = Path.Combine(Path.GetDirectoryName(Info.Location), "translation.json");
                 if (new FileInfo(path).Length > 64 * 1024 * 1024)
                     throw new InvalidOperationException("Runtime payload too large.");
@@ -78,7 +78,7 @@ namespace UnityTranslator.I2Mono
         {
             if (stopped || payload == null || Time.unscaledTime < nextCheck) return;
             nextCheck = Time.unscaledTime + 1f;
-            // Awake/Update Unity ana thread'indedir; ağ veya arka plan işi yoktur.
+            // Awake/Update run on the Unity main thread; no networking or background work.
             try
             {
                 if (LocalizationManager.Sources.Count == 0) return;
@@ -88,7 +88,7 @@ namespace UnityTranslator.I2Mono
                 foreach (LanguageSource source in LocalizationManager.Sources)
                 {
                     if (source == null || !required.Contains(source.gameObject.name)) continue;
-                    if (!Source.Ready(source)) return; // Oyunun sözlüğü hazırlanırken bekle; SaveLanguages çağırma.
+                    if (!Source.Ready(source)) return; // Wait for the game dictionary; never call SaveLanguages.
                     if (!wrappers.ContainsKey(source)) wrappers.Add(source, new Source(source));
                     sources.Add(wrappers[source]);
                 }

@@ -1,4 +1,4 @@
-"""Hash envanterini doğrulayarak yeni standalone ZIP ve SHA-256 üretir."""
+"""Verify the file inventory and create a new standalone ZIP with its SHA-256."""
 
 import argparse
 import json
@@ -15,7 +15,7 @@ from unitytranslator.filesystem import checked_path, hash_file
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--label", required=True, help="Örneğin preview.3")
+    parser.add_argument("--label", required=True, help="Release label, for example rc.8")
     root = Path(__file__).resolve().parents[1]
     parser.add_argument("--output-root", type=Path, default=root / "dist/windows")
     args = parser.parse_args()
@@ -66,7 +66,7 @@ def main() -> int:
         dir=output, prefix="package-", suffix=".zip", delete=False
     ) as stream:
         temporary = checked_path(Path(stream.name))
-    # Başarısız üretim geçici çıktıyı bırakır; final adı yalnızca doğrulama sonrası oluşur.
+    # Keep failed temporary output; publish the final name only after verification.
     with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, path in paths.items():
             archive.write(path, prefix + name)
@@ -84,7 +84,7 @@ def main() -> int:
                     digest.update(block)
             if digest.hexdigest() != entry["sha256"]:
                 raise ValueError("ZIP dosya içeriği envanterle eşleşmiyor.")
-    # Windows rename var olan hedefi değiştirmez; POSIX'te create-new link kullanılır.
+    # Windows rename refuses existing targets; POSIX uses a create-new hard link.
     if os.name == "nt":
         temporary.rename(destination)
     else:

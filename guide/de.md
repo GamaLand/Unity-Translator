@@ -44,7 +44,7 @@ Sie Zeichen, Layout und Bedeutung. Die Spielintegration ist experimentell.
 
 Entfernen Sie Ergänzungen über das ursprüngliche Projekt. Überschreiben oder löschen
 Sie `winhttp.dll`/`doorstop_config.ini` nicht blind und setzen Sie das Originalinventar
-nicht zurück. Siehe [Entwicklerhilfe](../docs/development.md).
+nicht zurück. Siehe [Entwicklerhilfe](../docs/installation.md).
 
 Empfänger eines freigegebenen Übersetzungs-ZIPs wählen über `Kur.cmd` den passenden
 Spielordner. `Kaldir.cmd` entfernt nur unveränderte eigene Ergänzungen. Modell und

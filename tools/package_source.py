@@ -13,15 +13,18 @@ from pathlib import Path, PurePosixPath
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", default="github-source")
-    label = parser.parse_args().label
+    root = Path(__file__).resolve().parents[1]
+    parser.add_argument("--dist-dir", type=Path, default=root / "dist")
+    args = parser.parse_args()
+    label = args.label
+    directory = args.dist_dir
     if not re.fullmatch(r"[a-z][a-z0-9.-]{0,39}", label):
         raise ValueError("Invalid source delivery label")
-    root = Path(__file__).resolve().parents[1]
     version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
         "version"
     ]
-    source = root / "dist" / f"unitytranslator-{version}.tar.gz"
-    target = root / "dist" / f"UnityTranslator-{version}-{label}.zip"
+    source = directory / f"unitytranslator-{version}.tar.gz"
+    target = directory / f"UnityTranslator-{version}-{label}.zip"
     if target.exists():
         raise ValueError("Source delivery already exists; preserve it and choose a new version.")
     files = {}
@@ -39,7 +42,15 @@ def main() -> int:
         ".claude",
         ".cursor",
     }
-    names = {"agents.md", "goal.md", "technical_design.md", "claude.md", "gemini.md", ".env"}
+    names = {
+        "agents.md",
+        "goal.md",
+        "technical_design.md",
+        "technical.design.md",
+        "claude.md",
+        "gemini.md",
+        ".env",
+    }
     with tarfile.open(source, "r:gz") as archive:
         for member in archive.getmembers():
             if member.isdir():
@@ -65,7 +76,7 @@ def main() -> int:
             seen.add(str(relative).casefold())
     assert {"README.md", "LICENSE", ".gitignore", ".gitattributes"} <= files.keys()
     for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
-        assert "rehber/" + code + ".md" in files
+        assert "guide/" + code + ".md" in files
         assert "src/unitytranslator/resources/locales/" + code + ".json" in files
     with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, data in sorted(files.items()):

@@ -1,4 +1,4 @@
-"""Geliştirme aracı: CLR yüklemeden CIL çağrı grafiği; dinamik davranış kanıtı değildir."""
+"""Static CIL call-graph inspection without CLR loading; not dynamic behavior proof."""
 
 import argparse
 from pathlib import Path
@@ -113,7 +113,7 @@ def main() -> int:
     result = audit(args.assembly, args.method)
     paths = ProjectPaths(checked_path(args.assembly).parent, output.parent)
     paths.write_json(output.name, result)
-    # Ham IL veya oyun metni standart teknik çıktıya basılmaz.
+    # Never print raw IL or game text into the normal technical report.
     read_back = strict_json(output.read_bytes())
     print(
         f"{len(read_back['methods'])} metot, {len(read_back['external_calls'])} dış çağrı; {output}"

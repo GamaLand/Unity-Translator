@@ -1,4 +1,4 @@
-"""C# adaptörünü statik oyun referanslarıyla derler; kurulum veya oyun başlatmaz."""
+"""Compile the C# adapter against static game references; never installs or starts a game."""
 
 import argparse
 import os
@@ -13,7 +13,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--managed", type=Path, required=True)
     parser.add_argument("--bepinex-core", type=Path, required=True)
-    parser.add_argument("--csc", type=Path, required=True, help="Kurulu Roslyn csc.dll")
+    parser.add_argument("--csc", type=Path, required=True, help="Installed Roslyn csc.dll")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     managed = checked_path(args.managed)

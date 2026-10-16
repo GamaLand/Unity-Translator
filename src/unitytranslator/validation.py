@@ -1,4 +1,4 @@
-"""Dar I2 değişken/rich-text koruması; bilinmeyen çoğul/kaçış kuralları reddedilir."""
+"""Narrow I2 placeholder/rich-text protection; unknown grammars are rejected."""
 
 import re
 from collections import Counter
@@ -68,7 +68,7 @@ ISSUE_LABELS = {
 
 
 def plural_branches(text: str) -> dict[str, str]:
-    """Gözlenen I2 Plural/One/Zero grammar'ı; etiketleri model seçmez."""
+    """Parse verified I2 Plural/One/Zero branches; the model never selects tags."""
     matches = list(PLURAL_MARKER.finditer(text))
     if "[i2" in PLURAL_MARKER.sub("", text).lower():
         raise ValueError("Doğrulanmamış I2 çoğul biçimi.")
@@ -123,7 +123,7 @@ def numeric_value(value: str, language: str) -> str:
     if grouping in integer:
         groups = integer.split(grouping)
         if not (1 <= len(groups[0]) <= 3 and all(len(group) == 3 for group in groups[1:])):
-            return value  # Belirsiz biçimi eşdeğer ilan etme.
+            return value  # Do not declare an ambiguous numeric format equivalent.
     canonical = value.replace(grouping, "").replace(decimal, ".")
     try:
         number = Decimal(canonical)
@@ -136,7 +136,7 @@ def numeric_value(value: str, language: str) -> str:
 
 
 def percentages(text: str, language: str) -> Counter[str]:
-    # %50, 50%, 50 percent ve yüzde 50 biçimleri; oyun metni dışındaki yorum yok.
+    # Recognize symbolic percentages and the supported English/Turkish word forms.
     pattern = rf"(?:%|\byüzde)\s*({NUMBER})|({NUMBER})\s*(?:%|\bpercent\b)"
     return Counter(
         numeric_value(before or after, language) for before, after in re.findall(pattern, text)
@@ -146,8 +146,8 @@ def percentages(text: str, language: str) -> Counter[str]:
 def numeric_mismatch(source: str, target: str, source_language: str, target_language: str) -> bool:
     original = Counter(re.findall(NUMBER, source))
     result = Counter(re.findall(NUMBER, target))
-    # Aynı yazımla taşınan sayılar marka/sürüm gibi metinlerde de korunmuş sayılır.
-    # Yazım değiştiyse bilinen dilin ondalık/binlik düzeniyle karşılaştırılır.
+    # Identical numeric spelling is preserved, including brand/version numbers.
+    # Changed spelling is compared using known decimal/grouping conventions.
     shared = original & result
     return Counter(numeric_value(v, source_language) for v in (original - shared).elements()) != (
         Counter(numeric_value(v, target_language) for v in (result - shared).elements())
@@ -251,7 +251,7 @@ def mask(text: str) -> MaskedText:
 def review_issues(
     source: str, translated: str, *, source_language: str = "en", target_language: str = "tr"
 ) -> list[str]:
-    """Sayılar ve dar en→tr dil ipuçları; anlamsal doğruluk/onay garantisi değildir."""
+    """Numeric checks and narrow en-to-tr hints; not semantic or approval proof."""
     try:
         original_branches, target_branches = plural_branches(source), plural_branches(translated)
     except ValueError:
@@ -272,7 +272,7 @@ def review_issues(
     issues = []
     if source.strip() == translated.strip():
         issues.append("unchanged_source")
-    # Etiket parametreleri ve değişken kimlikleri sayısal içerik değildir.
+    # Tag parameters and placeholder identifiers are not numeric content.
     original_text, result_text = TOKEN.sub(" ", source), TOKEN.sub(" ", translated)
     if numeric_mismatch(original_text, result_text, source_language, target_language):
         issues.append("numeric_content_review")
@@ -285,10 +285,10 @@ def review_issues(
         "tr",
     ):
         english, turkish = original_text.casefold(), turkish_lower(result_text)
-        # Olumsuz kaynakta kayıp ipucu veya açık "can" ifadesine eklenen olumsuzluk.
-        # Türkçe eklerden İngilizce örtük/lexical olumsuzluğun yokluğu çıkarılmaz.
+        # Flag a missing negative cue or negation added to an explicit can statement.
+        # Turkish suffixes do not prove absence of implicit English lexical negation.
         english_negative = bool(EN_NEGATION.search(english))
-        # "Yok etmek/saymak" olumsuzluk değildir; sonraki fiilin olumsuz eki korunur.
+        # Exclude affirmative destroy/count phrases while retaining later negative verbs.
         negation_text = re.sub(r"\byok(?=\s+(?:et|ed|say|oluş))", " ", turkish)
         turkish_negative = bool(TR_NEGATION.search(negation_text))
         if (english_negative and not turkish_negative) or (

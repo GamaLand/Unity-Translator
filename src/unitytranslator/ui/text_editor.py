@@ -1,4 +1,4 @@
-"""Qt paragraf normalleştirmesini proje metnine taşımayan düz veri editörü."""
+"""Plain data editor that preserves project text across Qt paragraph normalization."""
 
 import re
 
@@ -22,9 +22,9 @@ class DataTextEdit(QTextEdit):
         raw = self.document().toRawText()
         if raw == self._shadow:
             return self._loaded
-        # Qt LF/CRLF/CR'yi paragraf ayıracına dönüştürür. Aynı paragraf adedi
-        # korunmuşsa mevcut çeviri (yoksa kaynak) satır sonları geri yüklenir.
-        # Farklı adet normal LF ile çekirdeğe gider; sert kontrol bunu reddeder.
+        # Qt normalizes LF/CRLF/CR into paragraph separators. If the paragraph count
+        # matches, restore the current translation's line endings, or the source's as fallback.
+        # A changed count uses LF; the strict format validator will reject a mismatch.
         endings = re.findall(r"\r\n|\r|\n|\u2029", self._loaded or self.reference)
         if raw.count("\u2029") != len(endings):
             return raw.replace("\u2029", "\n")

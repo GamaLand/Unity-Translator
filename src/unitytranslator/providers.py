@@ -1,4 +1,4 @@
-"""Mevcut yerel sunuculara async HTTP; sunucu/model başlatılmaz."""
+"""Async HTTP to existing local servers; never starts a server or model."""
 
 import asyncio
 import json
@@ -29,7 +29,7 @@ class ProviderError(ValueError):
 
 
 def response_diagnostics(result: dict[str, Any]) -> dict[str, int | str]:
-    """Ham cevap/istem yerine sadece sabit enum ve sınırlı sayısal ölçümler."""
+    """Record bounded enums/numeric metrics instead of raw responses or prompts."""
     details: dict[str, int | str] = {}
     choices = result.get("choices")
     if isinstance(choices, list) and choices and isinstance(choices[0], dict):
@@ -206,7 +206,7 @@ class LocalProvider:
                             )
                             model["quantization"] = info.get("quantization")
             except (ProviderError, TypeError, AttributeError):
-                pass  # Native metaveri temel bağlantının şartı değildir.
+                pass  # Native metadata is optional for the basic connection.
         return models
 
     async def translate_sample(
@@ -272,7 +272,7 @@ class LocalProvider:
                 for form, item in protected.items()
             ]
         encoded_input = json.dumps(input_data, ensure_ascii=False)
-        # Araç tanımı yok; kaynak metin JSON veri alanıdır. Bir deneme, tek kayıt.
+        # No tool definitions; source text is JSON data. One record per attempt.
         payload = {
             "model": model,
             "temperature": temperature,

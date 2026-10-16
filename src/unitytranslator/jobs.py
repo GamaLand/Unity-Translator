@@ -1,4 +1,4 @@
-"""Kalıcı claim/retry kuyruğu. HTTP sırasında SQLite transaction'ı tutulmaz."""
+"""Durable claim/retry queue; HTTP requests never hold a SQLite transaction open."""
 
 import asyncio
 import json

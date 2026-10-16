@@ -25,7 +25,7 @@ Whole-project approval requires acknowledging scope/warnings and then typing the
 phrase before pressing the final confirmation button. Drafts and format failures are excluded.
 The operation aborts without partial approval if the reviewed candidate set changes.
 
-For complete instructions, open **Help → User guide** or choose a file in `rehber/`:
+For complete instructions, open **Help → User guide** or choose a file in `guide/`:
 `en.md` (English), `tr.md` (Türkçe), `de.md` (Deutsch), `fr.md` (Français),
 `es.md` (Español), `pt.md` (Português), `ru.md` (Русский), `zh.md` (简体中文).
 

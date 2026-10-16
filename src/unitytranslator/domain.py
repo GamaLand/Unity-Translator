@@ -1,4 +1,4 @@
-"""Alan kayıtları: okuyucu ve sağlayıcı kütüphanelerinden bağımsızdır."""
+"""Domain records independent of reader and provider libraries."""
 
 from dataclasses import dataclass
 from typing import Literal

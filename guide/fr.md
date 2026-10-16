@@ -44,7 +44,7 @@ et sens. Cette intégration reste expérimentale.
 
 Retirez les ajouts depuis le projet qui les a installés. Ne supprimez pas aveuglément
 `winhttp.dll`/`doorstop_config.ini` et ne réinitialisez pas l’inventaire d’origine.
-Voir le [guide développeur](../docs/development.md).
+Voir le [guide développeur](../docs/installation.md).
 
 Le destinataire d’un ZIP partageable utilise `Kur.cmd` pour choisir le jeu correspondant
 et `Kaldir.cmd` pour retirer les ajouts inchangés dont la propriété est vérifiée. Il n’a

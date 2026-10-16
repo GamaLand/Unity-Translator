@@ -1,4 +1,4 @@
-"""Yerel pilot raporu: ölçülen süreler ve insan incelemesi ayrı tutulur."""
+"""Local pilot reports keep measured timings separate from human review."""
 
 import json
 import math
@@ -20,7 +20,7 @@ from unitytranslator.validation import (
 
 
 def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
-    """Güncel adayları yeniden ölçer; revizyon, durum ve onaylara yazmaz."""
+    """Recheck current candidates without changing revisions, statuses or approvals."""
     findings = []
     count = 0
     for row in repository.db.execute(

@@ -22,6 +22,8 @@ deployment/
 AGENTS.md
 /GOAL.md
 /TECHNICAL_DESIGN.md
+/technical.design.md
+/agents.md
 CLAUDE.md
 GEMINI.md
 .agents/
@@ -49,5 +51,4 @@ GEMINI.md
 *.unitypackage
 *.bundle
 
-
-.venv-multilingual/
+.venv-*/

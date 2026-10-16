@@ -1,4 +1,4 @@
-"""Runtime ve bağlı derleyici destek kodu lisanslarını standalone paketine toplar."""
+"""Collect standalone runtime/compiler support licenses and corresponding-source notices."""
 
 import argparse
 import importlib.metadata as metadata
@@ -72,20 +72,28 @@ def main() -> int:
         (destination / item["file"]).write_bytes(data)
     shutil.copyfile(native_notices / "catalog.json", destination / "catalog.json")
     shutil.copyfile(root / "LICENSE", package / "LICENSE")
-    shutil.copyfile(root / "docs/README-WINDOWS.md", package / "README-WINDOWS.md")
-    shutil.copyfile(root / "docs/installation-ui.md", package / "installation-ui.md")
-    shutil.copyfile(root / "docs/SOURCE-ACCESS.md", package / "SOURCE-ACCESS.md")
-    shutil.copyfile(root / "docs/NATIVE-NOTICES.md", package / "NATIVE-NOTICES.md")
-    shutil.copyfile(root / "docs/release-audit.md", package / "release-audit.md")
-    shutil.copyfile(root / "docs/resource-usage.md", package / "resource-usage.md")
-    shutil.copyfile(root / "docs/windows-worker-fix.md", package / "windows-worker-fix.md")
-    shutil.copyfile(root / "docs/shareable-patch.md", package / "shareable-patch.md")
-    shutil.copyfile(root / "docs/background-translation.md", package / "background-translation.md")
-    guides = package / "rehber"
+    for name in (
+        "README-WINDOWS.md",
+        "SOURCE-ACCESS.md",
+        "NATIVE-NOTICES.md",
+        "dependencies.md",
+        "release-audit.md",
+        "compatibility.md",
+        "installation.md",
+        "quality.md",
+        "runtime-components.md",
+        "shareable-patch.md",
+        "development.md",
+        "roadmap.md",
+        "windows-package.md",
+        "loader-component-audit.md",
+        "protected-source-trace.md",
+    ):
+        shutil.copyfile(root / "docs" / name, package / name)
+    guides = package / "guide"
     guides.mkdir(exist_ok=True)
     for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
-        shutil.copyfile(root / "rehber" / (code + ".md"), guides / (code + ".md"))
-    shutil.copyfile(root / "docs/development.md", package / "development.md")
+        shutil.copyfile(root / "guide" / (code + ".md"), guides / (code + ".md"))
     shutil.copyfile(root / "tools/standalone_smoke.ps1", package / "standalone_smoke.ps1")
     inventory = []
     for name in [*runtime_dependencies(), "Nuitka"]:
@@ -143,10 +151,10 @@ def main() -> int:
                 "sha256": digest.hexdigest(),
             }
         )
-    (output / "manifest.json").write_text(
-        json.dumps(manifest, indent=2), encoding="utf-8"
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    print(
+        f"{len(inventory)} runtime dependency license entries; {len(manifest)} distribution files."
     )
-    print(f"{len(inventory)} runtime paket için lisans envanteri; {len(manifest)} dağıtım dosyası.")
     return 0
 
 

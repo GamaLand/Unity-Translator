@@ -1,4 +1,4 @@
-"""Sürümlü veri içe/dışa aktarma. İçe aktarılan yollar ve profiller çalıştırılmaz."""
+"""Versioned data interchange; imported paths and profiles are never executed."""
 
 import json
 from dataclasses import asdict
@@ -260,7 +260,7 @@ class PortableService:
             location = Path(unit.source_file)
             if location.is_absolute() or location.drive or ".." in location.parts:
                 raise ValueError("Arşiv kaynak yolu güvenli ve göreli olmalı.")
-            # Yol yalnızca konum verisidir; içe aktarma bu dosyayı açmaz.
+            # The path is location data only; importing never opens that file.
             self.repository.paths.output("tmp/location-check/" + unit.source_file)
             sources = {source.id: source for source in unit.sources}
             translations = {translation.id: translation for translation in unit.translations}
@@ -431,7 +431,7 @@ class PortableService:
                     applied += 1
                 else:
                     rejected.append(item.unit_id)
-        # Sözlük/üslup önizlemeye dahildir; mevcut politika otomatik değiştirilmez.
+        # Preview policies without automatically replacing the active glossary/style.
         return {
             **preview,
             "applied": applied,
@@ -440,7 +440,7 @@ class PortableService:
         }
 
     def import_history(self, value: PortableProject, units: set[str]) -> None:
-        """Arşiv eklenir; etkin kaynak, çeviri ve onay alanları değiştirilmez."""
+        """Append history without changing active source, translation or approval fields."""
         db = self.repository.db
         reviews = []
         for unit in value.history:
@@ -526,7 +526,7 @@ class PortableService:
             )
 
     def restore(self, value: PortableProject) -> dict[str, Any]:
-        """Açık geri yükleme: yalnızca boş projeye, onayları arşiv verisi sayarak."""
+        """Restore into an empty project; imported approvals remain archive history."""
         self.validate_history(value)
         if value.format_version != 2 or not value.history:
             raise ValueError("Geri yükleme revizyon arşivli JSON sürüm 2 gerektirir.")
@@ -558,5 +558,5 @@ class PortableService:
             policy = PolicyStore(self.repository)
             policy.set_glossary(value.glossary)
             policy.set_styles(value.styles)
-            # İçe aktarılan onaylar arşivdeki veridir; yerel onay oluşturmaz.
+            # Imported approvals are archive history, not local human approvals.
         return {**result, "restored_units": len(value.history), "local_approvals": 0}

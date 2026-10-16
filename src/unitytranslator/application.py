@@ -1,4 +1,4 @@
-"""UI/CLI'nin paylaştığı proje oturumu. Qt ve widget iş kuralı taşımaz."""
+"""Project session shared by the UI and CLI; business rules stay outside widgets."""
 
 import asyncio
 import json
@@ -65,7 +65,7 @@ class ApplicationSession:
                 else ProjectPaths(Path(data["game"]), Path(data["project"]))
             )
             if self.repository is None or self.repository.paths.project != paths.project:
-                # Yeni proje açılamazsa açık oturum ve taslaklar korunur.
+                # Keep the current session and drafts if opening a replacement project fails.
                 replacement = ProjectRepository(
                     paths, data.get("source_language", "en"), data.get("target_language", "tr")
                 )
@@ -215,7 +215,7 @@ class ApplicationSession:
             result = await asyncio.to_thread(scan, self.repo.paths)
             return {"result": result, "report": str(save_report(self.repo.paths, "scan", result))}
         if command == "game_process":
-            # Bekleme sırasında oturum değişebilir; yalnızca yakalanan oyunu sorgula.
+            # The session may change while awaiting; inspect only the captured game.
             identifier, game = self.repo.project_id, self.repo.paths.game
             status = await asyncio.to_thread(inspect_game_processes, game)
             return {
