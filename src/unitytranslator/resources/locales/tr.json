@@ -333,5 +333,7 @@
   "Could not connect to the local server.": "Yerel sunucuya bağlanılamadı.",
   "A translation job is already running.": "Bir model işi zaten çalışıyor.",
   "Close the previous installation or recover its partial files first.": "Önce mevcut ekleri kaldırın veya yarım kurulumu kurtarın.",
-  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Oyun klasöründe mevcut yükleyici dosyaları var: {p0}. Üzerlerine yazılmaz. Önce bu kurulumu oluşturan projeyi açıp Oyuna uygula bölümünden sahiplik kontrolüyle kaldırın. Dosyalar başka bir moda aitse o modun kaldırma yöntemini kullanın."
+  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Oyun klasöründe mevcut yükleyici dosyaları var: {p0}. Üzerlerine yazılmaz. Önce bu kurulumu oluşturan projeyi açıp Oyuna uygula bölümünden sahiplik kontrolüyle kaldırın. Dosyalar başka bir moda aitse o modun kaldırma yöntemini kullanın.",
+  "Enter a language code, for example ja, it or pt-BR.": "Dil kodu girin; örneğin ja, it veya pt-BR.",
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Kaynak dil oyunda bulunmalıdır. Yazı tipleri ve sağdan sola düzen oyuna bağlıdır; yamayı dağıtmadan önce kontrol edin."
 }

@@ -33,10 +33,11 @@ namespace UnityTranslator.I2Mono
                 check = 2;
                 payload = PayloadJson.Parse(File.ReadAllText(path, new UTF8Encoding(false, true)));
                 check = 3;
-                if (payload == null || payload.format_version != 1)
+                if (payload == null || (payload.format_version != 1 && payload.format_version != 2))
                     throw new InvalidOperationException("Invalid payload format.");
                 check = 4;
-                if (payload.target_language != "tr")
+                if (!TranslationCore.ValidLanguage(payload.target_language)
+                    || !TranslationCore.ValidLanguage(TranslationCore.SourceLanguage(payload)))
                     throw new InvalidOperationException("Target language mismatch.");
                 check = 5;
                 if (Application.unityVersion != payload.unity_version)
@@ -94,7 +95,7 @@ namespace UnityTranslator.I2Mono
                 object previousLanguage = MemoryLanguage.Capture();
                 bool first = !session.HasApplied;
                 int count = session.ApplyIfChanged(payload, sources, delegate {
-                    if (first) MemoryLanguage.SelectTurkish(payload.target_name);
+                    if (first) MemoryLanguage.Select(payload.target_language, payload.target_name);
                     MemoryLanguage.Refresh();
                 }, delegate {
                     MemoryLanguage.Restore(previousLanguage);
@@ -125,21 +126,11 @@ namespace UnityTranslator.I2Mono
                 return true;
             }
             private readonly LanguageSource source;
-            private readonly int english;
+            private int originalIndex = -1;
             private readonly Dictionary<string, TermData> terms = new Dictionary<string, TermData>(StringComparer.Ordinal);
             public Source(LanguageSource source)
             {
                 this.source = source;
-                english = -1;
-                for (int i = 0; i < source.mLanguages.Count; i++)
-                {
-                    LanguageData language = source.mLanguages[i];
-                    if (language.Code != "en" && language.Code != "en-US"
-                        && language.Code != "en-GB" && language.Name != "English") continue;
-                    if (english >= 0) throw new InvalidOperationException("Ambiguous English language.");
-                    english = i;
-                }
-                if (english < 0) throw new InvalidOperationException("English language missing.");
                 foreach (TermData term in source.mTerms)
                 {
                     if (terms.ContainsKey(term.Term)) throw new InvalidOperationException("Duplicate source term.");
@@ -148,13 +139,28 @@ namespace UnityTranslator.I2Mono
             }
             public string Name { get { return source.gameObject.name; } }
             public object Identity { get { return source; } }
-            public string English(string key)
+            public string Original(string key, string language)
             {
+                List<string> codes = new List<string>();
+                foreach (LanguageData item in source.mLanguages)
+                {
+                    string code = item.Code;
+                    if (String.IsNullOrEmpty(code))
+                    {
+                        string[] names = { "English", "Turkish", "German", "French", "Spanish", "Italian", "Portuguese", "Russian", "Japanese", "Korean", "Chinese", "Arabic", "Hebrew" };
+                        string[] tags = { "en", "tr", "de", "fr", "es", "it", "pt", "ru", "ja", "ko", "zh", "ar", "he" };
+                        int match = Array.IndexOf(names, item.Name);
+                        if (match >= 0) code = tags[match];
+                    }
+                    codes.Add(code == null ? null : code.Replace('_', '-'));
+                }
+                int index = TranslationCore.LanguageIndex(codes, language);
+                originalIndex = index;
                 TermData term;
                 if (!terms.TryGetValue(key, out term)) return null;
-                if (term == null || (int)term.TermType != 0 || term.Languages.Length <= english)
+                if (term == null || (int)term.TermType != 0 || term.Languages.Length <= index)
                     return null;
-                return term.Languages[english];
+                return term.Languages[index];
             }
             private sealed class TermState
             {
@@ -236,25 +242,26 @@ namespace UnityTranslator.I2Mono
                         Array.Resize(ref term.Flags, source.mLanguages.Count);
                     }
                 }
-                if (target < 0 || target == english)
+                if (target < 0 || target == originalIndex || originalIndex < 0)
                     throw new InvalidOperationException("Target language unavailable.");
                 source.mLanguages[target].Name = name;
                 source.mLanguages[target].Code = code;
-                // Onaylanmamış/eski Türkçe satırlar yerine İngilizce fallback.
-                // Font/varlık terimleri de İngilizce referanslarını korur.
+                // Untranslated text falls back to the selected source column.
                 foreach (TermData term in source.mTerms)
                 {
-                    if (term.Languages.Length <= english || term.Languages.Length <= target
+                    if (term.Languages.Length <= originalIndex || term.Languages.Length <= target
                         || term.Flags == null || term.Flags.Length <= target)
                         throw new InvalidOperationException("I2 language array mismatch.");
                 }
                 foreach (TermData term in source.mTerms)
                 {
-                    term.Languages[target] = term.Languages[english];
-                    term.Flags[target] = term.Flags[english];
+                    // Keep an existing target font/asset reference (e.g. Japanese font).
+                    if ((int)term.TermType != 0 && !String.IsNullOrEmpty(term.Languages[target])) continue;
+                    term.Languages[target] = term.Languages[originalIndex];
+                    term.Flags[target] = term.Flags[originalIndex];
                     string[] touch = (string[])TouchField.GetValue(term);
                     if (touch != null && touch.Length > target)
-                        touch[target] = touch.Length > english ? touch[english] : null;
+                        touch[target] = touch.Length > originalIndex ? touch[originalIndex] : null;
                 }
                 foreach (KeyValuePair<string, string> change in changes)
                 {

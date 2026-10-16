@@ -14,7 +14,9 @@ from unitytranslator.i2 import extract_i2
 from unitytranslator.i2_serialized import read_managed_i2
 
 
-def probe(path: Path, source: str, game: Path | None = None) -> dict[str, Any]:
+def probe(
+    path: Path, source: str, game: Path | None = None, source_language: str = "en"
+) -> dict[str, Any]:
     # Stream kullanımı klasörü ve komşu ses/doku dosyalarını otomatik yüklemez.
     with checked_path(path).open("rb") as stream:
         env = UnityPy.load(stream)
@@ -83,7 +85,10 @@ def probe(path: Path, source: str, game: Path | None = None) -> dict[str, Any]:
                 )
                 try:
                     units.extend(
-                        asdict(unit) for unit in extract_i2(tree, source, obj.path_id, diagnostics)
+                        asdict(unit)
+                        for unit in extract_i2(
+                            tree, source, obj.path_id, diagnostics, source_language
+                        )
                     )
                 except ValueError as exc:
                     errors.append(
@@ -108,6 +113,7 @@ if __name__ == "__main__":
             Path(sys.argv[1]),
             sys.argv[2],
             checked_path(Path(sys.argv[3])) if len(sys.argv) > 3 else None,
+            sys.argv[4] if len(sys.argv) > 4 else "en",
         )
         print(json.dumps(value, ensure_ascii=True))
     except Exception as exc:

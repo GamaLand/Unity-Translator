@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from unitytranslator.domain import TextUnitDraft
 from unitytranslator.filesystem import ProjectPaths, checked_path
-from unitytranslator.language import turkish_lower
+from unitytranslator.language import normalize_language, turkish_lower
 from unitytranslator.validation import (
     PROTECTED_FORMAT_VERSION,
     REVIEW_CHECKS_VERSION,
@@ -93,6 +93,11 @@ class ProjectRepository:
         self.connection: sqlite3.Connection | None = None
         try:
             database = paths.output("project.sqlite3")
+            if not database.exists():
+                source_language = normalize_language(source_language)
+                target_language = normalize_language(target_language)
+                if source_language == target_language:
+                    raise ValueError("Source and target languages must differ.")
             if database.exists():
                 with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as preflight:
                     version = preflight.execute("PRAGMA user_version").fetchone()[0]

@@ -86,7 +86,9 @@ def scan(paths: ProjectPaths) -> dict[str, Any]:
     }
 
 
-def probe_source(paths: ProjectPaths, relative: str, timeout: float = 120) -> dict[str, Any]:
+def probe_source(
+    paths: ProjectPaths, relative: str, timeout: float = 120, *, source_language: str = "en"
+) -> dict[str, Any]:
     part = Path(relative)
     if part.is_absolute() or part.drive:
         raise ValueError("Kaynak yolu oyun köküne göreli olmalı.")
@@ -100,7 +102,13 @@ def probe_source(paths: ProjectPaths, relative: str, timeout: float = 120) -> di
         else [sys.executable, "-m", "unitytranslator.workers.unity_probe"]
     )
     completed = subprocess.run(
-        [*worker, str(source), source.relative_to(paths.game).as_posix(), str(paths.game)],
+        [
+            *worker,
+            str(source),
+            source.relative_to(paths.game).as_posix(),
+            str(paths.game),
+            source_language,
+        ],
         capture_output=True,
         stdin=subprocess.DEVNULL,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -144,7 +152,7 @@ def save_report(paths: ProjectPaths, kind: str, report: dict[str, Any]) -> Path:
 def extract_to_project(paths: ProjectPaths, relative: str) -> dict[str, Any]:
     # Tek yazarlı kilit çıkarma boyunca tutulur; DB transaction'ı worker boyunca açık değildir.
     with ProjectRepository(paths) as repository:
-        report = probe_source(paths, relative)
+        report = probe_source(paths, relative, source_language=repository.source_language)
         output = save_report(paths, "extract", report)
         if report["extraction"] != "supported":
             raise ValueError(f"Çıkarma tamamlanamadı; tanı raporu: {output}")

@@ -333,5 +333,7 @@
   "Could not connect to the local server.": "No se pudo conectar al servidor local.",
   "A translation job is already running.": "Ya hay un trabajo de traducción en ejecución.",
   "Close the previous installation or recover its partial files first.": "Cierre la instalación anterior o recupere sus archivos parciales primero.",
-  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Archivos del cargador existentes en la carpeta del juego: {p0}. No se sobrescribirán. Abra el proyecto que posee esta instalación y elimine sus adiciones a través de Aplicar al juego. Si los archivos pertenecen a otro mod, utilice su procedimiento de eliminación."
+  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Archivos del cargador existentes en la carpeta del juego: {p0}. No se sobrescribirán. Abra el proyecto que posee esta instalación y elimine sus adiciones a través de Aplicar al juego. Si los archivos pertenecen a otro mod, utilice su procedimiento de eliminación.",
+  "Enter a language code, for example ja, it or pt-BR.": "Introduce un código de idioma, por ejemplo ja, it o pt-BR.",
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "El idioma de origen debe existir en el juego. Las fuentes y el diseño de derecha a izquierda dependen del juego; compruébalos antes de distribuir un parche."
 }

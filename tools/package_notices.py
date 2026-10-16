@@ -1,5 +1,6 @@
 """Runtime ve bağlı derleyici destek kodu lisanslarını standalone paketine toplar."""
 
+import argparse
 import importlib.metadata as metadata
 import json
 import shutil
@@ -33,7 +34,12 @@ def runtime_dependencies() -> list[str]:
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    package = root / "dist" / "windows" / "UnityTranslator.dist"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-root", type=Path, default=root / "dist/windows")
+    output = parser.parse_args().output_root.resolve()
+    if not output.is_relative_to(root / "dist"):
+        raise ValueError("Package output must be under the workspace dist folder.")
+    package = output / "UnityTranslator.dist"
     if not (package / "UnityTranslator.exe").is_file():
         raise ValueError("Önce standalone paketi üretin.")
     kit = root / "dist/runtime-kit"
@@ -137,7 +143,7 @@ def main() -> int:
                 "sha256": digest.hexdigest(),
             }
         )
-    (root / "dist" / "windows" / "manifest.json").write_text(
+    (output / "manifest.json").write_text(
         json.dumps(manifest, indent=2), encoding="utf-8"
     )
     print(f"{len(inventory)} runtime paket için lisans envanteri; {len(manifest)} dağıtım dosyası.")

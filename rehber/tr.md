@@ -47,3 +47,6 @@ Paylaşılabilir ZIP onaylı çevirileri ve gerekli çalışma bileşenlerini i�
 ZIP’i çıkarıp `Kur.cmd` ile eşleşen oyun klasörünü seçer; `Kaldir.cmd` sahipliği/hash’i
 eşleşen ekleri kaldırır. Model veya UnityTranslator gerekmez. Lisans/kaynakları koruyun.
 Bütün Unity oyunları desteklenmez; bazı teknik tanılar özgün dilinde kalabilir.
+
+
+Oyun çevirisinde kaynak ve hedef dil, arayüz dilinden bağımsızdır. Japonca için ja, İtalyanca için it, Brezilya Portekizcesi için pt-BR yazın; başka dil kodları da girilebilir. Kaynak dil oyunda bulunmalıdır; eksik veya belirsiz dil sütunları reddedilir. Model dil çiftini desteklemelidir. Mevcut projelerin dilleri, onayları ve özel üslupları korunur; eski dile özel üslup kurallarını gözden geçirin. Dağıtımdan önce küçük bir yamada yazı tiplerini, sağdan sola düzeni ve çoğul biçimlerini kontrol edin. İngilizce de hedef olabilir.

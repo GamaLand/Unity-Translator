@@ -17,6 +17,29 @@ Game files are read without modification. Supported patch installation adds only
 non-conflicting files and tracks ownership for removal. Translation projects stay outside
 the game folder. The app does not start a game, model or server automatically.
 
+## Game translation languages
+
+Source and target languages are independent of the interface language. The editable
+selectors suggest 32 language codes, including `ja` (Japanese), `it` (Italian),
+`pt-BR` (Brazilian Portuguese), `zh-CN`, `ru` and `ar`. You can enter other language
+tags; `jp` is normalized to `ja`. Choose a source language actually present in the
+game. Missing or ambiguous language columns are rejected rather than replaced with
+English. The loaded model must support the chosen language pair.
+
+Translation prompts and the default style follow the selected target language.
+Existing projects keep their saved languages, approvals and custom style rules;
+review any old Turkish-specific style before translating into another language.
+The experimental I2 runtime and shareable patches carry both language codes and
+verify source text hashes against the selected source column. English can also be
+a target. Existing target font/asset references are preserved.
+
+Game compatibility still depends on the supported adapter and matching game build.
+Language codes do not add missing fonts or guarantee Arabic shaping, right-to-left
+layout or correct language-specific plural forms. Existing plural branches are
+preserved and flagged for human review. Specialized negation/condition heuristics
+currently cover English-to-Turkish; other pairs still receive format, number,
+percentage, unchanged-text and glossary checks. Test a small patch before sharing.
+
 ## Install
 
 **Windows package:** if a packaged release is available, download its Windows x64 ZIP,

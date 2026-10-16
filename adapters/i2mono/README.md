@@ -1,37 +1,26 @@
-# Deneysel I2 Mono adaptörü
+# Experimental I2 Mono adapter
 
-MIT proje kodudur. Unity 2017, Mono/.NET 3.5 ve mevcut I2 LanguageSource
-şekli için dar bir prototiptir. `application=unknown`; gerçek oyunda yükleme
-ve beş ana menü çevirisi doğrulandı, Türkçe karakterler kullanıcı tarafından
-görsel olarak onaylandı. Öğretici/diyalog, sahne geçişi, dinamik değerler ve
-taşma henüz doğrulanmadı. [Deneme kanıtı ve sınırlar](../../docs/main-menu-trial-diagnostics.md).
+The adapter supports the source and target language tags stored in the translation
+project. Runtime JSON v2 includes `source_language`; legacy v1 payloads retain their
+English-source meaning. The parser accepts only these fixed schemas and rejects
+unknown fields, duplicate keys and oversized data.
 
-TranslationCore kaynak kümesi/terim tekilliğini, özgün İngilizce SHA-256'yı
-ve desteklenen korumalı biçimleri belleğe yazmadan önce doğrular. Plugin,
-BepInEx Awake/Update üzerinden Unity ana thread'inde çalışır. Yanındaki sabit
-translation.json dosyasını okur; bu dosya komut, dosya yolu veya endpoint
-alanı içermez. Unity sürümü ve Assembly-CSharp.dll hash'i de eşleşmelidir.
+Source columns are resolved by exact language code first, then an unambiguous
+base-language match. Explicit regions never silently select a different region.
+Every approved term is checked against its selected source text hash before any
+memory changes. The source column is preserved. Untranslated target text falls
+back to the source; existing target font/asset references are retained. New fonts
+are not downloaded or injected.
 
-İlk adaptör İngilizce → Türkçe uygulamasına daraltılmıştır. Masaüstü çeviri
-çekirdeğinin diğer hedef dilleri bu adaptörün uygulama desteği sayılmaz.
-Hedef dile İngilizce fallback atanır; seçilmiş çeviriler sadece bu dilin
-bellek slotuna yazılır. Hazır I2 sözlüğünün aynı terim nesnelerine işaret
-ettiği doğrulanır; sözlüğü oluşturmak için I2 metodu çağrılmaz. Özgün İngilizce
-slot korunur. Dil kaydetme, Google import, ağ veya font indirme çağrısı plugin
-kodunda yoktur. Native/oyun callback yan etkileri için gerçek oyun öncesi/
-sonrası envanter testi hâlâ gereklidir.
-I2 kaynakları yüklenene kadar bekler. Aynı kaynak nesnesine yeniden yazmaz;
-sahne yeni kaynak nesnesi yüklerse kaynak/hash kontrollerini tekrar yapar.
-İlk uygulamada hedef dil seçilir; sonraki sahnelerde kullanıcının seçtiği dil
-zorla değiştirilmez. Uygulama veya yerelleştirme callback'i hata verirse dil listeleri,
-terim dizileri, touch alanı, bayraklar ve önceki dil geri alınır. Geri alma
-da hata verirse bu başarı diye gizlenmez. Gerçek sahne geçişi test edilmedi.
+Target language selection updates only I2 memory fields, culture, RTL and joined-word
+flags. No persistent language preference API is called. Changes roll back if a
+write or localization callback fails. Scene replacement sources are checked again.
 
-Python runtime_payload üreticisi yalnızca güncel, yerel insan onaylı I2
-terimlerini kabul eder. Pilot üslubu onayı kayıt onayı değildir; bu deneme için
-on kayıt ayrı insan onayı aldı. Kullanıcının açık seçimiyle yapılan küçük
-geçici kurulum denemesi tamamlandı ve sahipli ekler kaldırıldı; tam oyun
-çevirisi veya doğrulanmış genel uygulama paketi üretilmedi.
+Matching Unity/game assembly fingerprints are still required. Broader languages
+have synthetic regression coverage, not verified in-game rendering. Font coverage,
+RTL shaping, plural rules and layout must be reviewed in the actual game. Existing
+plural branches remain structurally protected; they are not automatically redesigned
+for a different language's plural categories.
 
 ## Geliştirici doğrulaması
 

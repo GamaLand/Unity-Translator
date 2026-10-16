@@ -333,5 +333,7 @@
   "Could not connect to the local server.": "无法连接到本地服务器。",
   "A translation job is already running.": "翻译任务正在运行中。",
   "Close the previous installation or recover its partial files first.": "请先关闭之前的安装或恢复其部分文件。",
-  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "游戏文件夹中已存在加载器文件：{p0}。它们不会被覆盖。打开拥有此安装的项目，并通过“应用到游戏”移除其新增内容。如果这些文件属于另一个模组，请使用该模组的移除程序。"
+  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "游戏文件夹中已存在加载器文件：{p0}。它们不会被覆盖。打开拥有此安装的项目，并通过“应用到游戏”移除其新增内容。如果这些文件属于另一个模组，请使用该模组的移除程序。",
+  "Enter a language code, for example ja, it or pt-BR.": "输入语言代码，例如 ja、it 或 pt-BR。",
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "源语言必须存在于游戏中。字体和从右到左的布局取决于游戏；分发补丁前请先检查。"
 }

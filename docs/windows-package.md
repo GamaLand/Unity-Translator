@@ -1,6 +1,27 @@
 # Windows sürüm adayı ve doğrulama
 
-## Current candidate: RC6 (16 October 2026)
+## Current candidate: RC7 (16 October 2026)
+
+`UnityTranslator-0.1.0-rc.7-win-x64.zip` removes the English-to-Turkish-only
+translation/runtime restriction. Editable selectors suggest 32 language codes; the
+reader resolves the selected source column, prompts use the selected target and the
+v2 runtime payload carries both languages. Legacy v1 payloads remain readable.
+Existing projects retain their saved languages, approvals and custom policies.
+Existing target fonts/assets are preserved. Shareable packages include Install.cmd
+and Uninstall.cmd alongside the legacy launcher names.
+
+481 Python tests passed with one skip; Ruff, mypy and C# adapter checks passed.
+Synthetic cases cover French-to-English, Japanese-to-Italian, English-to-Japanese,
+German-to-Arabic, Italian-to-Brazilian-Portuguese, regional ambiguity, source hashes,
+RTL state and rollback. The packaged application passed the isolated-PATH synthetic
+UI/installation/export check on this development machine. This is not a clean
+Windows VM test or verification of every language's in-game rendering. Fonts,
+shaping, layout and plural forms still need game-specific review.
+
+The new package is built in a separate output folder. Builds now refuse an existing
+application output directory instead of implicitly deleting it.
+
+## Previous candidate: RC6 (16 October 2026)
 
 `UnityTranslator-0.1.0-rc.6-win-x64.zip` adds eight offline interface languages
 (English by default), a Language menu beside Help, eight bundled guides, and English

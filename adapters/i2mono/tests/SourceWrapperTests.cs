@@ -64,7 +64,7 @@ static class SourceWrapperTests
         } catch (InvalidOperationException) { }
         Original(source);
         object prior = MemoryLanguage.Capture();
-        MemoryLanguage.SelectTurkish("Türkçe");
+        MemoryLanguage.Select("tr", "Türkçe");
         MemoryLanguage.Refresh();
         if (LocalizationManager.CurrentLanguageCode != "tr"
             || LocalizationManager.CurrentName != "Türkçe" || LocalizationManager.CultureCode != "tr"
@@ -81,6 +81,40 @@ static class SourceWrapperTests
         source.InitializeDictionary();
         if (!(bool)ready.Invoke(null, new object[] { source }))
             throw new Exception("Initialized dictionary was not accepted.");
+        // Verify non-English source hashes and installing into an existing English column.
+        source = Make();
+        Payload multilingual = Data();
+        multilingual.format_version = 2;
+        multilingual.source_language = "fr";
+        multilingual.target_language = "en";
+        multilingual.target_name = "English";
+        multilingual.entries[0].source_sha256 = TranslationCore.Hash("Début {0}");
+        multilingual.entries[0].text = "Begin {0}";
+        TranslationCore.Apply(multilingual, new ISource[] { Wrap(source) });
+        if (source.mTerms[0].Languages[1] != "Begin {0}" || source.mTerms[0].Languages[0] != "Début {0}"
+            || source.mTerms[1].Languages[1] != "EnglishFont")
+            throw new Exception("Non-English source mapping failed.");
+        foreach (string code in new string[] { "ja", "it", "pt-BR", "ar", "zh-CN", "ru" })
+        {
+            object previous = MemoryLanguage.Capture();
+            MemoryLanguage.Select(code, code);
+            if (LocalizationManager.CurrentLanguageCode != code || LocalizationManager.PreferenceWrites != 0)
+                throw new Exception("Multilingual memory selection failed.");
+            if (code == "ar" && !(bool)typeof(LocalizationManager).GetField("IsRight2Left").GetValue(null))
+                throw new Exception("RTL flag missing.");
+            MemoryLanguage.Restore(previous);
+        }
+        string json = "{\"format_version\":2,\"source_language\":\"fr\",\"unity_version\":\"2017.4.19f1\","
+            + "\"assembly_sha256\":\"hash\",\"target_language\":\"ja\",\"target_name\":\"日本語\","
+            + "\"entries\":[{\"source_set\":\"synthetic\",\"key\":\"UI/start\",\"source_sha256\":\"hash\",\"text\":\"開始 {0}\"}]}";
+        if (PayloadJson.Parse(json).source_language != "fr") throw new Exception("Version 2 schema failed.");
+        if (TranslationCore.LanguageIndex(new string[] { "pt-BR", "pt-PT" }, "pt-BR") != 0)
+            throw new Exception("Exact regional language mapping failed.");
+        bool ambiguous = false;
+        try { TranslationCore.LanguageIndex(new string[] { "pt-BR", "pt-PT" }, "pt"); }
+        catch (InvalidOperationException) { ambiguous = true; }
+        if (!ambiguous) throw new Exception("Ambiguous source accepted.");
+        Console.WriteLine("Multilingual source, existing-target, Unicode, regional, RTL and legacy-schema scenarios passed.");
         Console.WriteLine("5 synthetic I2 wrapper scenarios passed; dictionary readiness and memory-only selection verified.");
     }
 }

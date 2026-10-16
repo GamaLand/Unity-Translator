@@ -503,7 +503,13 @@ class TranslationJobService:
             nonlocal last_event
             while item := self.store.claim(job_id):
                 relevant = [
-                    rule for rule in rules if rule.matches(item["source_text"], item["category"])
+                    rule
+                    for rule in rules
+                    if rule.matches(
+                        item["source_text"],
+                        item["category"],
+                        language=self.repository.source_language,
+                    )
                 ]
                 metadata = {
                     "profile": asdict(profile),
@@ -530,7 +536,12 @@ class TranslationJobService:
                     result["glossary_version"] = profile.glossary_version
                     result["style_version"] = profile.style_version
                     for rule in relevant:
-                        if not rule.matches(result["translation"], item["category"], target=True):
+                        if not rule.matches(
+                            result["translation"],
+                            item["category"],
+                            target=True,
+                            language=self.repository.target_language,
+                        ):
                             result.setdefault("issues", []).append(
                                 "glossary_violation:" + rule.source
                             )

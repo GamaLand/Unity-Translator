@@ -51,3 +51,6 @@ et `Kaldir.cmd` pour retirer les ajouts inchangés dont la propriété est véri
 besoin ni du modèle ni de UnityTranslator. Conservez les licences et sources incluses.
 Tous les jeux Unity ne sont pas compatibles ; les contrôles ne garantissent pas la qualité.
 Certains diagnostics techniques restent dans leur langue d’origine.
+
+
+Les langues source et cible du jeu sont indépendantes de la langue de l’interface. Utilisez ja pour le japonais, it pour l’italien ou pt-BR pour le portugais brésilien ; d’autres codes sont acceptés. La langue source doit être présente dans le jeu. Les colonnes absentes ou ambiguës sont refusées. Le modèle doit prendre en charge la paire. Les langues, validations et règles de style des projets existants sont conservées ; vérifiez les anciennes règles propres à une langue. Testez les polices, la disposition RTL et les pluriels avec un petit patch avant de le partager. L’anglais peut aussi être la langue cible.

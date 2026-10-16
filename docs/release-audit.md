@@ -1,3 +1,23 @@
+# RC7: multilingual translation delivery
+
+16 October 2026. Game translation languages are independent of the eight UI languages.
+The reader, provider prompts, validation and runtime export now use the selected pair.
+Runtime JSON v2 includes the source language; the new plugin also accepts old v1 data.
+Source hashes and current human approvals remain mandatory. Existing target fonts
+are preserved, and language selection changes only I2 memory state.
+
+481 Python tests passed with one skip; Ruff and mypy passed. C# cases cover the old
+schema, multilingual source selection, existing targets, RTL and regional ambiguity.
+The Windows package passed its synthetic UI, Unicode, paging, draft, export and
+installation checks. No real game was launched by these checks. This does not verify
+all fonts, shaping, plural rules or game builds, nor a clean Windows VM installation.
+
+New translations still depend on model capability and human review. The adapter is
+experimental and game-fingerprint-specific. Installation remains additive and owned;
+original game assets and project approvals are not rewritten by this release.
+
+## Historical delivery notes
+
 # 0.1.0 RC3 teslim kapsamı
 
 15 Ekim 2026. Kullanıcı ek oyun denemeleri yerine programın son kullanıcı

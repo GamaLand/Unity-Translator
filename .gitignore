@@ -49,3 +49,5 @@ GEMINI.md
 *.unitypackage
 *.bundle
 
+
+.venv-multilingual/

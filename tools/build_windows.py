@@ -1,8 +1,8 @@
 """pyside6-deploy ile standalone; yalnızca özel üretilmiş spec değiştirilebilir."""
 
+import argparse
 import configparser
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -12,17 +12,22 @@ from unitytranslator.filesystem import checked_path
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    target = checked_path(root / "dist" / "windows" / "UnityTranslator.dist")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-root", type=Path, default=root / "dist/windows")
+    output = checked_path(parser.parse_args().output_root)
+    if not output.is_relative_to(root / "dist"):
+        raise ValueError("Build output must be under the workspace dist folder.")
+    target = checked_path(output / "UnityTranslator.dist")
     if not target.is_relative_to(root) or target == root:
         raise ValueError("Derleme hedefi çalışma alanı dışında.")
     if target.exists():
-        for entry in target.rglob("*"):
-            checked_path(entry)
-        shutil.rmtree(target)
+        raise ValueError("Build output already exists; choose a new --output-root.")
     config = configparser.ConfigParser()
     config.read(root / "pysidedeploy.spec", encoding="utf-8")
     for name in ("project_dir", "input_file", "exec_directory"):
         config["app"][name] = str(root / config["app"][name])
+    config["app"]["exec_directory"] = str(output)
+    output.mkdir(parents=True, exist_ok=True)
     config["app"]["icon"] = ""
     private = root / ".cache" / "pysidedeploy.local.spec"
     private.parent.mkdir(exist_ok=True)

@@ -14,7 +14,7 @@ from unitytranslator.repository import ProjectRepository
 def main() -> int:
     parser = argparse.ArgumentParser(description="UnityTranslator — salt okunur keşif prototipi")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("gui", help="Türkçe masaüstü arayüzünü aç")
+    sub.add_parser("gui", help="Open the desktop interface")
     for command, description in (
         ("scan", "Uyumluluk göstergelerini tara"),
         ("probe", "Tek Unity kaynağını ayrı süreçte incele"),
@@ -26,7 +26,7 @@ def main() -> int:
         item.add_argument("--project", required=True, type=Path, help="Ayrı yerel çalışma klasörü")
         if command in ("probe", "extract"):
             item.add_argument("--source", required=True, help="Oyun köküne göreli kaynak yolu")
-        if command == "project":
+        if command in ("project", "probe"):
             item.add_argument("--source-language", default="en")
             item.add_argument("--target-language", default="tr")
     models = sub.add_parser("models", help="Yerel sunucunun bildirdiği model kimliklerini listele")
@@ -66,7 +66,11 @@ def main() -> int:
         if args.command == "extract":
             print(json.dumps(extract_to_project(paths, args.source), ensure_ascii=True, indent=2))
             return 0
-        result = scan(paths) if args.command == "scan" else probe_source(paths, args.source)
+        result = (
+            scan(paths)
+            if args.command == "scan"
+            else probe_source(paths, args.source, source_language=args.source_language)
+        )
         output = save_report(paths, args.command, result)
         summary = {
             "report": str(output),

@@ -80,7 +80,9 @@ assert window.tabs.tabText(5)==tr('6 · Review')
 menus=window.menuBar().actions()
 assert menus[0].text()==tr('Help') and menus[1].text()==tr('Language')
 assert len(window.language_actions.actions())==8
-assert window.source_language.currentText()=='en' and window.target_language.currentText()=='tr'
+assert window.source_language.currentText()=='en'
+expected_target=active_language() if active_language()!='en' else 'tr'
+assert window.target_language.currentText()==expected_target
 dialog=AllApprovalDialog({'count':201,'warnings':4,'excluded':2},window)
 assert dialog.phrase==tr('approve {p0} translations',p0='201')
 assert canonical_all_confirmation(201) != ''

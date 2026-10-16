@@ -32,14 +32,18 @@ namespace UnityTranslator.I2Mono
             for (int i = 0; i < values.Length; i++) values[i] = Fields[i].GetValue(null);
             return values;
         }
-        public static void SelectTurkish(string name)
+        public static void Select(string code, string name)
         {
-            CultureInfo culture = new CultureInfo("tr");
+            if (!TranslationCore.ValidLanguage(code)) throw new InvalidOperationException("Invalid language code.");
+            CultureInfo culture;
+            try { culture = new CultureInfo(code); }
+            catch (ArgumentException) { culture = new CultureInfo(code.Split('-')[0]); }
+            string primary = code.Split('-')[0].ToLowerInvariant();
             Fields[0].SetValue(null, name);
-            Fields[1].SetValue(null, "tr");
+            Fields[1].SetValue(null, code);
             Fields[2].SetValue(null, culture);
-            Fields[3].SetValue(null, false);
-            Fields[4].SetValue(null, false);
+            Fields[3].SetValue(null, culture.TextInfo.IsRightToLeft);
+            Fields[4].SetValue(null, primary == "zh" || primary == "ja" || primary == "th");
         }
         public static void Restore(object snapshot)
         {

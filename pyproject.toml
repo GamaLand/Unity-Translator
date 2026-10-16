@@ -55,7 +55,7 @@ ignore_errors = true
 
 [tool.hatch.build.targets.sdist]
 exclude = [
-    "/.local", "/.cache", "/.venv", "/.python", "/dist", "/build",
+    "/.local", "/.cache", "/.venv", "/.venv-multilingual", "/.python", "/dist", "/build",
     "/.agents", "/.codex", "/.claude", "/.cursor",
     "AGENTS.md", "/GOAL.md", "/TECHNICAL_DESIGN.md",
     "CLAUDE.md", "GEMINI.md", ".cursorrules", ".windsurfrules",

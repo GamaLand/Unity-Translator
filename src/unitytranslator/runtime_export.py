@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.json_boundary import strict_json
+from unitytranslator.language import language_name
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.runtime_payload import export_runtime_payload
 
@@ -91,7 +92,7 @@ def export_selected_runtime(
         source_set=source_set,
         unity_version=version,
         assembly_relative=assembly_relative,
-        target_name="Türkçe",
+        target_name=language_name(repo.target_language),
         relative="artifacts/i2mono/selection-" + uuid4().hex + ".json",
         selected_unit_ids={item["unit_id"] for item in records},
         max_records=record_limit,

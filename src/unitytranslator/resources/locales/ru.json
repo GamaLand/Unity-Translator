@@ -333,5 +333,7 @@
   "Could not connect to the local server.": "Не удалось подключиться к локальному серверу.",
   "A translation job is already running.": "Задача перевода уже выполняется.",
   "Close the previous installation or recover its partial files first.": "Сначала закройте предыдущую установку или восстановите её частичные файлы.",
-  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Существующие файлы загрузчика в папке игры: {p0}. Они не будут перезаписаны. Откройте проект, которому принадлежит эта установка, и удалите его дополнения через «Применить к игре». Если файлы принадлежат другому моду, используйте процедуру удаления этого модуля."
+  "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Существующие файлы загрузчика в папке игры: {p0}. Они не будут перезаписаны. Откройте проект, которому принадлежит эта установка, и удалите его дополнения через «Применить к игре». Если файлы принадлежат другому моду, используйте процедуру удаления этого модуля.",
+  "Enter a language code, for example ja, it or pt-BR.": "Введите код языка, например ja, it или pt-BR.",
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Исходный язык должен присутствовать в игре. Шрифты и отображение справа налево зависят от игры; проверьте их перед распространением перевода."
 }

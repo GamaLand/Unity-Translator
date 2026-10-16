@@ -12,6 +12,7 @@ namespace UnityTranslator.I2Mono
         public int format_version;
         public string unity_version;
         public string assembly_sha256;
+        public string source_language;
         public string target_language;
         public string target_name;
         public Entry[] entries;
@@ -30,7 +31,7 @@ namespace UnityTranslator.I2Mono
     {
         string Name { get; }
         object Identity { get; }
-        string English(string key);
+        string Original(string key, string language);
         object Capture();
         void Restore(object snapshot);
         void Apply(string code, string name, IDictionary<string, string> translations);
@@ -167,6 +168,31 @@ namespace UnityTranslator.I2Mono
                     throw new InvalidOperationException("Protected content mismatch.");
         }
 
+        public static bool ValidLanguage(string code)
+        {
+            return code != null && Regex.IsMatch(code, @"\A[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8}){0,3}\z");
+        }
+        public static string SourceLanguage(Payload payload)
+        {
+            return payload.format_version == 1 ? "en" : payload.source_language;
+        }
+        public static int LanguageIndex(IList<string> codes, string requested)
+        {
+            int exact = -1, fallback = -1, exactCount = 0, fallbackCount = 0;
+            string primary = requested.Split('-')[0];
+            for (int i = 0; i < codes.Count; i++)
+            {
+                string code = codes[i];
+                if (!ValidLanguage(code)) continue;
+                if (String.Equals(code, requested, StringComparison.OrdinalIgnoreCase))
+                { exact = i; exactCount++; }
+                if (String.Equals(requested.IndexOf('-') >= 0 ? code : code.Split('-')[0], primary, StringComparison.OrdinalIgnoreCase))
+                { fallback = i; fallbackCount++; }
+            }
+            if (exactCount == 1) return exact;
+            if (exactCount == 0 && fallbackCount == 1) return fallback;
+            throw new InvalidOperationException("Source language missing or ambiguous.");
+        }
         public static string Hash(string text)
         {
             using (SHA256 hash = SHA256.Create())
@@ -186,10 +212,12 @@ namespace UnityTranslator.I2Mono
 
         public static int Apply(Payload payload, IList<ISource> sources, Action commit, Action rollback)
         {
-            if (payload == null || payload.format_version != 1 || payload.entries == null
+            if (payload == null || (payload.format_version != 1 && payload.format_version != 2) || payload.entries == null
                 || payload.entries.Length == 0 || payload.entries.Length > 100000
                 || String.IsNullOrEmpty(payload.target_language)
-                || payload.target_language.StartsWith("en", StringComparison.OrdinalIgnoreCase)
+                || !ValidLanguage(payload.target_language)
+                || !ValidLanguage(SourceLanguage(payload))
+                || String.Equals(payload.target_language, SourceLanguage(payload), StringComparison.OrdinalIgnoreCase)
                 || String.IsNullOrEmpty(payload.target_name))
                 throw new InvalidOperationException("Invalid runtime payload.");
             Dictionary<string, ISource> byName = new Dictionary<string, ISource>(StringComparer.Ordinal);
@@ -207,7 +235,7 @@ namespace UnityTranslator.I2Mono
                     || String.IsNullOrEmpty(entry.key) || String.IsNullOrEmpty(entry.text)
                     || entry.text.Length > 1000000 || !byName.ContainsKey(entry.source_set))
                     throw new InvalidOperationException("Missing or invalid term/source.");
-                string original = byName[entry.source_set].English(entry.key);
+                string original = byName[entry.source_set].Original(entry.key, SourceLanguage(payload));
                 if (original == null || Hash(original) != entry.source_sha256)
                     throw new InvalidOperationException("Source text hash mismatch.");
                 CheckProtected(original, entry.text);

@@ -93,3 +93,31 @@ and excluded from source distributions. `.gitignore` does not untrack files alre
 review the Git index before pushing and remove accidentally tracked private files from it.
 Do not publish an old Git history containing private data. Review the source archive with
 `tools/check_distribution.py`; the repository-ready ZIP is source only, not a Windows release.
+
+
+### Multilingual game projects
+
+`language.py` normalizes editable language tags and resolves source columns. UI locale
+selection does not change a project's saved language pair. Existing styles remain
+user-owned data; the default style is language-neutral. Universal validation checks
+run for every pair. English/Turkish negation and condition heuristics stay limited
+to that pair. Add specialized semantic checks with their own language-scoped tests.
+
+Runtime payload schema v2 carries `source_language`. The C# parser also accepts the
+legacy v1 schema with an implicit English source. Source hashes, language-column
+ambiguity checks, approval gates and rollback apply to both versions. Rebuild the
+plugin and its runtime catalogs when changing this contract; do not combine v2
+payloads with an old plugin. Font injection and plural-category conversion are not
+provided. Current source branch structure is preserved and requires human review.
+
+Use a new output folder when building while an earlier application is open:
+
+```powershell
+uv run --extra ui --group build python tools/build_windows.py --output-root dist/windows-next
+uv run --extra ui python tools/package_notices.py --output-root dist/windows-next
+uv run python tools/package_windows.py --output-root dist/windows-next --label rc.next
+```
+
+The build refuses an existing application output folder. It never implicitly deletes
+or replaces a running release. New multilingual regression cases live in
+`tests/test_multilingual.py` and `adapters/i2mono/tests/SourceWrapperTests.cs`.

@@ -48,3 +48,6 @@ correspondente do jogo e `Kaldir.cmd` para remover apenas os arquivos próprios 
 Ele não precisa do modelo nem do UnityTranslator. Preserve as licenças e fontes incluídas.
 Nem todo jogo Unity é compatível; verificações automáticas não garantem qualidade.
 Alguns diagnósticos técnicos mantêm o idioma original.
+
+
+Os idiomas de origem e destino do jogo são independentes do idioma da interface. Use ja para japonês, it para italiano ou pt-BR para português brasileiro; outros códigos também podem ser digitados. O idioma de origem deve existir no jogo. Colunas ausentes ou ambíguas são rejeitadas. O modelo deve oferecer suporte ao par. Os idiomas, aprovações e estilos dos projetos existentes são preservados; revise regras antigas específicas de um idioma. Confira fontes, layout RTL e plurais com um patch pequeno antes de compartilhar. O inglês também pode ser o idioma de destino.

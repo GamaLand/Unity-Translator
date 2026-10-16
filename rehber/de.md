@@ -51,3 +51,6 @@ Spielordner. `Kaldir.cmd` entfernt nur unveränderte eigene Ergänzungen. Modell
 UnityTranslator werden beim Empfänger nicht benötigt. Lizenz- und Quellmaterialien
 müssen erhalten bleiben. Nicht jedes Unity-Spiel wird unterstützt; automatische Prüfungen
 garantieren keine Übersetzungsqualität. Technische Diagnosen können im Original bleiben.
+
+
+Quell- und Zielsprache der Spielübersetzung sind unabhängig von der Oberflächensprache. Verwenden Sie ja für Japanisch, it für Italienisch oder pt-BR für brasilianisches Portugiesisch; andere Sprachcodes können eingegeben werden. Die Quellsprache muss im Spiel vorhanden sein. Fehlende oder mehrdeutige Spalten werden abgelehnt. Das Modell muss das Sprachpaar unterstützen. Bestehende Projektsprachen, Freigaben und eigene Stilregeln bleiben erhalten; prüfen Sie ältere sprachspezifische Regeln. Prüfen Sie Schriftarten, RTL-Layout und Pluralformen mit einem kleinen Patch vor der Weitergabe. Englisch kann auch Zielsprache sein.

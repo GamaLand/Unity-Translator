@@ -19,7 +19,12 @@ def entry() -> int:
             path = checked_path(Path(source))
             if not path.is_relative_to(root):
                 raise ValueError("Worker kaynağı oyun kökü dışında.")
-            print(json.dumps(probe(path, logical, root), ensure_ascii=True))
+            print(
+                json.dumps(
+                    probe(path, logical, root, sys.argv[5] if len(sys.argv) > 5 else "en"),
+                    ensure_ascii=True,
+                )
+            )
             return 0
         except Exception as exc:
             print(json.dumps({"fatal": type(exc).__name__}))

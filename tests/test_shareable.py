@@ -24,7 +24,8 @@ def shareable(install_project, monkeypatch):  # noqa: F811
     folder = Path(result["path"]).with_suffix("")
     with zipfile.ZipFile(result["path"]) as archive:
         assert archive.testzip() is None
-        assert "Kur.cmd" in archive.namelist() and "Kaldir.cmd" in archive.namelist()
+        assert {"Install.cmd", "Uninstall.cmd", "Kur.cmd", "Kaldir.cmd"} <= set(archive.namelist())
+        assert b"shareable translation patch" in archive.read("README.txt")
         assert not any(
             name.endswith((".sqlite3", ".gguf", ".assets")) for name in archive.namelist()
         )

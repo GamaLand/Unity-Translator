@@ -22,7 +22,7 @@ MARKER = re.compile(r"__UT_[a-f0-9]+_\d+__")
 PROTECTED_FORMAT_VERSION = "protected-i2-v4"
 PLURAL_MARKER = re.compile(r"\[i2p_(Zero|One)\]")
 NUMBER = r"[+\-−]?\d+(?:[.,]\d+)*"
-REVIEW_CHECKS_VERSION = "review-en-tr-v4"
+REVIEW_CHECKS_VERSION = "review-multilingual-v5"
 EN_NEGATION = re.compile(
     r"\b(?:not|no|never|none|nothing|nowhere|neither|nor|without|cannot|unable)\b|"
     r"\b\w+n['’]t\b"
@@ -103,12 +103,20 @@ def issue_label(code: str) -> str:
 
 
 def numeric_value(value: str, language: str) -> str:
-    """Yalnızca en/tr için açık ondalık/binlik düzenini normalleştirir."""
+    """Normalize unambiguous separators for common language conventions."""
     value = value.replace("−", "-")
     primary = language.lower().split("-")[0]
-    if primary not in ("en", "tr"):
+    dot_decimal = {"en", "ja", "ko", "zh", "hi", "th"}
+    comma_decimal = {"tr", "de", "es", "it", "pt", "nl", "da", "el", "ro", "id", "vi"}
+    if language.lower() == "pt-pt" or primary in {"fr", "ru", "uk", "pl", "cs", "sv", "fi", "hu"}:
+        # These commonly use a space grouping separator; do not treat '.' as grouping.
+        decimal, grouping = ",", " "
+    elif primary in dot_decimal:
+        decimal, grouping = ".", ","
+    elif primary in comma_decimal:
+        decimal, grouping = ",", "."
+    else:
         return value
-    decimal, grouping = (".", ",") if primary == "en" else (",", ".")
     if value.count(decimal) > 1 or (decimal in value and grouping in value.split(decimal)[1]):
         return value
     integer = value.lstrip("+-").split(decimal)[0]

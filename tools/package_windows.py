@@ -16,11 +16,15 @@ from unitytranslator.filesystem import checked_path, hash_file
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--label", required=True, help="Örneğin preview.3")
-    label = parser.parse_args().label
+    root = Path(__file__).resolve().parents[1]
+    parser.add_argument("--output-root", type=Path, default=root / "dist/windows")
+    args = parser.parse_args()
+    label = args.label
     if not re.fullmatch(r"[a-z][a-z0-9.-]{0,39}", label):
         raise ValueError("Geçersiz paket etiketi.")
-    root = Path(__file__).resolve().parents[1]
-    output = checked_path(root / "dist/windows")
+    output = checked_path(args.output_root)
+    if not output.is_relative_to(root / "dist"):
+        raise ValueError("Package output must be under the workspace dist folder.")
     package = checked_path(output / "UnityTranslator.dist")
     version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
         "version"

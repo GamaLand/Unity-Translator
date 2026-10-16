@@ -209,13 +209,15 @@ class LocalProvider:
                 pass  # Native metaveri temel bağlantının şartı değildir.
         return models
 
-    async def translate_sample(self, model: str, text: str) -> dict[str, Any]:
+    async def translate_sample(
+        self, model: str, text: str, *, source_language: str = "en", target_language: str = "tr"
+    ) -> dict[str, Any]:
         return await self.translate_record(
             model,
             text,
             "sample",
-            "en",
-            "tr",
+            source_language,
+            target_language,
             context_tokens=8192,
             output_tokens=4096,
             prompt_version="sample-v1",

@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 )
 
 from unitytranslator import __version__
+from unitytranslator.language import DEFAULT_STYLE, LANGUAGE_NAMES
 from unitytranslator.review_selection import canonical_all_confirmation
 from unitytranslator.ui.bridge import BackendBridge
 from unitytranslator.ui.drafts import DraftController
@@ -791,11 +792,24 @@ class MainWindow(QMainWindow):
         self.target_language = QComboBox()
         for combo in (self.source_language, self.target_language):
             combo.setEditable(True)
-            combo.addItems(["en", "tr", "fr", "de", "es"])
-        self.target_language.setCurrentText("tr")
+            combo.addItems(list(LANGUAGE_NAMES))
+            for index, name in enumerate(LANGUAGE_NAMES.values()):
+                combo.setItemData(index, name, Qt.ItemDataRole.ToolTipRole)
+            combo.setToolTip(tr("Enter a language code, for example ja, it or pt-BR."))
+        self.target_language.setCurrentText(
+            active_language() if active_language() != "en" else "tr"
+        )
         form.addRow(tr("Source language"), self.source_language)
         form.addRow(tr("Target language"), self.target_language)
         layout.addLayout(form)
+        language_note = QLabel(
+            tr(
+                "The source language must exist in the game. Fonts and right-to-left layout "
+                "depend on the game; check them before distributing a patch."
+            )
+        )
+        language_note.setWordWrap(True)
+        layout.addWidget(language_note)
         open_button = QPushButton(tr("Create / open project"))
         open_button.clicked.connect(self.open_project)
         layout.addWidget(open_button)
@@ -960,9 +974,7 @@ class MainWindow(QMainWindow):
         self.style_category.addItem(tr("Default"), "default")
         self.style_category.currentIndexChanged.connect(self.style_selected)
         layout.addWidget(self.style_category)
-        self.style = QTextEdit(
-            "Kaynak anlamı ve tonu koru; açık, doğal Türkçe kullan. İçerik ekleme veya yumuşatma."
-        )
+        self.style = QTextEdit(DEFAULT_STYLE)
         self.style.setMaximumHeight(120)
         layout.addWidget(self.style)
         save = QPushButton(tr("Save glossary / style version"))
@@ -2250,6 +2262,8 @@ class MainWindow(QMainWindow):
             for value in result["glossary"]:
                 self.add_rule(value)
             self.styles = result["styles"].copy()
+            if not self.styles:
+                self.styles = {"default": DEFAULT_STYLE}
             self.style.setPlainText(self.styles.get(self.style_key, ""))
             self.impact_note.setText(
                 tr(

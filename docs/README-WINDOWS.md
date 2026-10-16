@@ -41,3 +41,11 @@ Some technical diagnostics retain original wording. Automatic checks do not guar
 
 The application's own code is MIT licensed. See `SOURCE-ACCESS.md`, `NATIVE-NOTICES.md`,
 `LICENSES`, the dependency-source archives and the runtime-kit notices before redistribution.
+
+
+Game translation languages are separate from the interface. Source/target boxes
+suggest 32 codes and accept custom tags: ja = Japanese, it = Italian, pt-BR = Brazilian
+Portuguese. The source must exist in the game and the model must support the pair.
+Existing project settings and styles are preserved. Check fonts, RTL layout and
+plural forms before distributing a patch. Shareable ZIPs include Install.cmd and
+Uninstall.cmd; the recipient does not need this application or a model.

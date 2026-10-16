@@ -11,11 +11,18 @@ namespace UnityTranslator.I2Mono
         {
             Reader reader = new Reader(json);
             Dictionary<string, object> root = reader.Document();
-            Exact(root, "format_version", "unity_version", "assembly_sha256", "target_language", "target_name", "entries");
-            if (!(root["format_version"] is int) || (int)root["format_version"] != 1) throw Invalid();
+            object rawVersion;
+            if (!root.TryGetValue("format_version", out rawVersion) || !(rawVersion is int)) throw Invalid();
+            int version = (int)rawVersion;
+            if (version == 1)
+                Exact(root, "format_version", "unity_version", "assembly_sha256", "target_language", "target_name", "entries");
+            else if (version == 2)
+                Exact(root, "format_version", "source_language", "unity_version", "assembly_sha256", "target_language", "target_name", "entries");
+            else throw Invalid();
             List<object> entries = root["entries"] as List<object>;
             if (entries == null || entries.Count == 0 || entries.Count > 100000) throw Invalid();
-            Payload payload = new Payload { format_version = 1,
+            Payload payload = new Payload { format_version = version,
+                source_language = version == 1 ? "en" : Text(root, "source_language"),
                 unity_version = Text(root, "unity_version"), assembly_sha256 = Text(root, "assembly_sha256"),
                 target_language = Text(root, "target_language"), target_name = Text(root, "target_name"),
                 entries = new Entry[entries.Count] };
@@ -83,7 +90,7 @@ namespace UnityTranslator.I2Mono
                     do
                     {
                         Space(); string key = String();
-                        if (!Take(':') || result.ContainsKey(key) || result.Count >= 6) throw Invalid();
+                        if (!Take(':') || result.ContainsKey(key) || result.Count >= 7) throw Invalid();
                         result.Add(key, Value(depth + 1));
                     } while (Take(','));
                     if (!Take('}')) throw Invalid();
@@ -101,8 +108,8 @@ namespace UnityTranslator.I2Mono
                     if (!Take(']')) throw Invalid();
                     return result;
                 }
-                // Şemadaki tek sayı format_version=1'dir.
-                if (input[offset] == '1') { offset++; return 1; }
+                // The only numbers in the schema are format versions 1 and 2.
+                if (input[offset] == '1' || input[offset] == '2') return input[offset++] - '0';
                 throw Invalid();
             }
             private string String()

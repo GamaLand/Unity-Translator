@@ -9,6 +9,7 @@ from unitytranslator.deployment import DeploymentService, VolatileFile
 from unitytranslator.filesystem import checked_path, hash_file
 from unitytranslator.i2_activation import install_reviewed_trial, prepare_activation_review
 from unitytranslator.i2_trial import prepare_i2_trial
+from unitytranslator.language import language_name
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.runtime_export import export_selected_runtime
 from unitytranslator.runtime_kit import RuntimeKit
@@ -125,7 +126,7 @@ class InstallationSession:
             source_set=context["source_set"],
             unity_version=context["unity_version"],
             assembly_relative=context["assembly_relative"],
-            target_name="Türkçe",
+            target_name=language_name(self.repo.target_language),
             selected_unit_ids={row["unit_id"] for row in records},
             record_limit=100_000,
         )

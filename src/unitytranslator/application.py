@@ -225,15 +225,16 @@ class ApplicationSession:
                 "observed_at": now(),
             }
         if command == "extract":
-            if self.repo.source_language != "en":
-                raise ValueError(
-                    "Bu I2 okuyucusu İngilizce kaynak kullanır. Kaynak dili en olan bir proje açın."
-                )
             if self.extracting or (self.jobs and self.jobs.active_job):
                 raise ValueError("Başka bir çıkarma/çeviri işlemi sürüyor.")
             self.extracting = True
             try:
-                report = await asyncio.to_thread(probe_source, self.repo.paths, data["source"])
+                report = await asyncio.to_thread(
+                    probe_source,
+                    self.repo.paths,
+                    data["source"],
+                    source_language=self.repo.source_language,
+                )
                 output = save_report(self.repo.paths, "extract", report)
                 if report["extraction"] != "supported":
                     raise ValueError(f"Çıkarma desteklenmedi; tanı raporu: {output}")
@@ -255,7 +256,10 @@ class ApplicationSession:
             if command == "models":
                 return await provider.inspect_models()
             return await provider.translate_sample(
-                data["model"], "<b>Welcome {0}</b>\nYou have 3 points."
+                data["model"],
+                "<b>Welcome {0}</b>\nYou have 3 points.",
+                source_language="en",
+                target_language=self.repo.target_language,
             )
         if command == "policies":
             policy = PolicyStore(self.repo)

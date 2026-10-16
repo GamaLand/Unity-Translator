@@ -1,9 +1,10 @@
-"""Yalnızca doğrulanmış I2 alanlarından İngilizce kaynak okur."""
+"""Read the selected source language from validated I2 fields."""
 
 from hashlib import sha256
 from typing import Any
 
 from unitytranslator.domain import TextUnitDraft
+from unitytranslator.language import language_index, normalize_language
 
 
 def extract_i2(
@@ -11,6 +12,7 @@ def extract_i2(
     source: str,
     object_id: int,
     diagnostics: list[dict[str, Any]] | None = None,
+    source_language: str = "en",
 ) -> list[TextUnitDraft]:
     # Bazı I2 sürümleri LanguageSourceData'yı mSource alanında saklar.
     data = tree.get("mSource", tree)
@@ -20,14 +22,8 @@ def extract_i2(
     terms = data["mTerms"]
     if not isinstance(languages, list) or not isinstance(terms, list):
         raise ValueError("I2 dil/terim listesi çözülemedi.")
-    indices = [
-        i
-        for i, language in enumerate(languages)
-        if isinstance(language, dict)
-        and (language.get("Code") in ("en", "en-US", "en-GB") or language.get("Name") == "English")
-    ]
-    if len(indices) != 1:
-        raise ValueError("Tekil İngilizce dil eşlemesi bulunamadı.")
+    source_language = normalize_language(source_language)
+    index = language_index(languages, source_language)
     result = []
     seen: set[str] = set()
     source_set = data.get("mName") or tree.get("m_Name")
@@ -46,12 +42,12 @@ def extract_i2(
         seen.add(key)
         if not isinstance(values, list) or len(values) != len(languages):
             raise ValueError("I2 terim dil sayısı uyuşmuyor.")
-        text = values[indices[0]]
+        text = values[index]
         if not isinstance(text, str):
-            raise ValueError("İngilizce kaynak metin eksik.")
+            raise ValueError("Selected source language text is missing.")
         if not text.strip():
             if diagnostics is None:
-                raise ValueError("İngilizce kaynak metin eksik.")
+                raise ValueError("Selected source language text is missing.")
             diagnostics.append({"object": object_id, "key": key, "code": "empty_source_excluded"})
             continue
         identity = "\0".join(("i2-v1", source_set, key))
@@ -61,7 +57,7 @@ def extract_i2(
                 original_key=key,
                 source_file=source,
                 source_object=object_id,
-                source_language="en",
+                source_language=source_language,
                 source_text=text,
                 source_hash=sha256(text.encode("utf-8")).hexdigest(),
                 category=key.partition("/")[0] if "/" in key else "unknown",

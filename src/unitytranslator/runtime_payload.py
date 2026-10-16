@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from unitytranslator.filesystem import checked_path, hash_file
+from unitytranslator.language import normalize_language
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.validation import format_issues
 
@@ -28,8 +29,10 @@ def export_runtime_payload(
         raise ValueError("Deneme kayıt seçimi boş olamaz.")
     if max_records is not None and (type(max_records) is not int or max_records < 1):
         raise ValueError("Geçersiz deneme kayıt sınırı.")
-    if repository.source_language != "en" or repository.target_language != "tr":
-        raise ValueError("Bu deneysel adaptör yalnızca İngilizce → Türkçe uygulaması içindir.")
+    source_language = normalize_language(repository.source_language)
+    target_language = normalize_language(repository.target_language)
+    if source_language == target_language:
+        raise ValueError("Source and target languages must differ.")
     if (
         not source_set
         or not target_name
@@ -90,10 +93,11 @@ def export_runtime_payload(
     if max_records is not None and len(entries) > max_records:
         raise ValueError("Deneme kayıt sınırı aşıldı; daha küçük bir seçim gerekli.")
     value = {
-        "format_version": 1,
+        "format_version": 2,
+        "source_language": source_language,
         "unity_version": unity_version,
         "assembly_sha256": hash_file(assembly),
-        "target_language": repository.target_language,
+        "target_language": target_language,
         "target_name": target_name,
         "entries": entries,
     }

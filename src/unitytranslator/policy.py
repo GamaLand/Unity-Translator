@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from unitytranslator.language import turkish_lower
+from unitytranslator.language import language_fold
 from unitytranslator.repository import ProjectRepository, canonical, now
 
 
@@ -20,13 +20,16 @@ class GlossaryRule(BaseModel):
     case_sensitive: bool = False
     word_boundary: bool = True
 
-    def matches(self, text: str, category: str, target: bool = False) -> bool:
+    def matches(
+        self, text: str, category: str, target: bool = False, *, language: str | None = None
+    ) -> bool:
         if self.category is not None and self.category != category:
             return False
         term = self.target if target else self.source
         if not self.case_sensitive:
-            text = turkish_lower(text) if target else text.casefold()
-            term = turkish_lower(term) if target else term.casefold()
+            language = language or ("tr" if target else "en")
+            text = language_fold(text, language)
+            term = language_fold(term, language)
         expression = re.escape(term)
         if self.word_boundary:
             expression = r"(?<!\w)" + expression + r"(?!\w)"
@@ -66,7 +69,14 @@ class PolicyStore:
                 "SELECT u.unit_id,s.source_text,s.category FROM text_units u "
                 "JOIN source_revisions s ON s.id=u.source_revision WHERE u.active=1"
             ):
-                if any(rule.matches(row["source_text"], row["category"]) for rule in changed):
+                if any(
+                    rule.matches(
+                        row["source_text"],
+                        row["category"],
+                        language=self.repository.source_language,
+                    )
+                    for rule in changed
+                ):
                     db.execute(
                         "INSERT INTO policy_impacts(unit_id,glossary_version,reason,created_at) "
                         "VALUES(?,?,'glossary_changed',?) ON CONFLICT(unit_id) DO UPDATE SET "

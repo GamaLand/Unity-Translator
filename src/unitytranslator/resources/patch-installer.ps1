@@ -55,7 +55,13 @@ function Confined([string]$Root,[string]$Relative) {
     if (-not $full.StartsWith($Root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Path escaped root.' }
     return $full
 }
-function Digest([string]$Path) { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+function Digest([string]$Path) {
+    # .NET hashing also works when PowerShell module auto-loading is unavailable.
+    $stream = [IO.File]::OpenRead($Path)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $algorithm.Dispose(); $stream.Dispose() }
+}
 function GameClosed {
     $name = [IO.Path]::GetFileNameWithoutExtension($package.game_executable)
     foreach ($process in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {

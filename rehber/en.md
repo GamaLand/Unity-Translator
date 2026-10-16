@@ -47,3 +47,6 @@ extracts the ZIP and runs `Kur.cmd` to select the matching game folder; `Kaldir.
 removes owned, unchanged additions. The recipient needs no model or UnityTranslator.
 Keep the included license/source materials. Not every Unity game is supported; automated
 checks do not guarantee translation quality. Some technical diagnostics retain original wording.
+
+
+Game translation languages: source and target are separate from the interface language. Enter ja for Japanese, it for Italian or pt-BR for Brazilian Portuguese; other language codes can also be entered. The source must exist in the game. Missing or ambiguous source columns are rejected. The model must support the pair. Existing project languages, approvals and custom styles are preserved; review old language-specific styles. Check fonts, RTL layout and plural forms in a small patch before sharing. English can also be a target.

@@ -19,7 +19,7 @@ sealed class FakeSource : ISource
         if (FailRestore) throw new InvalidOperationException("Synthetic restore failure.");
         Text = (string)snapshot;
     }
-    public string English(string key) { return key == "UI/start" ? SourceText : null; }
+    public string Original(string key, string language) { return key == "UI/start" ? SourceText : null; }
     public void Apply(string code, string name, IDictionary<string, string> changes)
     {
         Calls++;

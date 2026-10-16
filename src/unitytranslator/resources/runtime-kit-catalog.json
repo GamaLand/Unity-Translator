@@ -22,9 +22,9 @@
     "LICENSES/MonoMod-MonoMod.Common-LICENSE.txt": "206ffec502564c3bd09be6c6370c817963ae69bef8e8f0cf208d19bd94ce28bd",
     "LICENSES/NeighTools-UnityDoorstop-LICENSE.txt": "20c17d8b8c48a600800dfd14f95d5cb9ff47066a9641ddeab48dc54aec96e331",
     "LICENSES/UnityTranslator-MIT.txt": "8d81ff5cc68b11f0d5f7fc17207f84a3af584338a143b23e9f6e6462a8a81a29",
-    "plugin/UnityTranslator.I2Mono.dll": "94621b175835d9141ada6d3938f2d5982e304f481960b7e5380c9578782ff9dc",
+    "plugin/UnityTranslator.I2Mono.dll": "396a17e899a6bc788c8688b2b1b9a1dd0ea37613ea0c5125c3186492e22888c3",
     "README.txt": "6c7d6f6c398b793a8fbb7c2670c152ffe71a3577c4d176217e1f23cadf8b5372",
-    "RUNTIME-NOTICES.json": "908ee2e8e01672bb61b18f01154dffd70896953103e156139bfeab6ab8de76f9",
+    "RUNTIME-NOTICES.json": "5a68ca6bb3f403c08902db21cbc813cce8d8263c6e13b175ed8044f48571da95",
     "SOURCES/BepInEx-BepInEx-57f1fb859bd4d0264cd2a59074d0e96c6a492a33.zip": "da6532698eb3bf7adad22e58202efc844c1c094206d61f8f24dba9c27a05ece6",
     "SOURCES/BepInEx-BepInEx.Harmony-d4cdcb4cdeac14a0b77012165f5f5a9f5032a9fa.zip": "f0ac461d591f16fb59c1f297bf951941443f088ff371847820bc500ecc10896a",
     "SOURCES/BepInEx-HarmonyX-31d794f3affce55fa87c99efac7dae23a126cf52.zip": "550e070e8f5e7801e26088f083ce6f757f1d94c16b1305e8cefd921011e3370a",
@@ -33,7 +33,7 @@
     "SOURCES/MonoMod-MonoMod.Common-aceda0b47aa6b17faac4f0889bb9b4621194da4c.zip": "51961ba3bfcbf01e4900feab609b7351e78426e9cfe2d853ada48398c4d21045",
     "SOURCES/NeighTools-UnityDoorstop-33dab9a6733862eb81869ff08431d9478b28784b.zip": "a71789ffcb359f6a37c6d2c7bbdd0527231e9db00bf46637693cff88ba7ffb80",
     "SOURCES/protected-preloader.zip": "ca965e0fcc103a19547f9d311ebd77d1082d6eef26947bd5e9a7cfaddd4dd098",
-    "SOURCES/UnityTranslator-I2Mono.zip": "51bcf62a433555f875d992fd47e2e323c8f142edbf3c6510c521a4ed390173f7",
+    "SOURCES/UnityTranslator-I2Mono.zip": "bf43522961a75831359b48596c271d41749bdf485c2693b4f510c7e9071371e0",
     "winhttp.dll": "8c6cdbc38836dee87e3368f5de1994d7c0ccebf29e4ce7aba3c0981f9375412c"
   },
   "managed_references": {
@@ -57,6 +57,6 @@
     "core/MonoMod.RuntimeDetour.dll": "40e49bb314391cd7bddc2644f8553eeba92c194b940836b103df16955c464e0c",
     "core/BepInEx.Preloader.dll": "c72830ee8c054d103bc8a5c4e8c87bb72999a16da1dba01c5a4e19c110e6b8bb",
     "winhttp.dll": "8c6cdbc38836dee87e3368f5de1994d7c0ccebf29e4ce7aba3c0981f9375412c",
-    "plugin/UnityTranslator.I2Mono.dll": "94621b175835d9141ada6d3938f2d5982e304f481960b7e5380c9578782ff9dc"
+    "plugin/UnityTranslator.I2Mono.dll": "396a17e899a6bc788c8688b2b1b9a1dd0ea37613ea0c5125c3186492e22888c3"
   }
 }
