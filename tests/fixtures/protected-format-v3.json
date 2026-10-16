@@ -1,0 +1,247 @@
+[
+  {
+    "source": "Gain {[DMG]} damage",
+    "target": "{[DMG]} hasar kazan",
+    "accepted": true
+  },
+  {
+    "source": "<color=#{[COLOR]}>+{[DMG]} Damage</color>",
+    "target": "<color=#{[COLOR]}>+{[DMG]} Hasar</color>",
+    "accepted": true
+  },
+  {
+    "source": "{[FIRST]} and {[SECOND]}",
+    "target": "{[SECOND]} ve {[FIRST]}",
+    "accepted": true
+  },
+  {
+    "source": "{[SUBMIT]}",
+    "target": "{[SUBMIT]}",
+    "accepted": true
+  },
+  {
+    "source": "<b>{0}</b>\r\n<i>{name}</i>",
+    "target": "<b>{0}</b>\r\n<i>{name}</i>",
+    "accepted": true
+  },
+  {
+    "source": "Life < Knowledge",
+    "target": "Hayat < Bilgi",
+    "accepted": true
+  },
+  {
+    "source": "Damage > Armor",
+    "target": "Hasar > Zırh",
+    "accepted": true
+  },
+  {
+    "source": "<color=red>{[A]} {[A]}</color>",
+    "target": "<color=red>{[A]} {[A]}</color>",
+    "accepted": true
+  },
+  {
+    "source": "Use {[A]}",
+    "target": "Kullan",
+    "accepted": false
+  },
+  {
+    "source": "Use {[A]}",
+    "target": "{[A]} {[A]} kullan",
+    "accepted": false
+  },
+  {
+    "source": "Use {[A]}",
+    "target": "{[B]} kullan",
+    "accepted": false
+  },
+  {
+    "source": "Use {[A]}",
+    "target": "{[A]} {extra} kullan",
+    "accepted": false
+  },
+  {
+    "source": "<color=#{[COLOR]}>x</color>",
+    "target": "<color=red>x</color>",
+    "accepted": false
+  },
+  {
+    "source": "{[BAD NAME]}",
+    "target": "{[BAD NAME]}",
+    "accepted": false
+  },
+  {
+    "source": "{[A:2]}",
+    "target": "{[A:2]}",
+    "accepted": false
+  },
+  {
+    "source": "{[A]",
+    "target": "{[A]",
+    "accepted": false
+  },
+  {
+    "source": "<color=#{[BAD NAME]}>x</color>",
+    "target": "<color=#{[BAD NAME]}>x</color>",
+    "accepted": false
+  },
+  {
+    "source": "<size=20>x</size>",
+    "target": "<size=20>x</size>",
+    "accepted": true
+  },
+  {
+    "source": "<script>x</script>",
+    "target": "<script>x</script>",
+    "accepted": false
+  },
+  {
+    "source": "[i2p_One]x",
+    "target": "[i2p_One]x",
+    "accepted": false
+  },
+  {
+    "source": "Life < Knowledge",
+    "target": "Hayat > Bilgi",
+    "accepted": false
+  },
+  {
+    "source": "x<y",
+    "target": "x<y",
+    "accepted": false
+  },
+  {
+    "source": "__UT_bad",
+    "target": "x",
+    "accepted": false
+  },
+  {
+    "source": "x",
+    "target": "__UT_bad",
+    "accepted": false
+  },
+  {
+    "source": "<b=1>x</b>",
+    "target": "<b=1>x</b>",
+    "accepted": false
+  },
+  {
+    "source": "<b>x</b>",
+    "target": "<b>x</b=1>",
+    "accepted": false
+  },
+  {
+    "source": "<size=80%><i>Return</i></size>",
+    "target": "<size=80%><i>Don</i></size>",
+    "accepted": true
+  },
+  {
+    "source": "<size=80%><size=20>x</size></size>",
+    "target": "<size=80%><size=20>y</size></size>",
+    "accepted": true
+  },
+  {
+    "source": "<size=80%>x</size>",
+    "target": "<size=90%>y</size>",
+    "accepted": false
+  },
+  {
+    "source": "<size=80%>x</size>",
+    "target": "<size=80%>y",
+    "accepted": false
+  },
+  {
+    "source": "<size=80%><i>x</i></size>",
+    "target": "<size=80%><i>y</size></i>",
+    "accepted": false
+  },
+  {
+    "source": "<size=0>x</size>",
+    "target": "<size=0>x</size>",
+    "accepted": false
+  },
+  {
+    "source": "<size=1000>x</size>",
+    "target": "<size=1000>x</size>",
+    "accepted": false
+  },
+  {
+    "source": "<size=80px>x</size>",
+    "target": "<size=80px>x</size>",
+    "accepted": false
+  },
+  {
+    "source": "<sprite name=\"BUTTON\"> Skip",
+    "target": "<sprite name=\"BUTTON\"> Atla",
+    "accepted": true
+  },
+  {
+    "source": "<sprite name=\"BUTTON\"> Skip",
+    "target": "<sprite name=\"OTHER\"> Atla",
+    "accepted": false
+  },
+  {
+    "source": "<sprite name=\"BUTTON\"> Skip",
+    "target": "Atla",
+    "accepted": false
+  },
+  {
+    "source": "<sprite name=\"BUTTON\"> Skip",
+    "target": "<sprite name=\"BUTTON\"><sprite name=\"BUTTON\"> Atla",
+    "accepted": false
+  },
+  {
+    "source": "<sprite name=\"BAD NAME\"> Skip",
+    "target": "<sprite name=\"BAD NAME\"> Skip",
+    "accepted": false
+  },
+  {
+    "source": "<sprite index=1> Skip",
+    "target": "<sprite index=1> Skip",
+    "accepted": false
+  },
+  {
+    "source": "<sprite name=\"BUTTON\"></sprite>",
+    "target": "<sprite name=\"BUTTON\"></sprite>",
+    "accepted": false
+  },
+  {
+    "source": "Distance {0:F1}m",
+    "target": "Mesafe {0:F1}m",
+    "accepted": true
+  },
+  {
+    "source": "Distance {0:F1}m",
+    "target": "Mesafe {0:F2}m",
+    "accepted": false
+  },
+  {
+    "source": "Distance {0:F1}m",
+    "target": "Mesafe {0}m",
+    "accepted": false
+  },
+  {
+    "source": "{1:f2} and {0:F1}",
+    "target": "{0:F1} ve {1:f2}",
+    "accepted": true
+  },
+  {
+    "source": "{name:F1}",
+    "target": "{name:F1}",
+    "accepted": false
+  },
+  {
+    "source": "{0:F100}",
+    "target": "{0:F100}",
+    "accepted": false
+  },
+  {
+    "source": "{0:N2}",
+    "target": "{0:N2}",
+    "accepted": false
+  },
+  {
+    "source": "{0,4:F1}",
+    "target": "{0,4:F1}",
+    "accepted": false
+  }
+]

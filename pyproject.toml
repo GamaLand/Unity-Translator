@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "unitytranslator"
+version = "0.1.0"
+description = "Local AI translation and review for supported Unity games"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "UnityPy>=1.20,<2",
+    "dnfile>=0.17,<0.18",
+    "httpx>=0.28,<0.29",
+    "pydantic>=2.10,<3",
+]
+
+[project.optional-dependencies]
+ui = ["PySide6>=6.8,<7"]
+
+[dependency-groups]
+build = [
+    "nuitka==4.1.1",
+]
+dev = [
+    "pytest>=8,<10",
+    "ruff>=0.9,<1",
+    "mypy>=1.14,<2",
+    "dncil==1.0.2",
+    "fonttools>=4.60,<5",
+]
+
+[project.scripts]
+unitytranslator = "unitytranslator.__main__:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["**/deployment/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["unitytranslator"]
+
+[[tool.mypy.overrides]]
+module = ["unitytranslator.ui.*"]
+ignore_errors = true
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "/.local", "/.cache", "/.venv", "/.python", "/dist", "/build",
+    "/.agents", "/.codex", "/.claude", "/.cursor",
+    "AGENTS.md", "/GOAL.md", "/TECHNICAL_DESIGN.md",
+    "CLAUDE.md", "GEMINI.md", ".cursorrules", ".windsurfrules",
+    "/.github/copilot-instructions.md", "**/deployment", "**/obj", "**/bin",
+    "**/__pycache__", "**/*.sqlite3*", "**/*.gguf", "**/*.dll", "**/*.exe",
+    ".env", ".env.*", "*.pem", "*.key", "*.pfx", "*.safetensors",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"rehber" = "unitytranslator/resources/guides"
+"docs/SOURCE-ACCESS.md" = "unitytranslator/resources/SOURCE-ACCESS.md"
+

@@ -1,0 +1,353 @@
+{
+  "format_version": 1,
+  "release": {
+    "version": "5.4.23.5",
+    "url": "https://github.com/BepInEx/BepInEx/releases/tag/v5.4.23.5",
+    "sha256": "82f9878551030f54657792c0740d9d51a09500eeae1fba21106b0c441e6732c4"
+  },
+  "sources": [
+    {
+      "repository": "BepInEx/BepInEx",
+      "ref": "v5.4.23.5",
+      "commit": "57f1fb859bd4d0264cd2a59074d0e96c6a492a33",
+      "source_url": "https://codeload.github.com/BepInEx/BepInEx/zip/57f1fb859bd4d0264cd2a59074d0e96c6a492a33",
+      "source_archive_sha256": "da6532698eb3bf7adad22e58202efc844c1c094206d61f8f24dba9c27a05ece6"
+    },
+    {
+      "repository": "BepInEx/BepInEx.Harmony",
+      "ref": "d4cdcb4cdeac14a0b77012165f5f5a9f5032a9fa",
+      "commit": "d4cdcb4cdeac14a0b77012165f5f5a9f5032a9fa",
+      "source_url": "https://codeload.github.com/BepInEx/BepInEx.Harmony/zip/d4cdcb4cdeac14a0b77012165f5f5a9f5032a9fa",
+      "source_archive_sha256": "f0ac461d591f16fb59c1f297bf951941443f088ff371847820bc500ecc10896a"
+    },
+    {
+      "repository": "BepInEx/HarmonyX",
+      "ref": "v2.9.0",
+      "commit": "31d794f3affce55fa87c99efac7dae23a126cf52",
+      "source_url": "https://codeload.github.com/BepInEx/HarmonyX/zip/31d794f3affce55fa87c99efac7dae23a126cf52",
+      "source_archive_sha256": "550e070e8f5e7801e26088f083ce6f757f1d94c16b1305e8cefd921011e3370a"
+    },
+    {
+      "repository": "jbevain/cecil",
+      "ref": "0.10.4",
+      "commit": "98ec890d44643ad88d573e97be0e120435eda732",
+      "source_url": "https://codeload.github.com/jbevain/cecil/zip/98ec890d44643ad88d573e97be0e120435eda732",
+      "source_archive_sha256": "723cfd69ba4636553417cdcb190e33644f6649ef0f8f86da3e924b45239ebfb3"
+    },
+    {
+      "repository": "MonoMod/MonoMod",
+      "ref": "v22.01.29.01",
+      "commit": "68cf23127bd2394004e8a812b160a0862c95a309",
+      "source_url": "https://codeload.github.com/MonoMod/MonoMod/zip/68cf23127bd2394004e8a812b160a0862c95a309",
+      "source_archive_sha256": "bec88eff9a78b324f4b61880dc916195bcea186257f59f6d33c8bc17edc53818"
+    },
+    {
+      "repository": "NeighTools/UnityDoorstop",
+      "ref": "v4.5.0",
+      "commit": "33dab9a6733862eb81869ff08431d9478b28784b",
+      "source_url": "https://codeload.github.com/NeighTools/UnityDoorstop/zip/33dab9a6733862eb81869ff08431d9478b28784b",
+      "source_archive_sha256": "a71789ffcb359f6a37c6d2c7bbdd0527231e9db00bf46637693cff88ba7ffb80"
+    },
+    {
+      "repository": "MonoMod/MonoMod.Common",
+      "ref": "aceda0b47aa6b17faac4f0889bb9b4621194da4c",
+      "commit": "aceda0b47aa6b17faac4f0889bb9b4621194da4c",
+      "source_url": "https://codeload.github.com/MonoMod/MonoMod.Common/zip/aceda0b47aa6b17faac4f0889bb9b4621194da4c",
+      "source_archive_sha256": "51961ba3bfcbf01e4900feab609b7351e78426e9cfe2d853ada48398c4d21045"
+    }
+  ],
+  "licenses": [
+    {
+      "file": "third_party_licenses/BepInEx-BepInEx-LICENSE.txt",
+      "sha256": "e6e534ef6f4347b6449407ee046a3d09cb0174c6f688c996ad0bed94b74b3933",
+      "license": "MIT",
+      "repository": "BepInEx/BepInEx",
+      "url": "https://raw.githubusercontent.com/BepInEx/BepInEx/57f1fb859bd4d0264cd2a59074d0e96c6a492a33/LICENSE"
+    },
+    {
+      "file": "third_party_licenses/BepInEx-BepInEx.Harmony-LICENSE.txt",
+      "sha256": "feb87a2e0c305de3464cc44077da5393c52d8ca6362d37427157d04ec6f4510d",
+      "license": "MIT",
+      "repository": "BepInEx/BepInEx.Harmony",
+      "url": "https://raw.githubusercontent.com/BepInEx/BepInEx.Harmony/d4cdcb4cdeac14a0b77012165f5f5a9f5032a9fa/LICENSE"
+    },
+    {
+      "file": "third_party_licenses/BepInEx-HarmonyX-LICENSE.txt",
+      "sha256": "1aaf59a35b7d0bc58cdc4ffe303558974ad5acae6700ba9e04a182e9f6cb5c8b",
+      "license": "MIT",
+      "repository": "BepInEx/HarmonyX",
+      "url": "https://raw.githubusercontent.com/BepInEx/HarmonyX/31d794f3affce55fa87c99efac7dae23a126cf52/LICENSE"
+    },
+    {
+      "file": "third_party_licenses/BepInEx-HarmonyX-LICENSE.Harmony.txt",
+      "sha256": "07cfa3e4aa04ae179d538735629ac69d272b8c3ffc58a20ebdba5e8b63f9f42f",
+      "license": "MIT",
+      "repository": "BepInEx/HarmonyX",
+      "url": "https://raw.githubusercontent.com/BepInEx/HarmonyX/31d794f3affce55fa87c99efac7dae23a126cf52/LICENSE.Harmony"
+    },
+    {
+      "file": "third_party_licenses/jbevain-cecil-LICENSE.txt.txt",
+      "sha256": "13d58ecbed676511c0c4c4009bff107025e50007ff5e7901dc562700ec62509e",
+      "license": "MIT",
+      "repository": "jbevain/cecil",
+      "url": "https://raw.githubusercontent.com/jbevain/cecil/98ec890d44643ad88d573e97be0e120435eda732/LICENSE.txt"
+    },
+    {
+      "file": "third_party_licenses/jbevain-cecil-symbols-pdb-Microsoft.Cci.Pdb-LICENSE.txt",
+      "sha256": "45a856bba37956fc1ed10dbde4be0c2c9fc1000cbd431599270e361e8c3dbb7b",
+      "license": "MS-PL",
+      "repository": "jbevain/cecil",
+      "url": "https://raw.githubusercontent.com/jbevain/cecil/98ec890d44643ad88d573e97be0e120435eda732/symbols/pdb/Microsoft.Cci.Pdb/LICENSE"
+    },
+    {
+      "file": "third_party_licenses/MonoMod-MonoMod-LICENSE.txt",
+      "sha256": "0b64833222e3c6a426ad29362d26334619fe02eaf2b89ea9c37805521896c920",
+      "license": "MIT",
+      "repository": "MonoMod/MonoMod",
+      "url": "https://raw.githubusercontent.com/MonoMod/MonoMod/68cf23127bd2394004e8a812b160a0862c95a309/LICENSE"
+    },
+    {
+      "file": "third_party_licenses/NeighTools-UnityDoorstop-LICENSE.txt",
+      "sha256": "20c17d8b8c48a600800dfd14f95d5cb9ff47066a9641ddeab48dc54aec96e331",
+      "license": "LGPL-2.1",
+      "repository": "NeighTools/UnityDoorstop",
+      "url": "https://raw.githubusercontent.com/NeighTools/UnityDoorstop/33dab9a6733862eb81869ff08431d9478b28784b/LICENSE"
+    },
+    {
+      "file": "third_party_licenses/MonoMod-MonoMod.Common-LICENSE.txt",
+      "sha256": "206ffec502564c3bd09be6c6370c817963ae69bef8e8f0cf208d19bd94ce28bd",
+      "license": "MIT",
+      "repository": "MonoMod/MonoMod.Common",
+      "url": "https://raw.githubusercontent.com/MonoMod/MonoMod.Common/aceda0b47aa6b17faac4f0889bb9b4621194da4c/LICENSE"
+    }
+  ],
+  "components": [
+    {
+      "path": "BepInEx/core/BepInEx.dll",
+      "source_repository": "BepInEx/BepInEx",
+      "sha256": "8255b28902886085c578b9e427d3073c97002db85176d2090cdeda90ef14ce70",
+      "official_release_equal": true,
+      "nuget_package": null,
+      "license_files": [
+        "third_party_licenses/BepInEx-BepInEx-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/BepInEx.Preloader.dll",
+      "source_repository": "BepInEx/BepInEx",
+      "sha256": "55d3895351a9d16b63b6f35f1c01b44ac650979e853d0bd3a442b92a082af64f",
+      "official_release_equal": true,
+      "nuget_package": null,
+      "license_files": [
+        "third_party_licenses/BepInEx-BepInEx-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/BepInEx.Harmony.dll",
+      "source_repository": "BepInEx/BepInEx.Harmony",
+      "sha256": "00c8f2ac48593e4d45ce4eb26ce4e68b18113c5c489b38b8bf0850f65830d601",
+      "official_release_equal": true,
+      "nuget_package": null,
+      "license_files": [
+        "third_party_licenses/BepInEx-BepInEx.Harmony-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/HarmonyXInterop.dll",
+      "source_repository": "BepInEx/BepInEx.Harmony",
+      "sha256": "7ce1342d3afa0334b59a3e38c0aed15e162b9abe9d46f95f34be44af47f3b493",
+      "official_release_equal": true,
+      "nuget_package": null,
+      "license_files": [
+        "third_party_licenses/BepInEx-BepInEx.Harmony-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/0Harmony20.dll",
+      "source_repository": "BepInEx/BepInEx.Harmony",
+      "sha256": "c755a5ab2712915a32f9a850d580a8c1b70ff1653bc76600f2767aa8ffccc663",
+      "official_release_equal": true,
+      "nuget_package": null,
+      "license_files": [
+        "third_party_licenses/BepInEx-BepInEx.Harmony-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/0Harmony.dll",
+      "source_repository": "BepInEx/HarmonyX",
+      "sha256": "1a21cc03424fc82c3dd1346905d16494536b9595ae4162228d99fb7c285c1031",
+      "official_release_equal": true,
+      "nuget_package": "harmonyx",
+      "license_files": [
+        "third_party_licenses/BepInEx-HarmonyX-LICENSE.txt",
+        "third_party_licenses/BepInEx-HarmonyX-LICENSE.Harmony.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.dll",
+      "source_repository": "jbevain/cecil",
+      "sha256": "7ae470288fff4a402899c254d0a76cefef55877f5c54f96e83c797cc5bb6e2f6",
+      "official_release_equal": true,
+      "nuget_package": "mono.cecil",
+      "license_files": [
+        "third_party_licenses/jbevain-cecil-LICENSE.txt.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.Mdb.dll",
+      "source_repository": "jbevain/cecil",
+      "sha256": "5896d1898f616701fff18f3b2c71e6b844d2390ef9f41e1c5fccce8cb27c698e",
+      "official_release_equal": true,
+      "nuget_package": "mono.cecil",
+      "license_files": [
+        "third_party_licenses/jbevain-cecil-LICENSE.txt.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.Pdb.dll",
+      "source_repository": "jbevain/cecil",
+      "sha256": "174db44a067f58561510af746f3caeb032037762c57a31c8d9ee32db25174984",
+      "official_release_equal": true,
+      "nuget_package": "mono.cecil",
+      "license_files": [
+        "third_party_licenses/jbevain-cecil-LICENSE.txt.txt",
+        "third_party_licenses/jbevain-cecil-symbols-pdb-Microsoft.Cci.Pdb-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/Mono.Cecil.Rocks.dll",
+      "source_repository": "jbevain/cecil",
+      "sha256": "54ac539fb5ddc8b44c0e9acd0fcb7324f89d1a072edf8ebc1b06dd691e3d3927",
+      "official_release_equal": true,
+      "nuget_package": "mono.cecil",
+      "license_files": [
+        "third_party_licenses/jbevain-cecil-LICENSE.txt.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/MonoMod.RuntimeDetour.dll",
+      "source_repository": "MonoMod/MonoMod",
+      "sha256": "40e49bb314391cd7bddc2644f8553eeba92c194b940836b103df16955c464e0c",
+      "official_release_equal": true,
+      "nuget_package": "monomod.runtimedetour",
+      "license_files": [
+        "third_party_licenses/MonoMod-MonoMod-LICENSE.txt",
+        "third_party_licenses/MonoMod-MonoMod.Common-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "BepInEx/core/MonoMod.Utils.dll",
+      "source_repository": "MonoMod/MonoMod",
+      "sha256": "9d1495f147ac93c4f81f84538c1a326e8f8a6aefc78d6289d798f3ce1162c5e9",
+      "official_release_equal": true,
+      "nuget_package": "monomod.utils",
+      "license_files": [
+        "third_party_licenses/MonoMod-MonoMod-LICENSE.txt",
+        "third_party_licenses/MonoMod-MonoMod.Common-LICENSE.txt"
+      ]
+    },
+    {
+      "path": "winhttp.dll",
+      "source_repository": "NeighTools/UnityDoorstop",
+      "sha256": "8c6cdbc38836dee87e3368f5de1994d7c0ccebf29e4ce7aba3c0981f9375412c",
+      "official_release_equal": true,
+      "nuget_package": null,
+      "license_files": [
+        "third_party_licenses/NeighTools-UnityDoorstop-LICENSE.txt"
+      ]
+    }
+  ],
+  "nuget_comparison": [
+    {
+      "package": "harmonyx",
+      "version": "2.9.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/harmonyx/2.9.0/harmonyx.2.9.0.nupkg",
+      "archive_sha256": "290cdc58b664c2d40e8b86faf455d1a31e53fb7f1960079330daa7122e5aa18f",
+      "net35_members": [
+        {
+          "file": "0Harmony.dll",
+          "nuget_member": "lib/net35/0Harmony.dll",
+          "sha256": "1a21cc03424fc82c3dd1346905d16494536b9595ae4162228d99fb7c285c1031",
+          "release_hash_equal": true
+        }
+      ]
+    },
+    {
+      "package": "mono.cecil",
+      "version": "0.10.4",
+      "url": "https://api.nuget.org/v3-flatcontainer/mono.cecil/0.10.4/mono.cecil.0.10.4.nupkg",
+      "archive_sha256": "3451a4a112a81be0bf76b8dc2bca396acdf0455d80c8961e7903ce1fb35c2a9a",
+      "net35_members": [
+        {
+          "file": "Mono.Cecil.dll",
+          "nuget_member": "lib/net35/Mono.Cecil.dll",
+          "sha256": "7ae470288fff4a402899c254d0a76cefef55877f5c54f96e83c797cc5bb6e2f6",
+          "release_hash_equal": true
+        },
+        {
+          "file": "Mono.Cecil.Mdb.dll",
+          "nuget_member": "lib/net35/Mono.Cecil.Mdb.dll",
+          "sha256": "5896d1898f616701fff18f3b2c71e6b844d2390ef9f41e1c5fccce8cb27c698e",
+          "release_hash_equal": true
+        },
+        {
+          "file": "Mono.Cecil.Pdb.dll",
+          "nuget_member": "lib/net35/Mono.Cecil.Pdb.dll",
+          "sha256": "174db44a067f58561510af746f3caeb032037762c57a31c8d9ee32db25174984",
+          "release_hash_equal": true
+        },
+        {
+          "file": "Mono.Cecil.Rocks.dll",
+          "nuget_member": "lib/net35/Mono.Cecil.Rocks.dll",
+          "sha256": "54ac539fb5ddc8b44c0e9acd0fcb7324f89d1a072edf8ebc1b06dd691e3d3927",
+          "release_hash_equal": true
+        }
+      ]
+    },
+    {
+      "package": "monomod.runtimedetour",
+      "version": "22.1.29.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/monomod.runtimedetour/22.1.29.1/monomod.runtimedetour.22.1.29.1.nupkg",
+      "archive_sha256": "8224e82b4a473f9c66b43ae7bdd6202a26210ef9b6403e0837f443b095d43a2a",
+      "net35_members": [
+        {
+          "file": "MonoMod.RuntimeDetour.dll",
+          "nuget_member": "lib/net35/MonoMod.RuntimeDetour.dll",
+          "sha256": "40e49bb314391cd7bddc2644f8553eeba92c194b940836b103df16955c464e0c",
+          "release_hash_equal": true
+        }
+      ]
+    },
+    {
+      "package": "monomod.utils",
+      "version": "22.1.29.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/monomod.utils/22.1.29.1/monomod.utils.22.1.29.1.nupkg",
+      "archive_sha256": "6f9c48ad7ed8fd862ac7b89df653245c97a046d9de3cd7256e3a3603c5a715ee",
+      "net35_members": [
+        {
+          "file": "MonoMod.Utils.dll",
+          "nuget_member": "lib/net35/MonoMod.Utils.dll",
+          "sha256": "9d1495f147ac93c4f81f84538c1a326e8f8a6aefc78d6289d798f3ce1162c5e9",
+          "release_hash_equal": true
+        }
+      ]
+    }
+  ],
+  "doorstop_comparison": {
+    "url": "https://github.com/NeighTools/UnityDoorstop/releases/download/v4.5.0/doorstop_win_release_4.5.0.zip",
+    "sha256": "7bb953e8d883c8bde76ced96f6d0e45660ad6e0151880d8ab5856bf4f532b147",
+    "native_members": [
+      {
+        "path": "x64/winhttp.dll",
+        "release_hash_equal": true
+      },
+      {
+        "path": "x86/winhttp.dll",
+        "release_hash_equal": false
+      }
+    ]
+  },
+  "game_executed": false,
+  "application_verified": false,
+  "redistribution_package_verified": false
+}

@@ -1,0 +1,15 @@
+{
+  "format_version": 1,
+  "licenses": [
+    {
+      "file": "OpenSSL-LICENSE.txt",
+      "source_url": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.8/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+    },
+    {
+      "file": "libffi-LICENSE.txt",
+      "source_url": "https://raw.githubusercontent.com/libffi/libffi/master/LICENSE",
+      "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c"
+    }
+  ]
+}

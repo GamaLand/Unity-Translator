@@ -1,0 +1,13 @@
+* text=auto
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+AGENTS.md export-ignore
+GOAL.md export-ignore
+TECHNICAL_DESIGN.md export-ignore
+.agents export-ignore
+.codex export-ignore
+.claude export-ignore
+.cursor export-ignore

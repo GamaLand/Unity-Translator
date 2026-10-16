@@ -1,0 +1,80 @@
+"""Qt/PySide kaynaklarını sabit resmî hash'lerle ayrı teslim arşivine alır."""
+
+import argparse
+import json
+import zipfile
+from pathlib import Path
+from uuid import uuid4
+
+import httpx
+
+from unitytranslator.filesystem import checked_path, hash_file
+from unitytranslator.json_boundary import strict_json
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--download",
+        action="store_true",
+        help="Eksik resmî kaynakları indir; oyun/model verisi göndermez",
+    )
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[1]
+    catalog = strict_json((root / "adapters/qt-source-catalog.json").read_bytes())
+    cache = checked_path(root / ".cache/dependency-sources")
+    cache.mkdir(parents=True, exist_ok=True)
+    paths = {}
+    for item in catalog["archives"]:
+        if Path(item["file"]).name != item["file"] or not item["url"].startswith(
+            "https://download.qt.io/"
+        ):
+            raise ValueError("Kaynak katalog yolu geçersiz.")
+        target = checked_path(cache / item["file"])
+        if not target.exists():
+            if not args.download:
+                raise ValueError("Eksik kaynak arşivi; geliştirici --download seçebilir.")
+            temporary = checked_path(cache / ("download-" + uuid4().hex))
+            with httpx.Client(follow_redirects=True, trust_env=False, timeout=60) as client:
+                with client.stream("GET", item["url"]) as response:
+                    response.raise_for_status()
+                    received = 0
+                    with temporary.open("xb") as stream:
+                        for block in response.iter_bytes(1024 * 1024):
+                            received += len(block)
+                            if received > item["bytes"]:
+                                raise ValueError("Kaynak arşivi boyut sınırını aştı.")
+                            stream.write(block)
+            if temporary.stat().st_size != item["bytes"] or hash_file(temporary) != item["sha256"]:
+                raise ValueError("İndirilen kaynak resmî hash ile eşleşmiyor.")
+            temporary.rename(target)
+        if target.stat().st_size != item["bytes"] or hash_file(target) != item["sha256"]:
+            raise ValueError("Kaynak önbelleği değişmiş.")
+        paths[item["file"]] = target
+        print(json.dumps({"verified_source": item["file"], "bytes": item["bytes"]}), flush=True)
+    destination = checked_path(root / "dist/windows/UnityTranslator-0.1.0-dependency-sources.zip")
+    if destination.exists():
+        raise ValueError("Mevcut kaynak teslimi üzerine yazılmaz.")
+    temporary = destination.parent / ("sources-" + uuid4().hex + ".zip")
+    with zipfile.ZipFile(temporary, "x", compression=zipfile.ZIP_STORED) as archive:
+        for name, source in paths.items():
+            archive.write(source, name)
+        archive.writestr("SOURCE-MANIFEST.json", json.dumps(catalog, indent=2))
+    with zipfile.ZipFile(temporary) as archive:
+        if archive.testzip() is not None or len(archive.namelist()) != len(paths) + 1:
+            raise ValueError("Kaynak ZIP doğrulaması başarısız.")
+    temporary.rename(destination)
+    print(
+        json.dumps(
+            {
+                "file": destination.name,
+                "bytes": destination.stat().st_size,
+                "sha256": hash_file(destination),
+            }
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,1 @@
+"""Sürümlü prototip istemleri."""
