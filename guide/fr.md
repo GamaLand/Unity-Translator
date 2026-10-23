@@ -54,3 +54,11 @@ Certains diagnostics techniques restent dans leur langue d’origine.
 
 
 Les langues source et cible du jeu sont indépendantes de la langue de l’interface. Utilisez ja pour le japonais, it pour l’italien ou pt-BR pour le portugais brésilien ; d’autres codes sont acceptés. La langue source doit être présente dans le jeu. Les colonnes absentes ou ambiguës sont refusées. Le modèle doit prendre en charge la paire. Les langues, validations et règles de style des projets existants sont conservées ; vérifiez les anciennes règles propres à une langue. Testez les polices, la disposition RTL et les pluriels avec un petit patch avant de le partager. L’anglais peut aussi être la langue cible.
+
+## Krypta FM
+
+Pour la version vérifiée, choisir `en` comme langue source puis extraire les textes normalement. Le profil lit trois conteneurs ensemble : 34 TextAssets et 442 champs. Deux sources sont explicitement exclues ; d’autres textes restent hors du profil. Après traduction, révision et approbation, exporter les textes TextAsset approuvés. Des fichiers texte préparés et un manifeste sont créés dans le projet ; les champs non approuvés gardent leur texte original. Aucun fichier Unity n’est modifié et aucune traduction n’est installée dans le jeu. L’installation n’est pas prise en charge pour ce profil. Fermer les anciennes versions avant d’ouvrir un projet de schéma 5.
+
+Les paramètres avancés permettent de désactiver le raisonnement pour les requêtes LM Studio. Cela peut réserver davantage de tokens de sortie à la traduction. La prise en charge dépend du modèle chargé et du serveur ; une option non prise en charge peut arrêter la tâche. Les valeurs par défaut et les paramètres globaux du serveur sont conservés.
+
+La révision 2 lit aussi sept objectifs anglais du journal dans les métadonnées statiques : 449 champs au total dans 34 TextAssets et une grille du journal. Les identités et approbations précédentes sont conservées. Le nouveau hook du journal n’a que des vérifications de compilation et synthétiques ; le précédent pilote de trois libellés a été observé en jeu. L’installation normale de Krypta depuis l’interface reste indisponible.

@@ -857,6 +857,9 @@ class MainWindow(QMainWindow):
             lambda: self.bridge.submit("extract", {"source": self.source_file.currentText()})
         )
         layout.addWidget(extract)
+        cancel_extract = QPushButton(tr("Cancel text extraction"))
+        cancel_extract.clicked.connect(lambda: self.bridge.submit("cancel_extract"))
+        layout.addWidget(cancel_extract)
         self.discovery = QTextEdit()
         self.discovery.setReadOnly(True)
         layout.addWidget(self.discovery)
@@ -922,10 +925,12 @@ class MainWindow(QMainWindow):
         self.temperature.setValue(0.2)
         self.structured = QCheckBox(tr("Constrain output with JSON Schema"))
         self.structured.setChecked(True)
+        self.disable_reasoning = QCheckBox(tr("Disable model reasoning (LM Studio)"))
         settings.addRow(tr("Context token limit"), self.context_tokens)
         settings.addRow(tr("Output token budget"), self.output_tokens)
         settings.addRow(tr("Generation diversity"), self.temperature)
         settings.addRow(self.structured)
+        settings.addRow(self.disable_reasoning)
         layout.addWidget(advanced)
         layout.addStretch()
         self.model.currentIndexChanged.connect(self.model_selected)
@@ -1220,6 +1225,14 @@ class MainWindow(QMainWindow):
             lambda: self.bridge.submit("import_restore", {"path": self.import_path})
         )
         layout.addWidget(export)
+        self.textasset_export_button = QPushButton(tr("Export approved game-text payloads"))
+        self.textasset_export_button.setToolTip(tr(
+            "Creates staged text files in the project. This does not install a game translation."
+        ))
+        self.textasset_export_button.clicked.connect(lambda: self.bridge.submit(
+            "textasset_export", {"project_id": self.current_project_id}
+        ))
+        layout.addWidget(self.textasset_export_button)
         self.shareable_export_button = QPushButton(tr("Create a shareable translation ZIP"))
         self.shareable_export_button.setToolTip(
             tr(
@@ -1455,6 +1468,9 @@ class MainWindow(QMainWindow):
             "address": self.address.text(),
             "model": self.model.currentText(),
             "structured_output": self.structured.isChecked(),
+            **({"reasoning_effort": "none"}
+               if self.provider.currentData() == "lm-studio" and self.disable_reasoning.isChecked()
+               else {}),
         }
 
     def profile(self):
@@ -1471,6 +1487,7 @@ class MainWindow(QMainWindow):
             self.context_tokens.setValue(value["context_tokens"])
 
     def provider_selected(self):
+        self.disable_reasoning.setEnabled(self.provider.currentData() == "lm-studio")
         if self.address.text().strip() in ("http://127.0.0.1:1234", "http://127.0.0.1:8080"):
             self.address.setText(
                 "http://127.0.0.1:1234"
@@ -1635,7 +1652,9 @@ class MainWindow(QMainWindow):
             self.editor_loading = False
         try:
             supported_plural = (
-                bool(self.current_item) and len(plural_branches(entry["source_text"])) > 1
+                bool(self.current_item)
+                and entry.get("format_rules", "protected-i2-v4") == "protected-i2-v4"
+                and len(plural_branches(entry["source_text"])) > 1
             )
         except ValueError:
             supported_plural = False
@@ -1802,7 +1821,10 @@ class MainWindow(QMainWindow):
                 or not row["translation"]
                 or row.get("editor_draft")
                 or (draft and (draft["revision"] or self.drafts.dirty(draft)))
-                or format_issues(row["source_text"], row["translation"])
+                or format_issues(
+                    row["source_text"], row["translation"],
+                    rules=row.get("format_rules", "protected-i2-v4"),
+                )
             ):
                 continue
             rows.append(dict(row))
@@ -1903,6 +1925,23 @@ class MainWindow(QMainWindow):
             },
         )
 
+    def show_capabilities(self, report):
+        if not report:
+            return
+        labels = {
+            "supported": tr("Supported"),
+            "unsupported": tr("Unsupported"),
+            "unknown": tr("Unknown"),
+        }
+        self.discovery.append(
+            tr(
+                "Extraction: {extraction} · Translation: {translation} · "
+                "Export: {export} · Installation: {installation}",
+                **{key: labels.get(report[key]["status"], tr("Unknown"))
+                   for key in ("extraction", "translation", "export", "installation")},
+            )
+        )
+
     def completed(self, command, result):
         if command == "open":
             self.current_item = None
@@ -1965,6 +2004,7 @@ class MainWindow(QMainWindow):
                 self.output_tokens.setValue(profile["output_tokens"])
                 self.temperature.setValue(profile["temperature"])
                 self.structured.setChecked(profile["structured_output"])
+                self.disable_reasoning.setChecked(profile.get("reasoning_effort") == "none")
             self.refresh()
             self.bridge.submit("policies")
             self.bridge.submit("jobs")
@@ -2213,7 +2253,17 @@ class MainWindow(QMainWindow):
                         "selected. The reader will verify its structure."
                     )
                 )
+            self.show_capabilities(report.get("capabilities"))
         elif command == "extract":
+            self.show_capabilities(result.get("capabilities"))
+            if result.get("counts", {}).get("sources"):
+                self.discovery.append(tr(
+                    "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. "
+                    "Additional text may remain outside this profile.",
+                    sources=str(result["counts"]["sources"]),
+                    excluded=str(sum(bool(item.get("excluded_reason"))
+                                     for item in result.get("coverage", []))),
+                ))
             self.discovery.append(
                 tr(
                     (
@@ -2378,6 +2428,15 @@ class MainWindow(QMainWindow):
                 self.bridge.submit("policies")
         elif command == "export":
             self.export_status.setPlainText(tr("Translation project exported:\n") + result)
+        elif command == "textasset_export":
+            if result.get("project_id") != self.current_project_id:
+                return
+            self.export_status.setPlainText(tr(
+                "Exported {sources} payloads with {approved} approved translations. "
+                "Installation is unsupported. Folder: {folder}",
+                sources=str(result["sources"]), approved=str(result["approved_translations"]),
+                folder=result["folder"],
+            ))
         elif command == "shareable_export":
             if (
                 result.get("project_id") != self.current_project_id

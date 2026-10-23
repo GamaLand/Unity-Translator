@@ -34,12 +34,15 @@ def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
         count += 1
         issues = sorted(
             set(
-                format_issues(row["source_text"], row["text"])
+                format_issues(
+                    row["source_text"], row["text"], rules=repository.format_rules(row["unit_id"])
+                )
                 + review_issues(
                     row["source_text"],
                     row["text"],
                     source_language=row["source_language"],
                     target_language=row["target_language"],
+                    rules=repository.format_rules(row["unit_id"]),
                 )
             )
         )

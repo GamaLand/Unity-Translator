@@ -10,6 +10,7 @@ from pathlib import Path
 
 from packaging.requirements import Requirement
 
+from unitytranslator.krypta_runtime import KryptaRuntimeKit
 from unitytranslator.runtime_kit import PortableRuntimeKit, RuntimeKit
 
 
@@ -51,6 +52,13 @@ def main() -> int:
         else:
             shutil.copytree(kit, destination)
             RuntimeKit(destination).validate()
+    krypta_kit = KryptaRuntimeKit()
+    if krypta_kit.root.is_dir():
+        krypta_kit.validate()
+        krypta_destination = package / "krypta-runtime-kit"
+        if not krypta_destination.exists():
+            shutil.copytree(krypta_kit.root, krypta_destination)
+        KryptaRuntimeKit(krypta_destination).validate()
     notices = package / "LICENSES"
     portable_kit = PortableRuntimeKit()
     portable_kit.validate()
@@ -85,6 +93,7 @@ def main() -> int:
         "shareable-patch.md",
         "development.md",
         "roadmap.md",
+        "krypta-runtime-design.md",
         "windows-package.md",
         "loader-component-audit.md",
         "protected-source-trace.md",

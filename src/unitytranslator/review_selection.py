@@ -28,7 +28,9 @@ def all_approval_preview(repo: ProjectRepository) -> dict[str, Any]:
         "LEFT JOIN translation_revisions t ON t.id=w.translation_revision "
         "WHERE u.active=1 AND w.status IN ('translated','needs_review') ORDER BY u.unit_id"
     ):
-        if not row["text"] or row["has_draft"] or format_issues(row["source_text"], row["text"]):
+        if not row["text"] or row["has_draft"] or format_issues(
+            row["source_text"], row["text"], rules=repo.format_rules(row["unit_id"])
+        ):
             excluded += 1
             continue
         warnings += int(row["status"] == "needs_review")
@@ -77,7 +79,9 @@ def _approve_records(repo: ProjectRepository, records: list[dict[str, Any]]) -> 
                     for key in ("source_revision", "translation_revision", "version")
                 )
                 or row["text"] is None
-                or format_issues(row["source_text"], row["text"])
+                or format_issues(
+                    row["source_text"], row["text"], rules=repo.format_rules(frozen["unit_id"])
+                )
                 or db.execute(
                     "SELECT 1 FROM editor_drafts WHERE unit_id=?", (frozen["unit_id"],)
                 ).fetchone()

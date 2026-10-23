@@ -3,7 +3,6 @@
 import asyncio
 import json
 from collections.abc import Callable, Sequence
-from dataclasses import asdict
 from hashlib import sha256
 from time import perf_counter
 from typing import Any
@@ -41,6 +40,10 @@ class JobStore:
             raise ValueError("Prototip/pilot kayıt sınırı aşıldı.")
         if profile.provider not in ("lm-studio", "llama-cpp") or not profile.model.strip():
             raise ValueError("Sağlayıcı/model seçimi gerekli.")
+        if profile.reasoning_effort not in ("default", "none") or (
+            profile.reasoning_effort == "none" and profile.provider != "lm-studio"
+        ):
+            raise ValueError("This reasoning option is available only for LM Studio requests.")
         if (
             not 512 <= profile.context_tokens <= 1_048_576
             or not 128 <= profile.output_tokens <= 8192
@@ -52,7 +55,7 @@ class JobStore:
         policy = PolicyStore(self.repository)
         policy.rules(profile.glossary_version)
         policy.style(profile.style_version, "unknown")
-        encoded = canonical(asdict(profile))
+        encoded = canonical(profile.to_dict())
         fingerprint = self.fingerprint()
         if kind == "bulk" and not self.pilot_reviewed(profile, fingerprint):
             raise ValueError(
@@ -101,7 +104,7 @@ class JobStore:
                 "SELECT 1 FROM jobs WHERE kind='pilot' "
                 "AND status IN ('completed','completed_with_errors') "
                 "AND report_seen=1 AND profile_json=? AND source_fingerprint=?",
-                (canonical(asdict(profile)), fingerprint or self.fingerprint()),
+                (canonical(profile.to_dict()), fingerprint or self.fingerprint()),
             ).fetchone()
             is not None
         )
@@ -344,10 +347,10 @@ class JobStore:
                 key: value for key, value in result.items() if key not in ("source", "translation")
             }
             metadata["run_id"] = run_id
-            from unitytranslator.validation import PROTECTED_FORMAT_VERSION, REVIEW_CHECKS_VERSION
+            from unitytranslator.validation import REVIEW_CHECKS_VERSION
 
             metadata["review_checks_version"] = REVIEW_CHECKS_VERSION
-            metadata["protected_format_version"] = PROTECTED_FORMAT_VERSION
+            metadata["protected_format_version"] = self.repository.format_rules(item["unit_id"])
             accepted = self.repository.candidate(
                 item["unit_id"],
                 item["source_revision"],
@@ -378,7 +381,11 @@ class JobStore:
                     and current["source_revision"] == item["source_revision"]
                     and current["version"] == item["work_version"]
                     and current["status"] == "approved"
-                    and not format_issues(item["source_text"], result["translation"])
+                    and not format_issues(
+                        item["source_text"],
+                        result["translation"],
+                        rules=self.repository.format_rules(item["unit_id"]),
+                    )
                 )
                 if accepted:
                     candidate_revision = candidate[0]
@@ -512,7 +519,7 @@ class TranslationJobService:
                     )
                 ]
                 metadata = {
-                    "profile": asdict(profile),
+                    "profile": profile.to_dict(),
                     "parallel_requests": parallel_requests,
                     "glossary_rules": [r.model_dump() for r in relevant],
                 }
@@ -532,6 +539,16 @@ class TranslationJobService:
                         style=policy.style(profile.style_version, item["category"]),
                         glossary=[r.model_dump() for r in relevant],
                         prompt_version=profile.prompt_version,
+                        **(
+                            {"reasoning_effort": profile.reasoning_effort}
+                            if profile.reasoning_effort != "default"
+                            else {}
+                        ),
+                        **(
+                            {"format_rules": self.repository.format_rules(item["unit_id"])}
+                            if self.repository.format_rules(item["unit_id"]) != "protected-i2-v4"
+                            else {}
+                        ),
                     )
                     result["glossary_version"] = profile.glossary_version
                     result["style_version"] = profile.style_version

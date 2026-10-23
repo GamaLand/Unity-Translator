@@ -4,6 +4,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
 from uuid import uuid4
@@ -20,6 +21,11 @@ def replace_once(text: str, old: str, new: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--portable", action="store_true")
+    parser.add_argument(
+        "--temporary",
+        action="store_true",
+        help="Build in a new system temporary directory outside workspace watchers.",
+    )
     for name in ("source-archive", "managed", "loader", "csc"):
         parser.add_argument("--" + name, required=True, type=Path)
     args = parser.parse_args()
@@ -31,7 +37,11 @@ def main() -> int:
         raise ValueError("Upstream kaynak arşivi hash'i eşleşmiyor.")
     managed, loader, csc = map(checked_path, (args.managed, args.loader, args.csc))
     paths = ProjectPaths(managed.parent.parent, root)
-    output = paths.output(".cache/protected-preloader-" + uuid4().hex)
+    output = (
+        checked_path(Path(tempfile.gettempdir()) / ("protected-preloader-" + uuid4().hex))
+        if args.temporary
+        else paths.output(".cache/protected-preloader-" + uuid4().hex)
+    )
     prefix = "BepInEx-" + upstream["commit"] + "/"
     members = []
     with zipfile.ZipFile(archive) as zipped:

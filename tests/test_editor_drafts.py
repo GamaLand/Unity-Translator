@@ -163,6 +163,11 @@ def test_v3_migration_preserves_approved_translation_and_readable_backup(repo):
     repo.approve("UI/start", repo.page()[0]["version"])
     before = repo.page()[0]
     identifier, paths = repo.project_id, repo.paths
+    repo.db.execute("DROP TABLE snapshot_sources")
+    repo.db.execute("DROP INDEX units_logical_source")
+    repo.db.execute("ALTER TABLE text_units DROP COLUMN logical_source_id")
+    repo.db.execute("DROP TABLE source_descriptors")
+    repo.db.execute("DELETE FROM schema_migrations WHERE version=5")
     repo.db.execute("DROP TABLE editor_drafts")
     repo.db.execute("DELETE FROM schema_migrations WHERE version=4")
     repo.db.execute("PRAGMA user_version=3")
@@ -170,7 +175,7 @@ def test_v3_migration_preserves_approved_translation_and_readable_backup(repo):
     with ProjectRepository(paths) as reopened:
         assert reopened.project_id == identifier
         assert reopened.page()[0] == before
-        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == 5
         assert EditorDraftStore(reopened).get("UI/start") is None
     backups = list((paths.project / "backups").glob("schema-3-*.sqlite3"))
     preserved = False

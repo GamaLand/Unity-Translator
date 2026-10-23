@@ -1,7 +1,7 @@
 """Domain records independent of reader and provider libraries."""
 
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import asdict, dataclass
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -29,3 +29,11 @@ class GenerationProfile:
     glossary_version: str | None = None
     style_version: str | None = None
     prompt_version: str = "translate-v1"
+    reasoning_effort: Literal["default", "none"] = "default"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Keep the legacy default profile encoding byte-compatible."""
+        value = asdict(self)
+        if self.reasoning_effort == "default":
+            value.pop("reasoning_effort")
+        return value

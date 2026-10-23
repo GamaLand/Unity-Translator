@@ -1,0 +1,611 @@
+{
+  "format_version": 1,
+  "id": "krypta-fm-textassets",
+  "version": "2",
+  "textasset_identity_version": "1",
+  "journal_grid": {
+    "field_token": 67109175,
+    "name": "Journal.objectivesDescriptionsENG",
+    "schema": "journal-lines-v1",
+    "rows": 4,
+    "columns": 3
+  },
+  "company": "Under The Sink",
+  "product": "KryptaFM",
+  "unity_version": "2022.3.10f1",
+  "runtime": "Mono",
+  "assembly": {
+    "path": "KryptaFM_Data/Managed/Assembly-CSharp.dll",
+    "sha256": "1ae192ca7e2a381a309003bc412ae10bd56b8eab7c4c79bcf6f15482c8ee29ef"
+  },
+  "reference_files": [
+    {
+      "path": "KryptaFM_Data/level0",
+      "sha256": "22d3004355e301020cfd6b22855fceb9e384182a6719384f08211f2ac21144a5"
+    },
+    {
+      "path": "KryptaFM_Data/level1",
+      "sha256": "a8091ced5d61b66d92eed996409063829b99857b37da03a4753a001bda2c6252"
+    },
+    {
+      "path": "KryptaFM_Data/level2",
+      "sha256": "559936b2c370d5b7691ed66079251a3843bb3293088c137185bf1d8024073421"
+    },
+    {
+      "path": "KryptaFM_Data/level3",
+      "sha256": "9c0a16a8075ec45b1559425fd84fb17bbdc991342d07c1016dc9878c681f0169"
+    }
+  ],
+  "sources": [
+    {
+      "container": "KryptaFM_Data/sharedassets0.assets",
+      "object": 360,
+      "name": "KryptaFM_ENG",
+      "schema": "menu-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level0",
+          "object": 13616,
+          "field": "textAssetEng"
+        },
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 18707,
+          "field": "textAssetEng"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17326,
+          "field": "textAssetEng"
+        },
+        {
+          "scene": "KryptaFM_Data/level3",
+          "object": 3418,
+          "field": "textAssetEng"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 341,
+      "name": "post_05_smoke_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 342,
+      "name": "Subs_Aud4",
+      "schema": "subtitle-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19205,
+          "field": "subtitlesListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17074,
+          "field": "subtitlesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 344,
+      "name": "post_11_konsola_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 346,
+      "name": "KeyPost4",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 347,
+      "name": "msg2",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "messagesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 348,
+      "name": "KeyPost6",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 349,
+      "name": "KeyPost2",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 350,
+      "name": "KeyPost3",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 351,
+      "name": "post_06_stacja_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 355,
+      "name": "post_13_rankingaut_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 356,
+      "name": "post_14_tarot_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 361,
+      "name": "KeyPost1",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 363,
+      "name": "keyPost_00_nicnazdjeciu",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ],
+      "excluded_reason": "shared_locale_reference",
+      "excluded_payload_sha256": "81f2b0b6a285419ec5700f8e4b48f05ddd1fd49263216e3e0b87fd429ca093f6"
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 364,
+      "name": "post_02_animals_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 365,
+      "name": "post_07_rozbiteauto_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 366,
+      "name": "Subs_Aud1",
+      "schema": "subtitle-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19205,
+          "field": "subtitlesListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17074,
+          "field": "subtitlesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 367,
+      "name": "msg3",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "messagesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 371,
+      "name": "post_03_pomnik_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 375,
+      "name": "post_01_faq_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 376,
+      "name": "KeyPost5",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 377,
+      "name": "post_09_rozwiazanie_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 378,
+      "name": "Subs_Aud3",
+      "schema": "subtitle-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19205,
+          "field": "subtitlesListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17074,
+          "field": "subtitlesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 380,
+      "name": "post_10_swiatla_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 384,
+      "name": "post_08_bunkier_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 385,
+      "name": "msg1",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "messagesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 387,
+      "name": "post_12_jaksiezmienic_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 391,
+      "name": "Subs_Aud2",
+      "schema": "subtitle-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19205,
+          "field": "subtitlesListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17074,
+          "field": "subtitlesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 392,
+      "name": "post_04_miejscemocy_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 393,
+      "name": "post_15_czolgi_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "postScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets1.assets",
+      "object": 394,
+      "name": "KeyPost7",
+      "schema": "keypost-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level1",
+          "object": 19252,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets2.assets",
+      "object": 19,
+      "name": "post_28_rekonstrukcja_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "postScriptsListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets2.assets",
+      "object": 20,
+      "name": "post_27_fotomaniaklukasz_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "postScriptsListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets2.assets",
+      "object": 21,
+      "name": "Subs_Aud5",
+      "schema": "subtitle-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17074,
+          "field": "subtitlesListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets2.assets",
+      "object": 22,
+      "name": "post_26_wikusiazburkiem_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "postScriptsListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "keyPostScriptsListENG"
+        }
+      ]
+    },
+    {
+      "container": "KryptaFM_Data/sharedassets2.assets",
+      "object": 26,
+      "name": "post_29_polowanie_ENG",
+      "schema": "forum-lines-v1",
+      "locale": "en",
+      "references": [
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "postScriptsListENG"
+        },
+        {
+          "scene": "KryptaFM_Data/level2",
+          "object": 17713,
+          "field": "keyPostScriptsListENG"
+        }
+      ],
+      "excluded_reason": "malformed_reply_layout",
+      "excluded_payload_sha256": "a23622db6eae884b0d104944e3bf87af27990d247ed8c5dfd8392965cb6cb747"
+    }
+  ],
+  "outside_scope": [
+    "Serialized UI labels outside the declared menu TextAsset",
+    "User profile ScriptableObjects",
+    "Texture and map text",
+    "Hard-coded assembly strings"
+  ],
+  "evidence": "Static managed consumer inspection and serialized English-field references; game assemblies were not executed."
+}

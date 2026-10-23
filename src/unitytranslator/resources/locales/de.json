@@ -335,5 +335,16 @@
   "Close the previous installation or recover its partial files first.": "Schließen Sie die vorherige Installation oder stellen Sie deren Teildateien zuerst wieder her.",
   "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Bestehende Loader-Dateien im Spielordner: {p0}. Diese werden nicht überschrieben. Öffnen Sie das Projekt, dem diese Installation gehört, und entfernen Sie dessen Ergänzungen über „Auf Spiel anwenden“. Wenn die Dateien zu einer anderen Mod gehören, verwenden Sie deren Entfernungsprozedur.",
   "Enter a language code, for example ja, it or pt-BR.": "Geben Sie einen Sprachcode ein, z. B. ja, it oder pt-BR.",
-  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Die Quellsprache muss im Spiel vorhanden sein. Schriftarten und Rechts-nach-links-Layout hängen vom Spiel ab; prüfen Sie diese vor der Weitergabe eines Patches."
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Die Quellsprache muss im Spiel vorhanden sein. Schriftarten und Rechts-nach-links-Layout hängen vom Spiel ab; prüfen Sie diese vor der Weitergabe eines Patches.",
+  "Supported": "Unterstützt",
+  "Unsupported": "Nicht unterstützt",
+  "Extraction: {extraction} · Translation: {translation} · Export: {export} · Installation: {installation}": "Extraktion: {extraction} · Übersetzung: {translation} · Export: {export} · Installation: {installation}",
+  "Export approved TextAsset payloads": "Genehmigte TextAsset-Texte exportieren",
+  "Creates staged text files in the project. This does not install a game translation.": "Erstellt vorbereitete Textdateien im Projekt. Installiert keine Spielübersetzung.",
+  "Exported {sources} payloads with {approved} approved translations. Installation is unsupported. Folder: {folder}": "{sources} Textdateien mit {approved} genehmigten Übersetzungen exportiert. Installation nicht unterstützt. Ordner: {folder}",
+  "Cancel text extraction": "Textextraktion abbrechen",
+  "Verified TextAsset sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Verifizierte TextAsset-Quellen: {sources}. Geprüfte Ausschlüsse: {excluded}. Weitere Texte können außerhalb dieses Profils liegen.",
+  "Disable model reasoning (LM Studio)": "Modell-Denkmodus deaktivieren (LM Studio)",
+  "Export approved game-text payloads": "Bestätigte Spieltexte exportieren",
+  "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Geprüfte Spieltextquellen: {sources}. Geprüfte Ausschlüsse: {excluded}. Weitere Texte können außerhalb dieses Profils liegen."
 }

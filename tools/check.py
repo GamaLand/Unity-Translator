@@ -36,6 +36,10 @@ def main() -> int:
         [sys.executable, "-m", "pytest", "-q", "--basetemp", str(base)],
     ]
     if args.with_dotnet:
+        commands.append(["dotnet", "run", "--project", "adapters/kryptafm/tests/CoreTests.csproj"])
+        commands.append(
+            ["dotnet", "run", "--project", "adapters/kryptafm/tests/PluginTests.csproj"]
+        )
         commands.append(["dotnet", "run", "--project", "adapters/i2mono/tests/CoreTests.csproj"])
         commands.append(
             [

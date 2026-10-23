@@ -40,4 +40,22 @@ def select_pilot(repository: ProjectRepository, limit: int = 200) -> list[str]:
                 item = group.pop(0)
                 if item not in selected:
                     selected.append(item)
+    if len(selected) < limit:
+        # A small category may not fill its quota. Fill the remaining sample from
+        # eligible records so that a sufficient corpus can meet the bulk gate.
+        remaining = repository.db.execute(
+            "SELECT u.unit_id FROM text_units u "
+            "JOIN source_revisions s ON s.id=u.source_revision "
+            "JOIN work_items w ON w.unit_id=u.unit_id "
+            "WHERE u.active=1 AND w.status!='approved' "
+            "AND w.translation_revision IS NULL "
+            "ORDER BY s.category,length(s.source_text),u.unit_id"
+        )
+        seen = set(selected)
+        for row in remaining:
+            if row[0] not in seen:
+                selected.append(str(row[0]))
+                seen.add(str(row[0]))
+            if len(selected) == limit:
+                break
     return selected

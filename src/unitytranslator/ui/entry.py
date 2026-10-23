@@ -33,6 +33,11 @@ def entry() -> int:
         from unitytranslator.ui.verify import verify_ui
 
         return verify_ui(sys.argv[2], sys.argv[3])
+    if len(sys.argv) > 1 and sys.argv[1] == "--textasset-worker":
+        from unitytranslator.workers.textasset_probe import main as textasset_main
+
+        sys.argv = [sys.argv[0], *sys.argv[2:]]
+        return textasset_main()
     from unitytranslator.__main__ import main
 
     if len(sys.argv) == 1:

@@ -52,3 +52,11 @@ Algunos diagnósticos técnicos conservan el idioma original.
 
 
 Los idiomas de origen y destino del juego son independientes del idioma de la interfaz. Usa ja para japonés, it para italiano o pt-BR para portugués brasileño; también puedes introducir otros códigos. El idioma de origen debe existir en el juego. Se rechazan las columnas ausentes o ambiguas. El modelo debe admitir el par. Se conservan los idiomas, las aprobaciones y las reglas de estilo de proyectos existentes; revisa las reglas antiguas específicas de un idioma. Comprueba fuentes, diseño RTL y plurales con un parche pequeño antes de compartirlo. El inglés también puede ser el idioma de destino.
+
+## Krypta FM
+
+Para la versión verificada, selecciona `en` como idioma de origen y extrae los textos normalmente. El perfil lee tres contenedores juntos: 34 TextAssets con 442 campos. Dos fuentes están excluidas explícitamente; hay otros textos fuera del perfil. Tras traducir, revisar y aprobar, usa la exportación de textos TextAsset aprobados. Se crean archivos de texto preparados y un manifiesto dentro del proyecto; los campos no aprobados conservan su texto original. No se modifican archivos Unity ni se instala una traducción. La instalación en el juego no es compatible con este perfil. Cierra las versiones anteriores antes de abrir un proyecto de esquema 5.
+
+En los ajustes avanzados puedes desactivar opcionalmente el razonamiento para las solicitudes de LM Studio. Esto puede dejar más presupuesto de salida para la traducción. La compatibilidad depende del modelo y servidor; una opción no admitida puede detener el trabajo. Se conservan los valores predeterminados y los ajustes globales del servidor.
+
+La revisión 2 del perfil también lee siete objetivos del diario desde metadatos estáticos. El total es de 449 campos en 34 TextAssets y una matriz del diario; se conservan las identidades y aprobaciones anteriores. El nuevo enlace del diario solo tiene pruebas de compilación y sintéticas; el piloto anterior de tres etiquetas se observó en el juego. La instalación normal de Krypta desde la interfaz aún no está admitida.

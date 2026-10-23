@@ -54,3 +54,11 @@ garantieren keine Übersetzungsqualität. Technische Diagnosen können im Origin
 
 
 Quell- und Zielsprache der Spielübersetzung sind unabhängig von der Oberflächensprache. Verwenden Sie ja für Japanisch, it für Italienisch oder pt-BR für brasilianisches Portugiesisch; andere Sprachcodes können eingegeben werden. Die Quellsprache muss im Spiel vorhanden sein. Fehlende oder mehrdeutige Spalten werden abgelehnt. Das Modell muss das Sprachpaar unterstützen. Bestehende Projektsprachen, Freigaben und eigene Stilregeln bleiben erhalten; prüfen Sie ältere sprachspezifische Regeln. Prüfen Sie Schriftarten, RTL-Layout und Pluralformen mit einem kleinen Patch vor der Weitergabe. Englisch kann auch Zielsprache sein.
+
+## Krypta FM
+
+Für den geprüften Build die Quellsprache `en` wählen und Texte normal extrahieren. Das Profil liest drei Container zusammen: 34 TextAssets mit 442 Feldern. Zwei Quellen sind ausdrücklich ausgeschlossen; weitere Spieltexte liegen außerhalb des Profils. Nach Modellübersetzung, Prüfung und Freigabe unter Export die genehmigten TextAsset-Texte exportieren. Es entstehen vorbereitete Textdateien und ein Manifest im Projekt; ungeprüfte Felder behalten ihren Originaltext. Dies installiert keine Übersetzung und verändert keine Unity-Dateien. Die Spielinstallation wird für dieses Profil nicht unterstützt. Ältere App-Versionen vor dem Öffnen eines Schema-5-Projekts schließen.
+
+In den erweiterten Modelleinstellungen lässt sich der Denkmodus für LM-Studio-Anfragen optional deaktivieren. Dadurch kann mehr Ausgabebudget für die Übersetzung bleiben. Die Unterstützung hängt vom geladenen Modell und Server ab; eine nicht unterstützte Option kann den Auftrag stoppen. Standardwerte und globale Servereinstellungen bleiben erhalten.
+
+Profilversion 2 liest außerdem sieben englische Tagebuchziele aus statischen Metadaten. Insgesamt werden 449 Felder aus 34 TextAssets und einem Tagebuchraster erfasst; bisherige Quellidentitäten und Freigaben bleiben erhalten. Der neue Tagebuch-Hook wurde nur kompiliert und synthetisch getestet; der frühere Menüpilot mit drei Beschriftungen wurde im Spiel beobachtet. Die normale Krypta-Installation über die Oberfläche ist noch nicht unterstützt.

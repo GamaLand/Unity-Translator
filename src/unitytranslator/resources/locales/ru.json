@@ -335,5 +335,16 @@
   "Close the previous installation or recover its partial files first.": "Сначала закройте предыдущую установку или восстановите её частичные файлы.",
   "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Существующие файлы загрузчика в папке игры: {p0}. Они не будут перезаписаны. Откройте проект, которому принадлежит эта установка, и удалите его дополнения через «Применить к игре». Если файлы принадлежат другому моду, используйте процедуру удаления этого модуля.",
   "Enter a language code, for example ja, it or pt-BR.": "Введите код языка, например ja, it или pt-BR.",
-  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Исходный язык должен присутствовать в игре. Шрифты и отображение справа налево зависят от игры; проверьте их перед распространением перевода."
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Исходный язык должен присутствовать в игре. Шрифты и отображение справа налево зависят от игры; проверьте их перед распространением перевода.",
+  "Supported": "Поддерживается",
+  "Unsupported": "Не поддерживается",
+  "Extraction: {extraction} · Translation: {translation} · Export: {export} · Installation: {installation}": "Извлечение: {extraction} · Перевод: {translation} · Экспорт: {export} · Установка: {installation}",
+  "Export approved TextAsset payloads": "Экспорт одобренных текстов TextAsset",
+  "Creates staged text files in the project. This does not install a game translation.": "Создаёт подготовленные текстовые файлы в проекте. Не устанавливает перевод в игру.",
+  "Exported {sources} payloads with {approved} approved translations. Installation is unsupported. Folder: {folder}": "Экспортировано файлов: {sources}, одобренных переводов: {approved}. Установка не поддерживается. Папка: {folder}",
+  "Cancel text extraction": "Отменить извлечение текста",
+  "Verified TextAsset sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Проверенных источников TextAsset: {sources}. Проверенных исключений: {excluded}. Другие тексты могут находиться вне этого профиля.",
+  "Disable model reasoning (LM Studio)": "Отключить рассуждения модели (LM Studio)",
+  "Export approved game-text payloads": "Экспортировать одобренные игровые тексты",
+  "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Проверенные источники игровых текстов: {sources}. Проверенные исключения: {excluded}. Другие тексты могут оставаться вне профиля."
 }

@@ -20,6 +20,7 @@ def main() -> int:
         ("probe", "Inspect one Unity source in an isolated process"),
         ("extract", "Extract a supported source into the SQLite project"),
         ("project", "Create or open a translation project"),
+        ("export-textassets", "Export current approved game-text payloads to the project only"),
     ):
         item = sub.add_parser(command, help=description)
         item.add_argument("--game", required=True, type=Path, help="Game installation directory")
@@ -68,6 +69,15 @@ def main() -> int:
                 print(json.dumps(translated, ensure_ascii=True, indent=2))
             return 0
         paths = ProjectPaths(args.game, args.project)
+        if args.command == "export-textassets":
+            from unitytranslator.textasset_export import export_payloads
+
+            existing = ProjectRepository.existing_paths(args.project)
+            if existing.game != paths.game:
+                raise ValueError("Project is bound to another game directory.")
+            with ProjectRepository(existing) as repository:
+                print(json.dumps(export_payloads(repository), ensure_ascii=True, indent=2))
+            return 0
         if args.command == "project":
             with ProjectRepository(paths, args.source_language, args.target_language) as repository:
                 print(json.dumps(repository.manifest(), ensure_ascii=True, indent=2))
@@ -85,6 +95,7 @@ def main() -> int:
             "report": str(output),
             "extraction": result["extraction"],
             "application": result["application"],
+            "capabilities": result["capabilities"],
         }
         if "counts" in result:
             summary["counts"] = result["counts"]

@@ -335,5 +335,16 @@
   "Close the previous installation or recover its partial files first.": "Cierre la instalación anterior o recupere sus archivos parciales primero.",
   "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Archivos del cargador existentes en la carpeta del juego: {p0}. No se sobrescribirán. Abra el proyecto que posee esta instalación y elimine sus adiciones a través de Aplicar al juego. Si los archivos pertenecen a otro mod, utilice su procedimiento de eliminación.",
   "Enter a language code, for example ja, it or pt-BR.": "Introduce un código de idioma, por ejemplo ja, it o pt-BR.",
-  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "El idioma de origen debe existir en el juego. Las fuentes y el diseño de derecha a izquierda dependen del juego; compruébalos antes de distribuir un parche."
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "El idioma de origen debe existir en el juego. Las fuentes y el diseño de derecha a izquierda dependen del juego; compruébalos antes de distribuir un parche.",
+  "Supported": "Compatible",
+  "Unsupported": "No compatible",
+  "Extraction: {extraction} · Translation: {translation} · Export: {export} · Installation: {installation}": "Extracción: {extraction} · Traducción: {translation} · Exportación: {export} · Instalación: {installation}",
+  "Export approved TextAsset payloads": "Exportar textos TextAsset aprobados",
+  "Creates staged text files in the project. This does not install a game translation.": "Crea archivos de texto preparados en el proyecto. No instala una traducción del juego.",
+  "Exported {sources} payloads with {approved} approved translations. Installation is unsupported. Folder: {folder}": "Se exportaron {sources} archivos con {approved} traducciones aprobadas. La instalación no es compatible. Carpeta: {folder}",
+  "Cancel text extraction": "Cancelar extracción de texto",
+  "Verified TextAsset sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Fuentes TextAsset verificadas: {sources}. Exclusiones revisadas: {excluded}. Puede haber más textos fuera de este perfil.",
+  "Disable model reasoning (LM Studio)": "Desactivar el razonamiento del modelo (LM Studio)",
+  "Export approved game-text payloads": "Exportar textos de juego aprobados",
+  "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Fuentes de texto verificadas: {sources}. Exclusiones revisadas: {excluded}. Puede haber más texto fuera de este perfil."
 }

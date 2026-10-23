@@ -335,5 +335,16 @@
   "Close the previous installation or recover its partial files first.": "Fermez l'installation précédente ou récupérez d'abord ses fichiers partiels.",
   "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Fichiers du chargeur existants dans le dossier du jeu : {p0}. Ils ne seront pas écrasés. Ouvrez le projet qui possède cette installation et supprimez ses ajouts via « Appliquer au jeu ». Si les fichiers appartiennent à un autre mod, utilisez sa procédure de suppression.",
   "Enter a language code, for example ja, it or pt-BR.": "Saisissez un code de langue, par exemple ja, it ou pt-BR.",
-  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "La langue source doit être présente dans le jeu. Les polices et la disposition de droite à gauche dépendent du jeu ; vérifiez-les avant de distribuer un patch."
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "La langue source doit être présente dans le jeu. Les polices et la disposition de droite à gauche dépendent du jeu ; vérifiez-les avant de distribuer un patch.",
+  "Supported": "Pris en charge",
+  "Unsupported": "Non pris en charge",
+  "Extraction: {extraction} · Translation: {translation} · Export: {export} · Installation: {installation}": "Extraction : {extraction} · Traduction : {translation} · Exportation : {export} · Installation : {installation}",
+  "Export approved TextAsset payloads": "Exporter les textes TextAsset approuvés",
+  "Creates staged text files in the project. This does not install a game translation.": "Crée des fichiers texte préparés dans le projet. Ne les installe pas dans le jeu.",
+  "Exported {sources} payloads with {approved} approved translations. Installation is unsupported. Folder: {folder}": "{sources} fichiers exportés avec {approved} traductions approuvées. Installation non prise en charge. Dossier : {folder}",
+  "Cancel text extraction": "Annuler l’extraction du texte",
+  "Verified TextAsset sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Sources TextAsset vérifiées : {sources}. Exclusions examinées : {excluded}. D’autres textes peuvent exister hors de ce profil.",
+  "Disable model reasoning (LM Studio)": "Désactiver le raisonnement du modèle (LM Studio)",
+  "Export approved game-text payloads": "Exporter les textes de jeu approuvés",
+  "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Sources de texte vérifiées : {sources}. Exclusions examinées : {excluded}. D’autres textes peuvent rester hors de ce profil."
 }

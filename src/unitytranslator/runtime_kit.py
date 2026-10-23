@@ -56,13 +56,16 @@ def trusted_catalog() -> dict[str, Any]:
 
 
 class RuntimeKit:
+    plugin_name = "UnityTranslator.I2Mono.dll"
+    runtime_names = RUNTIME_NAMES
+
     def __init__(self, root: Path | None = None):
         self.root = checked_path(root or bundled_kit_root())
         self.catalog = trusted_catalog()
 
     def validate(self) -> None:
         inventory = self.catalog["files"]
-        if not 1 <= len(inventory) <= 2000 or not RUNTIME_NAMES <= set(inventory):
+        if not 1 <= len(inventory) <= 2000 or not self.runtime_names <= set(inventory):
             raise ValueError("Runtime dosya envanteri eksik.")
         if any(inventory[name] != digest for name, digest in self.catalog["runtime_files"].items()):
             raise ValueError("Runtime bileşen envanteri eşleşmiyor.")
@@ -132,7 +135,7 @@ class RuntimeKit:
             repo.paths.output(relative + "/" + folder).mkdir()
         support = Path(relative).parent.as_posix() + "/support/"
         for name, expected in self.catalog["files"].items():
-            if name in RUNTIME_NAMES:
+            if name in self.runtime_names:
                 continue
             target = repo.paths.output(support + name)
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -161,13 +164,13 @@ class RuntimeKit:
             {
                 "status": "compiled",
                 "origin": "bundled-runtime-kit",
-                "output_sha256": self.catalog["runtime_files"]["plugin/UnityTranslator.I2Mono.dll"],
+                "output_sha256": self.catalog["runtime_files"]["plugin/" + self.plugin_name],
                 "references_sha256": {str(assembly): self.catalog["assembly_sha256"]},
             },
         )
         return {
             "runtime_relative": relative,
-            "plugin": confined(self.root, "plugin/UnityTranslator.I2Mono.dll"),
+            "plugin": confined(self.root, "plugin/" + self.plugin_name),
             "plugin_evidence": repo.paths.output(evidence),
             "winhttp": confined(self.root, "winhttp.dll"),
             "winhttp_sha256": self.catalog["runtime_files"]["winhttp.dll"],

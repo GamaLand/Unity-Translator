@@ -1,5 +1,23 @@
 # Release validation
 
+## 0.4.0: third feature update after the initial release
+
+The current application and package version is 0.4.0. This update includes built-in
+reader/deployment contracts, backed-up schema-5 source ownership, the bounded
+449-field Krypta FM profile, approved game-text exports and adapter-aware small
+runtime-data selections. Explicit LM Studio reasoning control remains model-specific.
+
+601 Python tests passed with one skip; Ruff and mypy passed. Krypta's synthetic C#
+checks cover 18 data and 27 plugin lifecycle scenarios without executing game assemblies.
+The standalone development-machine UI and 449-field extraction checks passed with
+original game hashes unchanged. Matching application/dependency sources and notices
+accompany local Windows packages; no public binary release is implied by a source push.
+
+Only the earlier three-label Krypta menu trial was observed in-game. The newer
+journal-capable runtime, remaining consumer/language/reload checks, clean Windows
+and physical llama.cpp validation remain deferred. Normal Krypta installation stays
+disabled until its separate evidence gate passes. M3/M4 remain planned.
+
 ## Published baseline: 0.1.0 RC7
 
 Validated on 16 October 2026 before the repository cleanup:

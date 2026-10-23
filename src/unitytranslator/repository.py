@@ -16,6 +16,7 @@ from uuid import uuid4
 from unitytranslator.domain import TextUnitDraft
 from unitytranslator.filesystem import ProjectPaths, checked_path
 from unitytranslator.language import normalize_language, turkish_lower
+from unitytranslator.source_contracts import ReaderResult, SourceDescriptor
 from unitytranslator.validation import (
     PROTECTED_FORMAT_VERSION,
     REVIEW_CHECKS_VERSION,
@@ -73,7 +74,7 @@ class ProjectRepository:
         try:
             with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as reader:
                 version = reader.execute("PRAGMA user_version").fetchone()[0]
-                if version not in (1, 2, 3, 4):
+                if version not in (1, 2, 3, 4, 5):
                     raise ValueError(
                         "Bu proje sürümü desteklenmiyor; daha güncel uygulamayı kullanın."
                     )
@@ -101,7 +102,7 @@ class ProjectRepository:
             if database.exists():
                 with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as preflight:
                     version = preflight.execute("PRAGMA user_version").fetchone()[0]
-                    if version not in (1, 2, 3, 4):
+                    if version not in (1, 2, 3, 4, 5):
                         raise ValueError(
                             "Bilinmeyen veya daha yeni proje şeması; yazma reddedildi."
                         )
@@ -130,6 +131,8 @@ class ProjectRepository:
                 self.migrate(2, 3)
             if self.connection.execute("PRAGMA user_version").fetchone()[0] == 3:
                 self.migrate(3, 4)
+            if self.connection.execute("PRAGMA user_version").fetchone()[0] == 4:
+                self.migrate(4, 5)
             project = self.db.execute("SELECT * FROM project").fetchone()
             if project is None or project["game_path"] != str(paths.game):
                 raise ValueError("Projenin bağlı olduğu oyun klasörü eşleşmiyor.")
@@ -164,8 +167,10 @@ class ProjectRepository:
         }
 
     def migrate(self, old_version: int, new_version: int) -> None:
-        if (old_version, new_version) not in ((1, 2), (2, 3), (3, 4)):
+        if (old_version, new_version) not in ((1, 2), (2, 3), (3, 4), (4, 5)):
             raise ValueError("Migration yolu desteklenmiyor.")
+        if self.db.execute("PRAGMA user_version").fetchone()[0] != old_version:
+            raise ValueError("Migration source schema version changed; no writes performed.")
         backup = self.paths.output(f"backups/schema-{old_version}-{uuid4().hex}.sqlite3")
         backup.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(backup) as destination:
@@ -238,10 +243,49 @@ class ProjectRepository:
                 self.db.rollback()
             raise
 
-    def ingest(self, units: Sequence[TextUnitDraft], metadata: dict[str, Any]) -> str:
+    def ingest_reader_result(self, result: ReaderResult) -> tuple[str, ...]:
+        """Activate only a complete, validated built-in reader result, atomically."""
+        if not result.complete or not result.snapshots:
+            raise ValueError("Incomplete source discovery cannot replace active sources.")
+        descriptors = [snapshot.source for snapshot in result.snapshots]
+        identities = [source.logical_id for source in descriptors]
+        units = [unit.unit_id for snapshot in result.snapshots for unit in snapshot.units]
+        if len(set(identities)) != len(identities) or len(set(units)) != len(units):
+            raise ValueError("Ambiguous source or record identities in reader result.")
+        groups = {(s.adapter_id, s.profile_id, s.source_language) for s in descriptors}
+        if len(groups) != 1:
+            raise ValueError("A complete source set must belong to one adapter/profile/language.")
+        with self.transaction() as db:
+            snapshots = tuple(
+                self.ingest(
+                    snapshot.units, {**result.metadata, **snapshot.metadata}, source=snapshot.source
+                ) for snapshot in result.snapshots
+            )
+            # Retire absent sources only after every member succeeded. Their history stays.
+            retired = db.execute(
+                "SELECT id FROM source_descriptors WHERE adapter_id=? AND profile_id=? "
+                "AND source_language=? AND active=1", next(iter(groups))
+            ).fetchall() if result.replace_source_set else ()
+            for row in retired:
+                if row["id"] not in identities:
+                    db.execute(
+                        "UPDATE text_units SET active=0 WHERE logical_source_id=?", (row[0],)
+                    )
+                    db.execute("UPDATE source_descriptors SET active=0 WHERE id=?", (row[0],))
+        return snapshots
+
+    def ingest(
+        self, units: Sequence[TextUnitDraft], metadata: dict[str, Any], *,
+        source: SourceDescriptor | None = None,
+    ) -> str:
         if len({unit.unit_id for unit in units}) != len(units):
             raise ValueError("Kaynak snapshot'ında yinelenen kimlik var.")
         for unit in units:
+            if source is not None and (
+                unit.source_file != source.source_file
+                or (source.source_object != -1 and unit.source_object != source.source_object)
+            ):
+                raise ValueError("Record does not belong to the declared logical source.")
             if unit.source_language != self.source_language:
                 raise ValueError("Snapshot kaynak dili proje diliyle eşleşmiyor.")
             if sha256(unit.source_text.encode("utf-8")).hexdigest() != unit.source_hash:
@@ -251,13 +295,59 @@ class ProjectRepository:
                 raise ValueError("Kaynak konumu güvenli, göreli bir yol olmalı.")
         snapshot = uuid4().hex
         scope = {unit.source_file for unit in units}
+        descriptors = (
+            [source] if source is not None
+            else [SourceDescriptor.legacy(path, self.source_language) for path in sorted(scope)]
+        )
         with self.transaction() as db:
             db.execute(
                 "INSERT INTO source_snapshots VALUES(?,?,?)", (snapshot, now(), canonical(metadata))
             )
-            for source in scope:
-                db.execute("UPDATE text_units SET active=0 WHERE source_file=?", (source,))
+            for descriptor in descriptors:
+                if descriptor.source_language != self.source_language:
+                    raise ValueError("Source descriptor language differs from the project.")
+                encoded = canonical(asdict(descriptor))
+                previous = db.execute(
+                    "SELECT * FROM source_descriptors WHERE id=?", (descriptor.logical_id,)
+                ).fetchone()
+                if previous is not None and (
+                    previous["adapter_id"], previous["profile_id"], previous["schema_version"],
+                    previous["source_file"], previous["source_language"],
+                ) != (
+                    descriptor.adapter_id, descriptor.profile_id, descriptor.schema_version,
+                    descriptor.source_file, descriptor.source_language,
+                ):
+                    raise ValueError("Logical source identity cannot be reassigned.")
+                if previous is not None and json.loads(previous["descriptor_json"]).get(
+                    "format_rules", PROTECTED_FORMAT_VERSION
+                ) != descriptor.format_rules:
+                    raise ValueError("Source format changes require a new schema identity.")
+                db.execute(
+                    "INSERT INTO source_descriptors VALUES(?,?,?,?,?,?,?,?,1) "
+                    "ON CONFLICT(id) DO UPDATE SET descriptor_json=excluded.descriptor_json,"
+                    "source_object=excluded.source_object,active=1",
+                    (descriptor.logical_id, descriptor.adapter_id, descriptor.profile_id,
+                     descriptor.schema_version, descriptor.source_file, descriptor.source_object,
+                     descriptor.source_language, encoded),
+                )
+                db.execute(
+                    "INSERT INTO snapshot_sources VALUES(?,?,?)",
+                    (snapshot, descriptor.logical_id, encoded),
+                )
+                db.execute(
+                    "UPDATE text_units SET active=0 WHERE logical_source_id=?",
+                    (descriptor.logical_id,),
+                )
+                if descriptor.profile_id == "legacy-i2":
+                    db.execute(
+                        "UPDATE text_units SET active=0 WHERE logical_source_id IS NULL "
+                        "AND source_file=?", (descriptor.source_file,),
+                    )
             for unit in units:
+                logical_id = (
+                    source.logical_id if source is not None
+                    else "legacy-file-v1:" + unit.source_file
+                )
                 meaning = {
                     key: value
                     for key, value in asdict(unit).items()
@@ -265,9 +355,17 @@ class ProjectRepository:
                 }
                 revision = sha256(canonical(meaning).encode("utf-8")).hexdigest()
                 old = db.execute(
-                    "SELECT source_revision,source_file FROM text_units WHERE unit_id=?",
+                    "SELECT source_revision,source_file,logical_source_id "
+                    "FROM text_units WHERE unit_id=?",
                     (unit.unit_id,),
                 ).fetchone()
+                if old is not None and old["logical_source_id"] not in (None, logical_id):
+                    legacy_move = (
+                        str(old["logical_source_id"]).startswith("legacy-file-v1:")
+                        and (source is None or source.profile_id == "legacy-i2")
+                    )
+                    if not legacy_move:
+                        raise ValueError("A record identity cannot move between logical sources.")
                 if old is not None and old["source_file"] != unit.source_file:
                     previous = checked_path(self.paths.game / old["source_file"])
                     incoming = checked_path(self.paths.game / unit.source_file)
@@ -303,6 +401,10 @@ class ProjectRepository:
                 db.execute(
                     "UPDATE text_units SET source_revision=?,active=1 WHERE unit_id=?",
                     (revision, unit.unit_id),
+                )
+                db.execute(
+                    "UPDATE text_units SET logical_source_id=? WHERE unit_id=?",
+                    (logical_id, unit.unit_id),
                 )
                 db.execute(
                     "INSERT OR IGNORE INTO work_items(unit_id,status) VALUES(?,'pending')",
@@ -387,7 +489,19 @@ class ProjectRepository:
             f"WHERE {where} ORDER BY u.original_key,u.unit_id LIMIT ? OFFSET ?",
             (*parameters, limit, offset),
         )
-        return [dict(row) for row in rows]
+        return [{**dict(row), "format_rules": self.format_rules(row["unit_id"])} for row in rows]
+
+    def format_rules(self, unit_id: str) -> str:
+        row = self.db.execute(
+            "SELECT d.descriptor_json FROM text_units u LEFT JOIN source_descriptors d "
+            "ON d.id=u.logical_source_id WHERE u.unit_id=?", (unit_id,),
+        ).fetchone()
+        if row is None or row[0] is None:
+            return PROTECTED_FORMAT_VERSION
+        rules = json.loads(row[0]).get("format_rules", PROTECTED_FORMAT_VERSION)
+        if rules not in (PROTECTED_FORMAT_VERSION, "literal-lines-v1"):
+            raise ValueError("Unknown built-in source format rules.")
+        return str(rules)
 
     def count(
         self,
@@ -423,7 +537,7 @@ class ProjectRepository:
             source = db.execute(
                 "SELECT source_text FROM source_revisions WHERE id=?", (row["source_revision"],)
             ).fetchone()[0]
-            if not text.strip() or format_issues(source, text):
+            if not text.strip() or format_issues(source, text, rules=self.format_rules(unit_id)):
                 raise ValueError(
                     "Düzenleme korumalı biçim kontrolünü geçmedi; mevcut çeviri korundu."
                 )
@@ -449,7 +563,7 @@ class ProjectRepository:
         metadata = {
             **metadata,
             "review_checks_version": REVIEW_CHECKS_VERSION,
-            "protected_format_version": PROTECTED_FORMAT_VERSION,
+            "protected_format_version": self.format_rules(unit_id),
         }
         identity = {
             "source_revision": source_revision,
@@ -469,7 +583,9 @@ class ProjectRepository:
             ).fetchone()
             if current is None or source_revision != current["source_revision"]:
                 return False
-            hard_issues = format_issues(current["source_text"], text)
+            hard_issues = format_issues(
+                current["source_text"], text, rules=self.format_rules(unit_id)
+            )
             issues = sorted(
                 set(
                     issues
@@ -479,6 +595,7 @@ class ProjectRepository:
                         text,
                         source_language=current["source_language"],
                         target_language=self.target_language,
+                        rules=self.format_rules(unit_id),
                     )
                 )
             )
@@ -611,7 +728,7 @@ class ProjectRepository:
             if current["status"] == "approved" and not replace_approved:
                 raise ValueError("Onaylı metni değiştirmek için açık aday seçimi gerekli.")
             if not candidate["text"].strip() or format_issues(
-                candidate["source_text"], candidate["text"]
+                candidate["source_text"], candidate["text"], rules=self.format_rules(unit_id)
             ):
                 raise ValueError("Aday korumalı biçim kontrolünü geçmedi; mevcut metin korundu.")
             issues = json.loads(candidate["issues_json"])

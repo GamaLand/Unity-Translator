@@ -3,6 +3,7 @@
 import asyncio
 import json
 import sqlite3
+import threading
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
@@ -10,7 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.discovery import probe_source, save_report, scan
-from unitytranslator.domain import GenerationProfile, TextUnitDraft
+from unitytranslator.domain import GenerationProfile
 from unitytranslator.editor_drafts import EditorDraftStore
 from unitytranslator.filesystem import ProjectPaths
 from unitytranslator.game_process import inspect_game_processes
@@ -20,6 +21,7 @@ from unitytranslator.pilot import select_pilot
 from unitytranslator.policy import GlossaryRule, PolicyStore
 from unitytranslator.portable import PortableService
 from unitytranslator.providers import LocalProvider
+from unitytranslator.reader_adapters import deployment_adapter_for, result_from_report
 from unitytranslator.reports import job_report, save_current_quality_audit, save_job_report
 from unitytranslator.repository import ProjectRepository, now
 from unitytranslator.review_selection import all_approval_preview, approve_all, approve_selection
@@ -33,6 +35,8 @@ class ApplicationSession:
         self.jobs: TranslationJobService | None = None
         self.progress = progress
         self.extracting = False
+        self.extraction_cancelled = threading.Event()
+        self.extraction_task: asyncio.Task[Any] | None = None
         self.installation: InstallationSession | None = None
         self.all_approval: dict[str, Any] | None = None
 
@@ -43,6 +47,9 @@ class ApplicationSession:
         return self.repository
 
     async def close(self) -> None:
+        self.extraction_cancelled.set()
+        if self.extraction_task is not None and self.extraction_task != asyncio.current_task():
+            await asyncio.gather(self.extraction_task, return_exceptions=True)
         if self.jobs is not None and self.jobs.active_job is not None:
             task = self.jobs.task
             self.jobs.cancel()
@@ -56,6 +63,9 @@ class ApplicationSession:
         self.all_approval = None
 
     async def dispatch(self, command: str, data: dict[str, Any]) -> Any:
+        if command == "cancel_extract":
+            self.extraction_cancelled.set()
+            return {"cancel_requested": True}
         if command == "open":
             if self.extracting:
                 raise ValueError("Çıkarma sürüyor; bitmesini bekleyin.")
@@ -99,7 +109,7 @@ class ApplicationSession:
                     "Kurulum/kaldırma için çıkarma veya çeviri işinin bitmesini bekleyin."
                 )
             if command == "deployment_status":
-                deployment_result = self.installation.status()
+                deployment_result = deployment_adapter_for(self.installation).probe()
             elif command == "deployment_prepare":
 
                 def progress(message: str) -> None:
@@ -112,7 +122,7 @@ class ApplicationSession:
                             }
                         )
 
-                deployment_result = self.installation.prepare(
+                deployment_result = deployment_adapter_for(self.installation).prepare(
                     log_file=data.get("log_file", ""),
                     log_reviewed=data.get("log_reviewed", False),
                     progress=progress,
@@ -228,23 +238,36 @@ class ApplicationSession:
             if self.extracting or (self.jobs and self.jobs.active_job):
                 raise ValueError("Başka bir çıkarma/çeviri işlemi sürüyor.")
             self.extracting = True
+            self.extraction_cancelled.clear()
+            self.extraction_task = asyncio.current_task()
             try:
                 report = await asyncio.to_thread(
                     probe_source,
                     self.repo.paths,
                     data["source"],
                     source_language=self.repo.source_language,
+                    cancellation=self.extraction_cancelled.is_set,
                 )
                 output = save_report(self.repo.paths, "extract", report)
+                if self.extraction_cancelled.is_set():
+                    raise ValueError("Extraction cancelled; existing records were preserved.")
                 if report["extraction"] != "supported":
                     raise ValueError(f"Çıkarma desteklenmedi; tanı raporu: {output}")
-                snapshot = self.repo.ingest(
-                    [TextUnitDraft(**v) for v in report["units"]],
-                    {k: v for k, v in report.items() if k != "units"},
-                )
-                return {"snapshot": snapshot, "counts": report["counts"], "report": str(output)}
+                snapshot = self.repo.ingest_reader_result(
+                    result_from_report(
+                        report, replace_source_set=report.get("complete_source_set") is True
+                    )
+                )[0]
+                return {
+                    "snapshot": snapshot,
+                    "counts": report["counts"],
+                    "report": str(output),
+                    "capabilities": report["capabilities"],
+                    "coverage": report.get("coverage", []),
+                }
             finally:
                 self.extracting = False
+                self.extraction_task = None
         if command in ("models", "connection_test"):
             if self.jobs and self.jobs.active_job:
                 raise ValueError("Üretim işi sürerken ikinci model isteği açılamaz.")
@@ -260,6 +283,11 @@ class ApplicationSession:
                 "<b>Welcome {0}</b>\nYou have 3 points.",
                 source_language="en",
                 target_language=self.repo.target_language,
+                **(
+                    {"reasoning_effort": data["reasoning_effort"]}
+                    if data.get("reasoning_effort", "default") != "default"
+                    else {}
+                ),
             )
         if command == "policies":
             policy = PolicyStore(self.repo)
@@ -359,6 +387,12 @@ class ApplicationSession:
                 data["revision"],
                 replace_approved=data.get("replace_approved", False),
             )
+        if command == "textasset_export":
+            from unitytranslator.textasset_export import export_payloads
+
+            if data.get("project_id") != self.repo.project_id or self.extracting:
+                raise ValueError("Project changed or extraction is active; retry when it finishes.")
+            return {**export_payloads(self.repo), "project_id": self.repo.project_id}
         if command == "export":
             return str(PortableService(self.repo).export())
         if command == "runtime_export":
@@ -408,7 +442,7 @@ class ApplicationSession:
                 retranslate=data.get("retranslate", False),
                 approved_candidates=data.get("approved_candidates", False),
             )
-            return {"job_id": identifier, "count": len(units), "profile": asdict(profile)}
+            return {"job_id": identifier, "count": len(units), "profile": profile.to_dict()}
         if command == "run_job":
             if self.jobs is None or self.extracting:
                 raise ValueError("Proje/çıkarma durumu çeviriye uygun değil.")

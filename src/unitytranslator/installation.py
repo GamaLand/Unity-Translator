@@ -9,6 +9,9 @@ from unitytranslator.deployment import DeploymentService, VolatileFile
 from unitytranslator.filesystem import checked_path, hash_file
 from unitytranslator.i2_activation import install_reviewed_trial, prepare_activation_review
 from unitytranslator.i2_trial import prepare_i2_trial
+from unitytranslator.krypta_profile import load_profile
+from unitytranslator.krypta_runtime import KryptaRuntimeKit
+from unitytranslator.krypta_trial import install_krypta_review, prepare_krypta_review
 from unitytranslator.language import language_name
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.runtime_export import export_selected_runtime
@@ -20,6 +23,30 @@ class InstallationSession:
         self.repo = repo
         self.pending: dict[str, Any] | None = None
 
+    def adapter_kind(self) -> str:
+        adapters = {
+            row[0]
+            for row in self.repo.db.execute(
+                "SELECT DISTINCT d.adapter_id FROM text_units u "
+                "JOIN source_descriptors d ON d.id=u.logical_source_id WHERE u.active=1"
+            )
+        }
+        if not adapters or adapters == {"i2"}:
+            return "i2"
+        if adapters == {"krypta-textassets"}:
+            return "krypta"
+        return "unsupported"
+
+    def require_installation_adapter(self) -> None:
+        kind = self.adapter_kind()
+        if kind == "unsupported" or (
+            kind == "krypta" and KryptaRuntimeKit().catalog.get("ui_trial_enabled") is not True
+        ):
+            raise ValueError(
+                "This source adapter supports staged text exports only; game installation "
+                "is not implemented."
+            )
+
     def status(self) -> dict[str, Any]:
         service = DeploymentService(self.repo)
         baseline, manifest = service.read_baseline(), service.read_manifest()
@@ -29,17 +56,24 @@ class InstallationSession:
             "AND w.approved_translation=w.translation_revision"
         ).fetchone()[0]
         try:
-            kit = RuntimeKit()
+            self.require_installation_adapter()
+            kit: RuntimeKit = (
+                KryptaRuntimeKit() if self.adapter_kind() == "krypta" else RuntimeKit()
+            )
             available, reason = kit.root.is_dir(), ""
             if not available:
                 reason = "Bu pakette runtime dosyaları eksik. Tam Windows paketini kullanın."
             else:
-                candidates = list(self.repo.paths.game.glob("*_Data/Managed/Assembly-CSharp.dll"))
-                if len(candidates) != 1:
-                    raise ValueError("Bu oyun yapısıyla eşleşen uygulama adaptörü bulunmuyor.")
-                kit.check_game(
-                    self.repo, candidates[0].relative_to(self.repo.paths.game).as_posix()
-                )
+                if self.adapter_kind() == "krypta":
+                    assembly_relative = load_profile()["assembly"]["path"]
+                else:
+                    candidates = list(
+                        self.repo.paths.game.glob("*_Data/Managed/Assembly-CSharp.dll")
+                    )
+                    if len(candidates) != 1:
+                        raise ValueError("Bu oyun yapısıyla eşleşen uygulama adaptörü bulunmuyor.")
+                    assembly_relative = candidates[0].relative_to(self.repo.paths.game).as_posix()
+                kit.check_game(self.repo, assembly_relative)
         except ValueError as exc:
             available, reason = False, str(exc)
         except OSError:
@@ -66,6 +100,7 @@ class InstallationSession:
         progress: Callable[[str], None] | None = None,
     ) -> dict[str, Any]:
         self.pending = None
+        self.require_installation_adapter()
 
         def notify(message: str) -> None:
             if progress:
@@ -114,6 +149,34 @@ class InstallationSession:
                 "AND w.status='approved' ORDER BY u.unit_id LIMIT 100001"
             )
         ]
+        if self.adapter_kind() == "krypta":
+            kit_krypta = KryptaRuntimeKit()
+            kit_krypta.validate()
+            kit_krypta.check_game(self.repo, load_profile()["assembly"]["path"])
+            review_krypta = prepare_krypta_review(
+                self.repo,
+                kit_krypta,
+                records,
+                service=service,
+            )
+            self.pending = {
+                "review_id": uuid4().hex,
+                "adapter_kind": "krypta",
+                "review_relative": review_krypta["review_relative"],
+                "review_sha256": review_krypta["review_sha256"],
+            }
+            baseline_krypta = service.read_baseline()
+            assert baseline_krypta is not None
+            return {
+                "project_id": self.repo.project_id,
+                **self.pending,
+                "records": len(records),
+                "original_files": len(baseline_krypta["files"]),
+                "exclusions": service.exclusion_rules(),
+                "files": review_krypta["plan"]["files"],
+                "game": str(self.repo.paths.game),
+                "application_verified": False,
+            }
         context = export_selected_runtime(self.repo, records, record_limit=100_000)
         self.check_sources(context["source_fingerprints"])
         kit = RuntimeKit()
@@ -165,6 +228,19 @@ class InstallationSession:
             != pending["review_sha256"]
         ):
             raise ValueError("Kurulum incelemesi eski veya değişmiş; yeniden hazırlayın.")
+        if pending.get("adapter_kind") == "krypta":
+            self.require_installation_adapter()
+            result_krypta = install_krypta_review(
+                self.repo,
+                KryptaRuntimeKit(),
+                pending["review_relative"],
+                pending["review_sha256"],
+                user_action=user_action,
+                experimental_reviewed=experimental_reviewed,
+                service=DeploymentService(self.repo),
+            )
+            self.pending = None
+            return result_krypta
         RuntimeKit().check_game(self.repo, pending["assembly_relative"])
         self.check_sources(pending["source_fingerprints"])
         result = install_reviewed_trial(

@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from unitytranslator.application import ApplicationSession
+from unitytranslator.capabilities import discovery_capabilities
 from unitytranslator.filesystem import ProjectPaths, hash_file
 from unitytranslator.i2 import extract_i2
 from unitytranslator.language import DEFAULT_STYLE, language_index, normalize_language
@@ -104,7 +105,7 @@ def test_application_forwards_source_language_to_worker(tmp_path, monkeypatch):
     game.mkdir()
     captured = []
 
-    def probe(paths, source, *, source_language):
+    def probe(paths, source, *, source_language, cancellation=None):
         captured.append(source_language)
         units = extract_i2(
             {
@@ -118,11 +119,13 @@ def test_application_forwards_source_language_to_worker(tmp_path, monkeypatch):
         )
         from dataclasses import asdict
 
-        return {
+        report = {
             "extraction": "supported",
             "counts": {"records": 1},
             "units": [asdict(unit) for unit in units],
         }
+        report["capabilities"] = discovery_capabilities(report, inspected=True).to_dict()
+        return report
 
     monkeypatch.setattr("unitytranslator.application.probe_source", probe)
 
@@ -138,8 +141,10 @@ def test_application_forwards_source_language_to_worker(tmp_path, monkeypatch):
                     "target_language": "ja",
                 },
             )
-            await session.dispatch("extract", {"source": "synthetic.assets"})
+            result = await session.dispatch("extract", {"source": "synthetic.assets"})
             assert session.repo.page()[0]["source_text"] == "Inizia"
+            assert result["capabilities"]["translation"]["status"] == "supported"
+            assert result["capabilities"]["installation"]["status"] == "unknown"
         finally:
             await session.close()
 

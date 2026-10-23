@@ -46,8 +46,6 @@ class BackendBridge(QObject):
 
     def shutdown(self):
         async def finish():
-            while self.session.extracting:
-                await asyncio.sleep(0.1)
             await self.session.close()
             self.loop.stop()
 

@@ -33,6 +33,16 @@ your choice applies when you reopen the app. It does not change the game's trans
 
 ## Back up, install and share
 
+For the reviewed Krypta FM build, choose source language `en` and scan/extract normally.
+The profile reads all three declared containers together, even if a scene is selected.
+It currently exposes 442 fields from 34 TextAssets; two sources are explicitly excluded
+and other game text may remain outside this profile. Use the usual model, pilot,
+review and approval steps. In **Export**, choose **Export approved game-text payloads**.
+This creates verified text payloads and a coverage manifest inside the project, retaining
+original text in unapproved slots. It does not modify Unity assets or install a patch;
+**Apply to game** is unsupported for this profile. Source changes require extraction
+and review again. Close older app versions before opening a schema-5 project.
+
 **Export** offers JSON exchange and a project data backup. Keep backups outside the game.
 For a supported installation, close the game, open **Apply to game**, prepare a plan,
 review the new files and approve installation separately. Launch the game yourself to
@@ -50,3 +60,7 @@ checks do not guarantee translation quality. Some technical diagnostics retain o
 
 
 Game translation languages: source and target are separate from the interface language. Enter ja for Japanese, it for Italian or pt-BR for Brazilian Portuguese; other language codes can also be entered. The source must exist in the game. Missing or ambiguous source columns are rejected. The model must support the pair. Existing project languages, approvals and custom styles are preserved; review old language-specific styles. Check fonts, RTL layout and plural forms in a small patch before sharing. English can also be a target.
+
+In advanced model settings, you can optionally disable model reasoning for LM Studio requests. This may leave more output budget for the translation. Support depends on the loaded model/server; an unsupported option can stop the job. Defaults and server-wide settings are preserved.
+
+Profile revision 2 also reads seven English journal objectives as static metadata. The total is 449 fields from 34 TextAssets and one journal grid; the previous source identities and approvals are preserved. The new journal runtime hook has only compile/synthetic evidence, while the earlier three-label menu pilot was observed in-game. Normal Krypta installation in the UI remains unsupported.

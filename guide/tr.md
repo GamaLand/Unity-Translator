@@ -1,5 +1,16 @@
 # UnityTranslator kullanım rehberi
 
+## Krypta FM metinleri
+
+Doğrulanmış Krypta FM sürümünde kaynak dilini `en` seçip normal tarama/çıkarma
+adımlarını kullanın. Bir sahne seçili olsa da profil üç kaynak dosyasını birlikte okur.
+Şu anda 34 TextAsset içindeki 442 alan çıkarılır; iki kaynak açıkça kapsam dışında
+tutulur ve diğer oyun metinleri bu profilin dışında kalabilir. Normal model, pilot,
+inceleme ve onay adımlarından sonra **Dışa aktar > Onaylı oyun metinlerini dışa aktar** seçeneğini kullanın. Projede metin dosyaları ve kapsam bildirimi oluşturulur;
+onaylanmamış alanların özgün metni korunur. Unity dosyaları değiştirilmez ve oyuna
+yama kurulmaz. Bu profil için **Oyuna uygula** desteklenmez. Kaynaklar değişirse
+yeniden çıkarma ve inceleme gerekir. Şema 5 projesini açmadan önce eski uygulamayı kapatın.
+
 ## Kurulum ve dil seçimi
 
 Windows x64 uygulama ZIP’inin **tamamını** ayrı bir klasöre çıkarıp
@@ -50,3 +61,7 @@ Bütün Unity oyunları desteklenmez; bazı teknik tanılar özgün dilinde kala
 
 
 Oyun çevirisinde kaynak ve hedef dil, arayüz dilinden bağımsızdır. Japonca için ja, İtalyanca için it, Brezilya Portekizcesi için pt-BR yazın; başka dil kodları da girilebilir. Kaynak dil oyunda bulunmalıdır; eksik veya belirsiz dil sütunları reddedilir. Model dil çiftini desteklemelidir. Mevcut projelerin dilleri, onayları ve özel üslupları korunur; eski dile özel üslup kurallarını gözden geçirin. Dağıtımdan önce küçük bir yamada yazı tiplerini, sağdan sola düzeni ve çoğul biçimlerini kontrol edin. İngilizce de hedef olabilir.
+
+Gelişmiş model ayarlarında LM Studio istekleri için model düşünmesini isteğe bağlı kapatabilirsin. Böylece çeviriye daha fazla çıktı bütçesi kalabilir. Destek, yüklü model ve sunucuya bağlıdır; desteklenmeyen seçenek işi durdurabilir. Varsayılanlar ve sunucunun genel ayarları korunur.
+
+Profilin 2. sürümü günlükteki yedi İngilizce görev metnini de statik metaveriden okur. Toplam kapsam 34 TextAsset ve bir günlük dizisinden 449 alandır; önceki kaynak kimlikleri ve onaylar korunur. Yeni günlük runtime kancası yalnızca derleme ve sentetik testlerden geçti; önceki üç etiketli menü pilotu oyunda görüldü. Arayüzden normal Krypta kurulumu henüz desteklenmiyor.

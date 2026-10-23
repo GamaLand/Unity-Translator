@@ -535,7 +535,8 @@ class PortableService:
         with self.repository.transaction():
             for unit in value.history:
                 self.repository.db.execute(
-                    "INSERT INTO text_units VALUES(?,?,?,?,?,?)",
+                    "INSERT INTO text_units(unit_id,original_key,source_file,source_object,"
+                    "active,source_revision) VALUES(?,?,?,?,?,?)",
                     (
                         unit.unit_id,
                         unit.original_key,

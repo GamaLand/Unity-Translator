@@ -210,7 +210,13 @@ class LocalProvider:
         return models
 
     async def translate_sample(
-        self, model: str, text: str, *, source_language: str = "en", target_language: str = "tr"
+        self,
+        model: str,
+        text: str,
+        *,
+        source_language: str = "en",
+        target_language: str = "tr",
+        reasoning_effort: str = "default",
     ) -> dict[str, Any]:
         return await self.translate_record(
             model,
@@ -221,6 +227,7 @@ class LocalProvider:
             context_tokens=8192,
             output_tokens=4096,
             prompt_version="sample-v1",
+            reasoning_effort=reasoning_effort,
         )
 
     async def translate_record(
@@ -238,17 +245,25 @@ class LocalProvider:
         style: str = "",
         glossary: list[dict[str, Any]] | None = None,
         prompt_version: str = "translate-v1",
+        format_rules: str = PROTECTED_FORMAT_VERSION,
+        reasoning_effort: str = "default",
     ) -> dict[str, Any]:
         if prompt_version not in ("sample-v1", "translate-v1"):
             raise ProviderError("unsupported_option", "İstem sürümü desteklenmiyor.")
+        if reasoning_effort not in ("default", "none") or (
+            reasoning_effort == "none" and self.provider != "lm-studio"
+        ):
+            raise ProviderError("unsupported_option", "Unsupported provider reasoning option.")
         if not 128 <= output_tokens <= 8192 or not 512 <= context_tokens <= 1_048_576:
             raise ProviderError("context", "Bağlam/çıkış token sınırı geçersiz.")
-        branches = plural_branches(text)
-        protected = {form: mask(branch) for form, branch in branches.items()}
+        branches = {"Plural": text} if format_rules == "literal-lines-v1" else plural_branches(text)
+        protected = {form: mask(branch, rules=format_rules) for form, branch in branches.items()}
         ids = {
             form: request_id if len(branches) == 1 else request_id + ":" + form for form in branches
         }
         format_prompt = "translate-plural-v2" if len(branches) > 1 else prompt_version
+        if format_rules == "literal-lines-v1":
+            format_prompt = "translate-lines-v1"
         started = perf_counter()
         prompt = (
             files("unitytranslator.resources")
@@ -289,6 +304,8 @@ class LocalProvider:
                 },
             ],
         }
+        if reasoning_effort == "none":
+            payload["reasoning_effort"] = "none"
         if self.structured_output:
             schema = Envelope.model_json_schema()
             schema["properties"]["translations"].update(
@@ -340,7 +357,7 @@ class LocalProvider:
         diagnostics.update(
             {
                 "format_prompt_version": format_prompt,
-                "protected_format_version": PROTECTED_FORMAT_VERSION,
+                "protected_format_version": format_rules,
                 "request_branch_count": len(branches),
                 "schema_mode": ("ordered-items-v1" if len(branches) > 1 else "single-id-array-v1")
                 if self.structured_output
@@ -393,7 +410,11 @@ class LocalProvider:
                 diagnostics,
             ) from exc
         issues = review_issues(
-            text, translated, source_language=source_language, target_language=target_language
+            text,
+            translated,
+            source_language=source_language,
+            target_language=target_language,
+            rules=format_rules,
         )
         return {
             "provider": self.provider,
@@ -413,12 +434,13 @@ class LocalProvider:
             "issues": issues,
             "human_approved": False,
             "review_checks_version": REVIEW_CHECKS_VERSION,
-            "protected_format_version": PROTECTED_FORMAT_VERSION,
+            "protected_format_version": format_rules,
             "schema_capability": "tested_supported" if self.structured_output else "unknown",
             "settings": {
                 "temperature": temperature,
                 "max_tokens": output_tokens,
                 "context_tokens": context_tokens,
+                **({"reasoning_effort": reasoning_effort} if reasoning_effort != "default" else {}),
             },
             "token_budget": {
                 "method": "conservative_message_schema_bytes_v2",

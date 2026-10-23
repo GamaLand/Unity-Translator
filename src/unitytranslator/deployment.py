@@ -328,7 +328,7 @@ class DeploymentService:
     def activate(
         self, plan: DeploymentPlan, *, user_action: bool, adapter_verified: bool
     ) -> dict[str, Any]:
-        if plan.adapter == "i2mono-experimental-trial":
+        if plan.adapter in {"i2mono-experimental-trial", "krypta-textassets-experimental-trial"}:
             raise ValueError("Deneysel plan normal doğrulanmış adaptör yolundan kurulamaz.")
         if user_action is not True or adapter_verified is not True:
             raise ValueError(
@@ -343,7 +343,8 @@ class DeploymentService:
         if user_action is not True or experimental_trial_reviewed is not True:
             raise ValueError("Deneysel kurulum ayrı, açık kullanıcı deneme seçimi gerektirir.")
         if (
-            plan.adapter != "i2mono-experimental-trial"
+            plan.adapter
+            not in {"i2mono-experimental-trial", "krypta-textassets-experimental-trial"}
             or plan.adapter_version != "1"
             or len(plan.files) != 2
             or {file.target for file in plan.files} != {"winhttp.dll", "doorstop_config.ini"}

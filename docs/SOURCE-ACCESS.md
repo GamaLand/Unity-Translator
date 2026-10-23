@@ -1,12 +1,12 @@
 # Source code access
 
 UnityTranslator's own project code is MIT licensed. The accompanying
-`unitytranslator-0.1.0.tar.gz` source distribution contains the application and build
+`unitytranslator-0.4.0.tar.gz` source distribution contains the application and build
 tools. `uv.lock` pins dependency versions. `tools/build_windows.py` and
 `docs/windows-package.md` describe the standalone build.
 
 Qt/PySide6 6.12.0 sources are provided separately in the accompanying
-`UnityTranslator-0.1.0-dependency-sources.zip`. That archive preserves the official
+`UnityTranslator-0.4.0-dependency-sources.zip`. That archive preserves the official
 PySide/Shiboken, QtBase, QtSvg and QtImageFormats source archives without modification.
 `SOURCE-MANIFEST.json` records their official URLs, sizes and SHA-256 hashes. Users do
 not need to download source archives merely to run the program.
@@ -21,6 +21,9 @@ Experimental loader sources and licenses are also provided in `runtime-kit/SOURC
 `runtime-kit/LICENSES` and `runtime-kit/RUNTIME-NOTICES.json`. The modified preloader's
 complete source tree and change evidence are included in `protected-preloader.zip`.
 The portable variant has its corresponding notices and sources in `portable-runtime-kit`.
+The separate experimental Krypta components, when bundled, retain their own notices
+and corresponding sources in `krypta-runtime-kit`. Their fingerprints and evidence
+are independent of the I2 kits; staged export support does not establish runtime support.
 Original game DLLs and model files are not included.
 
 When redistributing a binary release, provide its corresponding application and dependency

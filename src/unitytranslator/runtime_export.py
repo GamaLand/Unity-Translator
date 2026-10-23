@@ -1,4 +1,4 @@
-"""Export a reviewed selection as experimental I2 runtime text data."""
+"""Export approved selections through their built-in runtime data contracts."""
 
 from hashlib import sha256
 from pathlib import Path
@@ -9,6 +9,7 @@ from unitytranslator.json_boundary import strict_json
 from unitytranslator.language import language_name
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.runtime_payload import export_runtime_payload
+from unitytranslator.textasset_export import export_payloads
 
 
 def export_selected_runtime(
@@ -21,6 +22,25 @@ def export_selected_runtime(
         or len({r["unit_id"] for r in records}) != len(records)
     ):
         raise ValueError(f"1–{record_limit} farklı onaylı kayıt seçin.")
+    adapters = set()
+    for frozen in records:
+        descriptor = repo.db.execute(
+            "SELECT d.adapter_id FROM text_units u LEFT JOIN source_descriptors d "
+            "ON d.id=u.logical_source_id WHERE u.unit_id=?",
+            (frozen["unit_id"],),
+        ).fetchone()
+        adapters.add(descriptor[0] if descriptor is not None and descriptor[0] else "i2")
+    if adapters == {"krypta-textassets"}:
+        result = export_payloads(repo, records, runtime_candidate=True)
+        return {
+            **result,
+            "path": str(Path(result["folder"]) / "translation.json"),
+            "records": result["approved_translations"],
+            "game_written": False,
+            "application": "unknown",
+        }
+    if adapters != {"i2"}:
+        raise ValueError("Select records from one supported runtime source adapter.")
     contexts = set()
     source_fingerprints: dict[str, str | None] = {}
     for frozen in records:

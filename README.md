@@ -3,6 +3,12 @@
 A Windows desktop app for translating supported Unity game text with a local AI model.
 Extract text, translate it, review the results and prepare a translation patch in one workspace.
 
+Current version: **0.4.0**, the third feature update after the initial 0.1.0 release.
+This update adds source-scoped adapter contracts, backed-up schema-5 migration and
+the fingerprint-bound Krypta FM reader. Its 449 scoped fields can be translated,
+reviewed and exported. The newer experimental Krypta runtime still requires in-game
+lifecycle verification; normal Krypta installation remains disabled.
+
 ## Features
 
 - Local translation through an existing **LM Studio** or **llama.cpp** server.

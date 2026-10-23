@@ -1,5 +1,14 @@
 # Development
 
+The optional generation-profile field `reasoning_effort="none"` sends a
+request-scoped LM Studio Chat Completions option; it does not change server defaults.
+The desktop advanced settings expose this opt-in. Other providers reject this option.
+Default profiles omit the new field when serialized, preserving existing job and
+pilot identities. Requested settings and actual usage remain distinct: an ignored
+server option does not establish that reasoning was disabled. A local loaded-model
+synthetic probe returned zero reasoning tokens with this request option; model/server
+support must be checked independently. No model is downloaded or started automatically.
+
 ## Architecture and source map
 
 Python 3.12 owns project state, translation jobs, validation and deployment plans.
@@ -14,6 +23,10 @@ No game assembly is executed for extraction.
 | `domain.py`, `repository.py`, `resources/schema-v*.sql` | Data contracts, revisions and migrations |
 | `jobs.py`, `providers.py`, `policy.py`, `validation.py` | Durable queue, local HTTP, policies and checks |
 | `discovery.py`, `profiles.py`, `i2*.py`, `managed_schema.py`, `workers/` | Read-only discovery and current I2 extraction |
+| `capabilities.py` | Independent discovery capabilities and structured reasons |
+| `source_contracts.py`, `reader_adapters.py` | Bundled reader/deployment contracts and deterministic reader selection |
+| `krypta_profile.py`, `textasset_layouts.py`, `textasset_export.py` | Reviewed TextAsset profile, explicit line layouts and staged payload exports |
+| `worker_process.py`, `workers/textasset_probe.py` | Bounded, cancellable TextAsset worker IPC |
 | `deployment.py`, `installation.py`, `runtime_*.py`, `shareable.py` | Additive install plans, runtime data and ownership |
 | `editor_drafts.py`, `review_selection.py`, `portable.py`, `reports.py` | Review, drafts, history interchange and reports |
 | `ui/`, `resources/locales/` | Qt views, bridge and eight offline interface catalogs |
@@ -21,8 +34,15 @@ No game assembly is executed for extraction.
 | `adapters/` | I2/protected-loader C# sources, synthetic tests and original notices |
 | `tools/` | Verification, source tracing and packaging utilities |
 
-The current reader and deployment implementation is an identified Mono/I2 integration.
-The generic adapter registry and JSON/CSV readers are [planned work](roadmap.md).
+The built-in registry wraps the existing I2 reader and the fingerprint-bound Krypta FM
+TextAsset reader. Profiles are validated bundled data and cannot select imports,
+commands or reflection targets. JSON/CSV readers remain [planned work](roadmap.md).
+The current installation adapter is still the identified Mono/I2 integration.
+`capabilities.py` defines independent discovery capability DTOs with stable reason
+codes and English fallback messages. Shared scan/probe services attach the versioned
+report without changing legacy report keys. CLI summaries and the desktop discovery
+view consume it; export and installation require their own current approval/build
+checks. Runtime, container and localization indicators are separate and may be empty.
 A translation-project JSON import/export is not a game JSON reader. See the independent
 support results in [compatibility.md](compatibility.md).
 
@@ -46,11 +66,25 @@ failures. CI success does not prove a clean Windows installation or new game sup
 
 ## Compatibility and persistence
 
-Schema 4, old project interchange, I2 record identities and v1/v2 runtime payloads are
+Schema 4 inputs, old project interchange, I2 record identities and v1/v2 runtime payloads are
 compatibility inputs. Keep numbered migrations and fixtures; an old file is not
 obsolete simply because a newer format exists. Imports preserve existing approvals
 and treat archived approvals as history. Protect user drafts and optimistic versions.
-The source set must become scoped before independently ingesting several files.
+Schema 5 adds logical-source descriptors and immutable snapshot-to-source metadata;
+legacy I2 IDs and revision hashes remain unchanged. Migration takes a consistent
+SQLite backup before transactional changes. A source update affects only its own
+records; complete multi-source activation either commits in full or rolls back.
+Historical snapshot metadata stays verbatim rather than inventing past source paths.
+TextAsset positional IDs include the complete payload fingerprint: insertions,
+reordering or edits create new records and keep old approvals/drafts as inactive history.
+Imports retain legacy payload schemas and never grant local approvals or deployment
+authority. A restored TextAsset project must re-extract local sources before staging.
+
+TextAsset records explicitly select `literal-lines-v1`; the shared provider, review,
+draft and approval pipeline does not impose I2 tag/plural parsing on these strings.
+Staged exports reconstruct verified payload snapshots using current approved revisions,
+retain unapproved source text, reject stale sources/drafts/revisions and preserve all
+non-text fields, encoding/BOM and newline sequences. No Unity asset is rewritten.
 
 Original-file inventories and ownership receipts form a separate protection boundary.
 Never reset them to work around a conflict. [Installation](installation.md) explains

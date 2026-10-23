@@ -335,5 +335,16 @@
   "Close the previous installation or recover its partial files first.": "Close the previous installation or recover its partial files first.",
   "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.",
   "Enter a language code, for example ja, it or pt-BR.": "Enter a language code, for example ja, it or pt-BR.",
-  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch."
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.",
+  "Supported": "Supported",
+  "Unsupported": "Unsupported",
+  "Extraction: {extraction} · Translation: {translation} · Export: {export} · Installation: {installation}": "Extraction: {extraction} · Translation: {translation} · Export: {export} · Installation: {installation}",
+  "Export approved TextAsset payloads": "Export approved TextAsset payloads",
+  "Creates staged text files in the project. This does not install a game translation.": "Creates staged text files in the project. This does not install a game translation.",
+  "Exported {sources} payloads with {approved} approved translations. Installation is unsupported. Folder: {folder}": "Exported {sources} payloads with {approved} approved translations. Installation is unsupported. Folder: {folder}",
+  "Cancel text extraction": "Cancel text extraction",
+  "Verified TextAsset sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Verified TextAsset sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.",
+  "Disable model reasoning (LM Studio)": "Disable model reasoning (LM Studio)",
+  "Export approved game-text payloads": "Export approved game-text payloads",
+  "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile."
 }

@@ -5,12 +5,13 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from unitytranslator.domain import TextUnitDraft
+from unitytranslator.capabilities import discovery_capabilities
 from unitytranslator.filesystem import ProjectPaths, checked_path, hash_file
 from unitytranslator.profiles import match_profile
 from unitytranslator.repository import ProjectRepository
@@ -69,7 +70,7 @@ def scan(paths: ProjectPaths) -> dict[str, Any]:
                 candidates.append(
                     {"path": file.relative_to(paths.game).as_posix(), "size": file.stat().st_size}
                 )
-    return {
+    report = {
         "format_version": 1,
         "created_at": datetime.now(UTC).isoformat(),
         "runtime_indicators": sorted(runtimes),
@@ -84,9 +85,11 @@ def scan(paths: ProjectPaths) -> dict[str, Any]:
         ],
         "recommendations": recommendations,
     }
+    report["capabilities"] = discovery_capabilities(report).to_dict()
+    return report
 
 
-def probe_source(
+def _probe_i2_source(
     paths: ProjectPaths, relative: str, timeout: float = 120, *, source_language: str = "en"
 ) -> dict[str, Any]:
     part = Path(relative)
@@ -142,7 +145,34 @@ def probe_source(
         "errors": len(result["errors"]),
         "diagnostics": dict(Counter(item["code"] for item in result.get("diagnostics", []))),
     }
+    result["capabilities"] = discovery_capabilities(result, inspected=True).to_dict()
     return result
+
+
+def probe_source(
+    paths: ProjectPaths, relative: str, timeout: float = 120, *, source_language: str = "en",
+    cancellation: Callable[[], bool] | None = None,
+) -> dict[str, Any]:
+    from unitytranslator.reader_adapters import BUILTIN_READERS
+    from unitytranslator.source_contracts import ReaderContext, validate_relative_source
+
+    validate_relative_source(relative)
+    source = checked_path(paths.game / relative)
+    if not source.is_relative_to(paths.game) or not source.is_file():
+        raise ValueError("Source must be an existing file inside the game directory.")
+    reader_id = "i2"
+    info = checked_path(paths.game / Path(relative).parts[0] / "app.info")
+    if info.is_file() and info.stat().st_size <= 4096:
+        lines = info.read_text(encoding="utf-8-sig").splitlines()
+        if len(lines) >= 2 and (profile := match_profile(lines[0], lines[1])) is not None:
+            reader_id = profile.reader_id
+    reader = BUILTIN_READERS.select((reader_id,))
+    return reader.probe(
+        ReaderContext(
+            paths.game, paths.project, source_language, timeout, cancellation or (lambda: False)
+        ),
+        relative,
+    ).report
 
 
 def save_report(paths: ProjectPaths, kind: str, report: dict[str, Any]) -> Path:
@@ -156,14 +186,16 @@ def extract_to_project(paths: ProjectPaths, relative: str) -> dict[str, Any]:
         output = save_report(paths, "extract", report)
         if report["extraction"] != "supported":
             raise ValueError(f"Çıkarma tamamlanamadı; tanı raporu: {output}")
-        units = [TextUnitDraft(**value) for value in report["units"]]
-        snapshot = repository.ingest(
-            units, {key: value for key, value in report.items() if key != "units"}
-        )
+        from unitytranslator.reader_adapters import result_from_report
+
+        snapshot = repository.ingest_reader_result(result_from_report(
+            report, replace_source_set=report.get("complete_source_set") is True
+        ))[0]
         return {
             "snapshot": snapshot,
             "report": str(output),
             "counts": report["counts"],
             "extraction": report["extraction"],
             "application": report["application"],
+            "capabilities": report["capabilities"],
         }

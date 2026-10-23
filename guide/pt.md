@@ -51,3 +51,11 @@ Alguns diagnósticos técnicos mantêm o idioma original.
 
 
 Os idiomas de origem e destino do jogo são independentes do idioma da interface. Use ja para japonês, it para italiano ou pt-BR para português brasileiro; outros códigos também podem ser digitados. O idioma de origem deve existir no jogo. Colunas ausentes ou ambíguas são rejeitadas. O modelo deve oferecer suporte ao par. Os idiomas, aprovações e estilos dos projetos existentes são preservados; revise regras antigas específicas de um idioma. Confira fontes, layout RTL e plurais com um patch pequeno antes de compartilhar. O inglês também pode ser o idioma de destino.
+
+## Krypta FM
+
+Na versão verificada, selecione `en` como idioma de origem e extraia os textos normalmente. O perfil lê três contêineres juntos: 34 TextAssets com 442 campos. Duas fontes são explicitamente excluídas; outros textos ficam fora do perfil. Após traduzir, revisar e aprovar, exporte os textos TextAsset aprovados. Arquivos de texto preparados e um manifesto são criados no projeto; campos não aprovados mantêm o texto original. Nenhum arquivo Unity é alterado e nenhuma tradução é instalada no jogo. A instalação não é compatível com este perfil. Feche as versões anteriores antes de abrir um projeto de esquema 5.
+
+Nas configurações avançadas, é possível desativar opcionalmente o raciocínio nas solicitações do LM Studio. Isso pode reservar mais tokens de saída para a tradução. O suporte depende do modelo e servidor; uma opção incompatível pode interromper o trabalho. Os padrões e as configurações globais do servidor são preservados.
+
+A revisão 2 também lê sete objetivos em inglês do diário nos metadados estáticos. São 449 campos em 34 TextAssets e uma matriz do diário; as identidades e aprovações anteriores são preservadas. O novo hook do diário tem apenas verificações de compilação e sintéticas; o piloto anterior de três rótulos foi observado no jogo. A instalação normal de Krypta pela interface ainda não é suportada.

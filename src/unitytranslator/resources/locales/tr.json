@@ -335,5 +335,16 @@
   "Close the previous installation or recover its partial files first.": "Önce mevcut ekleri kaldırın veya yarım kurulumu kurtarın.",
   "Existing loader files in the game folder: {p0}. They will not be overwritten. Open the project that owns this installation and remove its additions through Apply to game. If the files belong to another mod, use its removal procedure.": "Oyun klasöründe mevcut yükleyici dosyaları var: {p0}. Üzerlerine yazılmaz. Önce bu kurulumu oluşturan projeyi açıp Oyuna uygula bölümünden sahiplik kontrolüyle kaldırın. Dosyalar başka bir moda aitse o modun kaldırma yöntemini kullanın.",
   "Enter a language code, for example ja, it or pt-BR.": "Dil kodu girin; örneğin ja, it veya pt-BR.",
-  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Kaynak dil oyunda bulunmalıdır. Yazı tipleri ve sağdan sola düzen oyuna bağlıdır; yamayı dağıtmadan önce kontrol edin."
+  "The source language must exist in the game. Fonts and right-to-left layout depend on the game; check them before distributing a patch.": "Kaynak dil oyunda bulunmalıdır. Yazı tipleri ve sağdan sola düzen oyuna bağlıdır; yamayı dağıtmadan önce kontrol edin.",
+  "Supported": "Destekleniyor",
+  "Unsupported": "Desteklenmiyor",
+  "Extraction: {extraction} · Translation: {translation} · Export: {export} · Installation: {installation}": "Çıkarma: {extraction} · Çeviri: {translation} · Dışa aktarma: {export} · Kurulum: {installation}",
+  "Export approved TextAsset payloads": "Onaylı TextAsset metinlerini dışa aktar",
+  "Creates staged text files in the project. This does not install a game translation.": "Proje içinde hazırlık metin dosyaları oluşturur. Çeviriyi oyuna kurmaz.",
+  "Exported {sources} payloads with {approved} approved translations. Installation is unsupported. Folder: {folder}": "{sources} metin dosyası, {approved} onaylı çeviriyle dışa aktarıldı. Kurulum desteklenmiyor. Klasör: {folder}",
+  "Cancel text extraction": "Metin çıkarmayı iptal et",
+  "Verified TextAsset sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Doğrulanmış TextAsset kaynakları: {sources}. İncelenmiş kapsam dışı kaynaklar: {excluded}. Bu profilin dışında başka metinler bulunabilir.",
+  "Disable model reasoning (LM Studio)": "Model düşünmesini kapat (LM Studio)",
+  "Export approved game-text payloads": "Onaylı oyun metinlerini dışa aktar",
+  "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. Additional text may remain outside this profile.": "Doğrulanmış oyun metni kaynakları: {sources}. İncelenmiş kapsam dışı kaynaklar: {excluded}. Bu profilin dışında başka metinler bulunabilir."
 }

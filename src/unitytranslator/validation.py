@@ -20,6 +20,7 @@ TOKEN = re.compile(
 )
 MARKER = re.compile(r"__UT_[a-f0-9]+_\d+__")
 PROTECTED_FORMAT_VERSION = "protected-i2-v4"
+LITERAL_LINE_FORMAT = "literal-lines-v1"
 PLURAL_MARKER = re.compile(r"\[i2p_(Zero|One)\]")
 NUMBER = r"[+\-−]?\d+(?:[.,]\d+)*"
 REVIEW_CHECKS_VERSION = "review-multilingual-v5"
@@ -49,6 +50,7 @@ CONDITION_CUES = (
     (r"\buntil\b", r"\bkadar\b"),
 )
 ISSUE_LABELS = {
+    "literal_line_structure_mismatch": "Translation must preserve one nonempty physical line",
     "unchanged_source": "Kaynakla aynı metin",
     "numeric_content_review": "Sayı veya işaret değişikliği: inceleyin",
     "percentage_content_review": "Yüzde değeri veya yüzde işareti değişikliği: inceleyin",
@@ -65,6 +67,10 @@ ISSUE_LABELS = {
     "plural_content_review": "Çoğul dallarını ve 0/1/2 değerlerini inceleyin",
     "plural_structure_mismatch": "Çoğul dalları veya dal sırası eşleşmiyor",
 }
+
+
+def literal_line_valid(text: str) -> bool:
+    return bool(text.strip()) and not any(c in text for c in "\r\n\x00")
 
 
 def plural_branches(text: str) -> dict[str, str]:
@@ -214,8 +220,13 @@ def check_plain_format(text: str) -> None:
 class MaskedText:
     text: str
     replacements: dict[str, str]
+    rules: str = PROTECTED_FORMAT_VERSION
 
     def restore(self, translated: str) -> str:
+        if self.rules == LITERAL_LINE_FORMAT:
+            if not literal_line_valid(translated) or "__UT_" in translated:
+                raise ValueError("Literal translation must remain one nonempty physical line.")
+            return translated
         if len(plural_branches(translated)) != 1:
             raise ValueError("Tek dala yeni çoğul etiketi eklenemez.")
         found = Counter(MARKER.findall(translated))
@@ -231,7 +242,13 @@ class MaskedText:
         return translated
 
 
-def mask(text: str) -> MaskedText:
+def mask(text: str, *, rules: str = PROTECTED_FORMAT_VERSION) -> MaskedText:
+    if rules == LITERAL_LINE_FORMAT:
+        if not literal_line_valid(text) or "__UT_" in text:
+            raise ValueError("Unsupported literal source line.")
+        return MaskedText(text, {}, rules)
+    if rules != PROTECTED_FORMAT_VERSION:
+        raise ValueError("Unknown source format rules.")
     check_format(text)
     if len(plural_branches(text)) != 1:
         raise ValueError("Çoğul metin dallar halinde maskelenmeli.")
@@ -249,11 +266,16 @@ def mask(text: str) -> MaskedText:
 
 
 def review_issues(
-    source: str, translated: str, *, source_language: str = "en", target_language: str = "tr"
+    source: str, translated: str, *, source_language: str = "en", target_language: str = "tr",
+    rules: str = PROTECTED_FORMAT_VERSION,
 ) -> list[str]:
     """Numeric checks and narrow en-to-tr hints; not semantic or approval proof."""
     try:
-        original_branches, target_branches = plural_branches(source), plural_branches(translated)
+        if rules == LITERAL_LINE_FORMAT:
+            original_branches, target_branches = {"Plural": source}, {"Plural": translated}
+        else:
+            original_branches = plural_branches(source)
+            target_branches = plural_branches(translated)
     except ValueError:
         return ["plural_content_review"]
     if len(original_branches) > 1 or len(target_branches) > 1:
@@ -266,6 +288,7 @@ def review_issues(
                         target_branches[form],
                         source_language=source_language,
                         target_language=target_language,
+                        rules=rules,
                     )
                 )
         return sorted(branch_issues)
@@ -273,7 +296,10 @@ def review_issues(
     if source.strip() == translated.strip():
         issues.append("unchanged_source")
     # Tag parameters and placeholder identifiers are not numeric content.
-    original_text, result_text = TOKEN.sub(" ", source), TOKEN.sub(" ", translated)
+    original_text, result_text = (
+        (source, translated) if rules == LITERAL_LINE_FORMAT
+        else (TOKEN.sub(" ", source), TOKEN.sub(" ", translated))
+    )
     if numeric_mismatch(original_text, result_text, source_language, target_language):
         issues.append("numeric_content_review")
     if percentages(original_text.casefold(), source_language) != percentages(
@@ -300,7 +326,15 @@ def review_issues(
     return issues
 
 
-def format_issues(source: str, translated: str) -> list[str]:
+def format_issues(
+    source: str, translated: str, *, rules: str = PROTECTED_FORMAT_VERSION
+) -> list[str]:
+    if rules == LITERAL_LINE_FORMAT:
+        return [] if literal_line_valid(source) and literal_line_valid(translated) else [
+            "literal_line_structure_mismatch"
+        ]
+    if rules != PROTECTED_FORMAT_VERSION:
+        return ["unsupported_format"]
     try:
         check_format(source)
         check_format(translated)

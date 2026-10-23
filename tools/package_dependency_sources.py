@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import tomllib
 import zipfile
 from pathlib import Path
 from uuid import uuid4
@@ -52,7 +53,12 @@ def main() -> int:
             raise ValueError("Kaynak önbelleği değişmiş.")
         paths[item["file"]] = target
         print(json.dumps({"verified_source": item["file"], "bytes": item["bytes"]}), flush=True)
-    destination = checked_path(root / "dist/windows/UnityTranslator-0.1.0-dependency-sources.zip")
+    version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
+    destination = checked_path(
+        root / f"dist/windows/UnityTranslator-{version}-dependency-sources.zip"
+    )
     if destination.exists():
         raise ValueError("Mevcut kaynak teslimi üzerine yazılmaz.")
     temporary = destination.parent / ("sources-" + uuid4().hex + ".zip")

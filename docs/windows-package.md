@@ -1,7 +1,8 @@
 # Windows packaging
 
-Current published baseline: 0.1.0 RC7. The repository's guide-directory cleanup is
-source maintenance after RC7; it does not silently replace published release ZIPs.
+Current application version: 0.4.0. The previous published baseline is 0.1.0 RC7;
+historical release archives retain their original version and validation evidence.
+Build new 0.4.0 candidates from this checkout; runtime compatibility gates remain separate.
 
 ## Prerequisites
 
