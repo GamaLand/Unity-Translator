@@ -10,7 +10,7 @@ from unitytranslator.repository import ProjectRepository
 
 
 @pytest.mark.parametrize("action", ["complete", "pause", "cancel"])
-@pytest.mark.parametrize("parallel", [4, 16])
+@pytest.mark.parametrize("parallel", [4, 16, 17, 36])
 def test_parallel_requests_are_bounded_and_settle_without_orphans(tmp_path, action, parallel):
     game = tmp_path / "game"
     game.mkdir()
@@ -62,7 +62,7 @@ def test_parallel_requests_are_bounded_and_settle_without_orphans(tmp_path, acti
             assert all(row["translation"] is None for row in repo.page())
 
 
-@pytest.mark.parametrize("parallel", [0, 17, True, 1.5, "4"])
+@pytest.mark.parametrize("parallel", [0, 37, True, 1.5, "4"])
 def test_invalid_parallel_setting_does_not_start_job(tmp_path, parallel):
     game = tmp_path / "game"
     game.mkdir()

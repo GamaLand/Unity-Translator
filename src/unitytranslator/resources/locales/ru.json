@@ -375,5 +375,8 @@
   "Glossary / style": "Глоссарий / стиль",
   "Model / generation": "Модель / генерация",
   "Bulk job unavailable: settings changed after pilot review ({settings}).": "Полное задание недоступно: настройки изменены после оценки пилота ({settings}).",
-  "Bulk job unavailable: source records changed after pilot review.": "Полное задание недоступно: исходные записи изменены после оценки пилота."
+  "Bulk job unavailable: source records changed after pilot review.": "Полное задание недоступно: исходные записи изменены после оценки пилота.",
+  "The selected provider, server or model differs from this job's saved settings. Restore the job's model settings to resume, or start a new pilot with the selected model.": "Выбранный провайдер, сервер или модель отличается от сохранённых настроек задания. Для продолжения восстановите настройки модели задания или запустите новый пилот с выбранной моделью.",
+  "Save glossary/style changes to apply them to new requests without another pilot. Active requests keep their settings; existing translations are unchanged.": "Сохранённые изменения словаря/стиля применяются к новым запросам без нового пилота. Текущие запросы сохраняют свои настройки; существующие переводы не меняются.",
+  "Use the reviewed pilot's model and generation settings? Current glossary/style settings and existing translations are kept.": "Использовать настройки модели и генерации проверенного пилота? Текущие настройки словаря/стиля и существующие переводы сохранятся."
 }

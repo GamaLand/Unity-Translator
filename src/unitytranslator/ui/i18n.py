@@ -85,7 +85,7 @@ def tr(message: str, **values: Any) -> str:
 def diagnostic(message: str) -> str:
     """Translate known app diagnostics; preserve unknown OS/server details verbatim."""
     for source, turkish in catalog("tr").items():
-        if turkish == message:
+        if source == message or turkish == message:
             return tr(source)
         names = re.findall(r"\{(p\d+)\}", turkish)
         if names:

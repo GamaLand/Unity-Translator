@@ -13,11 +13,13 @@ it does not interrupt an active job or change the project's language pair.
 2. Scan compatibility and extract text from a supported source.
 3. Start your own local LM Studio/llama.cpp server, load a model and enter its address/ID.
 4. Optionally set glossary and style rules. Translate and review a representative pilot.
+   Saved rule changes apply to new requests without repeating the pilot; active
+   requests and existing translations retain their original rules and text.
 5. Start the remaining translation, then edit and approve results in Review.
 6. Export a backup/JSON or prepare and review a supported installation while the game is closed.
 
 Use **Open existing project** to continue. Ctrl+O opens a project; Ctrl+F searches Review;
-Ctrl+S saves the current edit. Minimized translation continues. Select 1–16 parallel
+Ctrl+S saves the current edit. Minimized translation continues. Select 1–36 parallel
 requests according to your server's capacity. Pause waits for active requests; cancellation
 stops client tasks. A generation request may wait up to 30 minutes including the server queue.
 

@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 )
 
 from unitytranslator import __version__
+from unitytranslator.jobs import MAX_PARALLEL_REQUESTS
 from unitytranslator.language import DEFAULT_STYLE, LANGUAGE_NAMES
 from unitytranslator.review_selection import canonical_all_confirmation
 from unitytranslator.ui.bridge import BackendBridge
@@ -1015,6 +1016,12 @@ class MainWindow(QMainWindow):
         save = QPushButton(tr("Save glossary / style version"))
         save.clicked.connect(self.save_policy)
         layout.addWidget(save)
+        policy_note = QLabel(tr(
+            "Save glossary/style changes to apply them to new requests without another pilot. "
+            "Active requests keep their settings; existing translations are unchanged."
+        ))
+        policy_note.setWordWrap(True)
+        layout.addWidget(policy_note)
         self.impact_note = QLabel(
             tr("Policy changes do not automatically translate or change approvals.")
         )
@@ -1042,7 +1049,7 @@ class MainWindow(QMainWindow):
         layout = self.tab(tr("5 · Translate"))
         parallel_row = QFormLayout()
         self.parallel_requests = QSpinBox()
-        self.parallel_requests.setRange(1, 16)
+        self.parallel_requests.setRange(1, MAX_PARALLEL_REQUESTS)
         self.parallel_requests.setValue(1)
         self.parallel_requests.setToolTip(
             tr(
@@ -1078,6 +1085,7 @@ class MainWindow(QMainWindow):
                     {
                         "job_id": self.current_job,
                         "parallel_requests": self.parallel_requests.value(),
+                        "model_selection": self.model_data(),
                     },
                 )
                 if self.current_job
@@ -1569,9 +1577,8 @@ class MainWindow(QMainWindow):
             return
         if QMessageBox.question(
             self, tr("Use reviewed pilot settings"),
-            tr("Use the reviewed pilot's model, generation, glossary and style settings? "
-               "Saved policies and translations are kept. Newer glossary/style settings "
-               "will not be used."),
+            tr("Use the reviewed pilot's model and generation settings? "
+               "Current glossary/style settings and existing translations are kept."),
         ) != QMessageBox.StandardButton.Yes:
             return
         self.pilot_profile_token = uuid4().hex
@@ -2547,7 +2554,11 @@ class MainWindow(QMainWindow):
             self.cancel_button.setEnabled(True)
             self.bridge.submit(
                 "run_job",
-                {"job_id": self.current_job, "parallel_requests": self.parallel_requests.value()},
+                {
+                    "job_id": self.current_job,
+                    "parallel_requests": self.parallel_requests.value(),
+                    "model_selection": self.model_data(),
+                },
             )
         elif command == "run_job":
             self.on_progress(result)

@@ -25,7 +25,7 @@ source et cible du projet.
    Indiquez l’adresse locale et l’identifiant du modèle, puis testez la connexion.
 4. **Glossaire :** ajoutez au besoin des noms à conserver, des termes et des règles de style.
 5. **Traduction :** examinez d’abord un essai représentatif avant la traduction globale.
-   Choisissez entre 1 et 16 requêtes parallèles selon le serveur. La réduction de la
+   Choisissez entre 1 et 36 requêtes parallèles selon le serveur. La réduction de la
    fenêtre n’arrête pas le travail. La pause attend les requêtes en cours ; l’annulation
    interrompt les tâches du client.
 6. **Révision :** comparez, corrigez, enregistrez puis approuvez les traductions.
@@ -106,4 +106,4 @@ L’installation directe dans le dossier d’origine reste indisponible.
 
 Si le rapport du pilote indique une tâche en cours, actualisez-le après son arrêt. Un pilote annulé peut être évalué si tout l’échantillon requis a été tenté et contient des résultats terminés. Cela autorise le travail complet avec les mêmes réglages et sources, sans valider les traductions.
 
-Si le travail complet est bloqué par des réglages modifiés, Utiliser les réglages du pilote évalué sélectionne ses valeurs exactes après confirmation. Les règles plus récentes sont conservées mais non utilisées. Pour les utiliser, exécutez et évaluez un pilote correspondant.
+Après évaluation du pilote, les modifications enregistrées du glossaire/style s’appliquent aux nouvelles requêtes sans nouvel essai. Les requêtes en cours gardent leurs règles initiales ; les traductions existantes restent inchangées. Examinez les entrées concernées et relancez explicitement leur traduction si nécessaire. Utiliser les réglages du pilote évalué rétablit le modèle et la génération en conservant le glossaire/style actuel.

@@ -31,6 +31,35 @@ PLURAL_SOURCE = "{[COUNT]} turns[i2p_Zero]No turns[i2p_One]{[COUNT]} turn"
 PLURAL_TARGET = "{[COUNT]} tur[i2p_Zero]Tur yok[i2p_One]{[COUNT]} tur"
 
 
+def test_resume_and_new_job_send_current_model_selection(monkeypatch):
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    try:
+        window.provider.setCurrentIndex(window.provider.findData("llama-cpp"))
+        window.model.setCurrentText("synthetic-llama-model")
+        window.current_job = "saved-lm-studio-job"
+        window.tabs.setTabEnabled(4, True)
+        submitted = []
+        with monkeypatch.context() as patch:
+            patch.setattr(window.bridge, "submit", lambda *args: submitted.append(args))
+            window.resume_button.setEnabled(True)
+            window.resume_button.click()
+            assert submitted[-1] == ("run_job", {
+                "job_id": "saved-lm-studio-job",
+                "parallel_requests": 1,
+                "model_selection": window.model_data(),
+            })
+            window.completed("create_job", {"job_id": "new-job", "count": 1})
+            assert submitted[-1][0] == "run_job"
+            selection = submitted[-1][1]["model_selection"]
+            assert selection["provider"] == "llama-cpp"
+            assert selection["address"] == "http://127.0.0.1:8080"
+            assert selection["model"] == "synthetic-llama-model"
+    finally:
+        window.close()
+        wait_for(app, lambda: window.backend_closed)
+
+
 def test_translation_continues_minimized_without_gui_event_processing(tmp_path, monkeypatch):
     app = QApplication.instance() or QApplication([])
     game = tmp_path / "game"

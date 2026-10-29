@@ -375,5 +375,8 @@
   "Glossary / style": "Glossário / estilo",
   "Model / generation": "Modelo / geração",
   "Bulk job unavailable: settings changed after pilot review ({settings}).": "Trabalho completo indisponível: configurações alteradas após a avaliação do piloto ({settings}).",
-  "Bulk job unavailable: source records changed after pilot review.": "Trabalho completo indisponível: fontes alteradas após a avaliação do piloto."
+  "Bulk job unavailable: source records changed after pilot review.": "Trabalho completo indisponível: fontes alteradas após a avaliação do piloto.",
+  "The selected provider, server or model differs from this job's saved settings. Restore the job's model settings to resume, or start a new pilot with the selected model.": "O provedor, servidor ou modelo selecionado difere das configurações salvas desta tarefa. Restaure as configurações de modelo da tarefa para continuar ou inicie um novo piloto com o modelo selecionado.",
+  "Save glossary/style changes to apply them to new requests without another pilot. Active requests keep their settings; existing translations are unchanged.": "Salve alterações de glossário/estilo para aplicá-las a novas solicitações sem outro piloto. As solicitações em andamento mantêm suas configurações; as traduções existentes não mudam.",
+  "Use the reviewed pilot's model and generation settings? Current glossary/style settings and existing translations are kept.": "Usar as configurações de modelo e geração do piloto avaliado? As configurações atuais de glossário/estilo e as traduções existentes são mantidas."
 }

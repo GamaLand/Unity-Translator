@@ -24,7 +24,7 @@ destino do projeto.
    Informe o endereço local e o identificador do modelo e teste a conexão.
 4. **Glossário:** adicione, se desejar, nomes preservados, termos preferidos e regras de estilo.
 5. **Traduzir:** execute e revise primeiro um piloto representativo; depois inicie o lote.
-   Escolha de 1 a 16 solicitações paralelas conforme o servidor. Minimizar a janela não
+   Escolha de 1 a 36 solicitações paralelas conforme o servidor. Minimizar a janela não
    interrompe a tradução. Pausar espera as solicitações em andamento; cancelar interrompe
    as tarefas do cliente.
 6. **Revisão:** compare, edite, salve e aprove. Salvar um rascunho não é aprová-lo.
@@ -100,4 +100,4 @@ A instalação direta na pasta original continua indisponível.
 
 Se o relatório do piloto ainda mostrar um trabalho em andamento, atualize-o após a parada. Um piloto cancelado pode ser avaliado se toda a amostra necessária foi tentada e existem resultados concluídos. A avaliação libera o trabalho completo com as mesmas configurações e fontes; não aprova traduções.
 
-Se o trabalho completo estiver bloqueado por configurações alteradas, Usar configurações do piloto avaliado seleciona os valores exatos após confirmação. As regras mais recentes são mantidas, mas não usadas nessa seleção. Para usá-las, execute e avalie um piloto correspondente.
+Após avaliar o piloto, alterações salvas de glossário/estilo passam a valer para novas solicitações sem outro piloto. As solicitações em andamento mantêm as regras originais; as traduções existentes não mudam. Revise os registros afetados e solicite explicitamente nova tradução se necessário. Usar configurações do piloto avaliado restaura modelo e geração, mantendo o glossário/estilo atual.

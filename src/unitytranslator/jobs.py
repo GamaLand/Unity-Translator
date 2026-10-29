@@ -3,15 +3,18 @@
 import asyncio
 import json
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from hashlib import sha256
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
 from unitytranslator.domain import GenerationProfile
-from unitytranslator.policy import PolicyStore
+from unitytranslator.policy import GlossaryRule, PolicyStore
 from unitytranslator.providers import LocalProvider, ProviderError, local_endpoint
 from unitytranslator.repository import ProjectRepository, canonical, now
+
+MAX_PARALLEL_REQUESTS = 36
 
 
 class JobStore:
@@ -99,14 +102,16 @@ class JobStore:
         return identifier
 
     def pilot_reviewed(self, profile: GenerationProfile, fingerprint: str | None = None) -> bool:
-        return (
-            self.repository.db.execute(
-                "SELECT 1 FROM jobs WHERE kind='pilot' "
+        expected = replace(profile, glossary_version=None, style_version=None)
+        return any(
+            replace(GenerationProfile(**json.loads(row[0])),
+                    glossary_version=None, style_version=None) == expected
+            for row in self.repository.db.execute(
+                "SELECT profile_json FROM jobs WHERE kind='pilot' "
                 "AND status IN ('completed','completed_with_errors','cancelled') "
-                "AND report_seen=1 AND profile_json=? AND source_fingerprint=?",
-                (canonical(profile.to_dict()), fingerprint or self.fingerprint()),
-            ).fetchone()
-            is not None
+                "AND report_seen=1 AND source_fingerprint=?",
+                (fingerprint or self.fingerprint(),),
+            )
         )
 
     def reviewed_pilot(self) -> dict[str, Any] | None:
@@ -129,7 +134,8 @@ class JobStore:
             return {
                 "allowed": False, "reason": "profile_changed", "pilot_job_id": pilot["id"],
                 "different_fields": sorted(key for key in previous.keys() | current.keys()
-                                           if previous.get(key) != current.get(key)),
+                                           if key not in ("glossary_version", "style_version")
+                                           and previous.get(key) != current.get(key)),
             }
         seen = self.repository.db.execute(
             "SELECT 1 FROM jobs WHERE kind='pilot' AND report_seen=1 LIMIT 1"
@@ -538,8 +544,11 @@ class TranslationJobService:
         *,
         parallel_requests: int = 1,
     ) -> dict[str, Any]:
-        if type(parallel_requests) is not int or not 1 <= parallel_requests <= 16:
-            raise ValueError("Paralel istek sayısı 1–16 arasında olmalı.")
+        if (
+            type(parallel_requests) is not int
+            or not 1 <= parallel_requests <= MAX_PARALLEL_REQUESTS
+        ):
+            raise ValueError(f"Paralel istek sayısı 1–{MAX_PARALLEL_REQUESTS} arasında olmalı.")
         if self.active_job is not None:
             raise ValueError("Bir model işi zaten çalışıyor.")
         profile = self.store.start(job_id)
@@ -553,15 +562,28 @@ class TranslationJobService:
             )
         )
         policy = PolicyStore(self.repository)
-        rules = policy.rules(profile.glossary_version)
+        cached_rules: tuple[str | None, list[GlossaryRule]] | None = None
         last_event = 0.0
 
         async def worker() -> None:
-            nonlocal last_event
-            while item := self.store.claim(job_id):
+            nonlocal last_event, cached_rules
+            while True:
+                # Capture saved policies once per attempt, before the HTTP await.
+                effective = replace(
+                    profile,
+                    glossary_version=policy.active_version("glossary"),
+                    style_version=policy.active_version("style"),
+                )
+                if cached_rules is None or cached_rules[0] != effective.glossary_version:
+                    cached_rules = (
+                        effective.glossary_version, policy.rules(effective.glossary_version),
+                    )
+                item = self.store.claim(job_id)
+                if item is None:
+                    break
                 relevant = [
                     rule
-                    for rule in rules
+                    for rule in cached_rules[1]
                     if rule.matches(
                         item["source_text"],
                         item["category"],
@@ -569,7 +591,7 @@ class TranslationJobService:
                     )
                 ]
                 metadata = {
-                    "profile": profile.to_dict(),
+                    "profile": effective.to_dict(),
                     "parallel_requests": parallel_requests,
                     "glossary_rules": [r.model_dump() for r in relevant],
                 }
@@ -586,7 +608,7 @@ class TranslationJobService:
                         output_tokens=profile.output_tokens,
                         temperature=profile.temperature,
                         context=item["context"],
-                        style=policy.style(profile.style_version, item["category"]),
+                        style=policy.style(effective.style_version, item["category"]),
                         glossary=[r.model_dump() for r in relevant],
                         prompt_version=profile.prompt_version,
                         **(
@@ -600,8 +622,8 @@ class TranslationJobService:
                             else {}
                         ),
                     )
-                    result["glossary_version"] = profile.glossary_version
-                    result["style_version"] = profile.style_version
+                    result["glossary_version"] = effective.glossary_version
+                    result["style_version"] = effective.style_version
                     for rule in relevant:
                         if not rule.matches(
                             result["translation"],

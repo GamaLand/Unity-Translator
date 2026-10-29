@@ -30,7 +30,7 @@ Arayüz dili, projenin kaynak/hedef dilini değiştirmez.
    ve model kimliğini girip bağlantıyı test edin. Uygulama sunucuyu/modeli başlatmaz.
 4. **Sözlük:** isteğe bağlı korunacak adlar, tercih edilen terimler ve üslup ekleyin.
 5. **Çeviri:** önce temsilî pilotu çalıştırıp inceleyin, sonra toplu işe geçin. Sunucunuza
-   göre 1–16 paralel istek seçin. Pencere küçültülünce çeviri sürer. Duraklatma yeni
+   göre 1–36 paralel istek seçin. Pencere küçültülünce çeviri sürer. Duraklatma yeni
    istekleri durdurup devam edenleri bekler; iptal istemci görevlerini keser.
 6. **İnceleme:** kaynakla çeviriyi karşılaştırın, düzeltmeleri kaydedip ayrıca onaylayın.
    Taslak kaydı onay değildir. Sayfa onayı yalnızca o sayfadaki seçilmiş uygun kayıtları
@@ -104,4 +104,4 @@ sahneler oyun içinde ayrıca incelenmelidir.
 
 Pilot raporu işi hâlâ çalışıyor gösteriyorsa iş durduktan sonra raporu yenileyin. Gerekli örneklemin tamamı denenmiş ve tamamlanan sonuçlar varsa iptal edilmiş pilot da değerlendirilebilir. Değerlendirme aynı ayarlar ve kaynaklar için toplu işi açar; çevirileri onaylamaz.
 
-Toplu iş ayarlar değiştiği için kapalıysa İncelenmiş pilot ayarlarını kullan, onayından sonra pilotun model, üretim, sözlük ve üslup ayarlarını seçer. Daha yeni sözlük/üslup sürümleri saklanır fakat bu seçimde kullanılmaz. Değişen ayarları kullanmak için o ayarlarla pilot çalıştırıp incele.
+Pilot incelemesinden sonra kaydettiğin sözlük/üslup değişiklikleri, yeni pilot gerektirmeden yeni isteklere uygulanır. Devam eden istekler gönderildikleri kurallarla tamamlanır; mevcut çeviriler değişmez. Etkilenen kayıtları inceleyip gerekirse ayrıca yeniden çevir. İncelenmiş pilot ayarlarını kullan, güncel sözlük/üslubu koruyarak model ve üretim ayarlarını geri getirir.

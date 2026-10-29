@@ -15,6 +15,19 @@ def fields(message):
     return sorted(field for _, field, _, _ in Formatter().parse(message) if field is not None)
 
 
+def test_english_backend_diagnostic_uses_active_translation(monkeypatch):
+    message = (
+        "The selected provider, server or model differs from this job's saved settings. "
+        "Restore the job's model settings to resume, or start a new pilot with the selected model."
+    )
+    monkeypatch.setattr(i18n, "active_language", lambda: "tr")
+    i18n.diagnostic.cache_clear()
+    try:
+        assert i18n.diagnostic(message) == i18n.catalog("tr")[message]
+    finally:
+        i18n.diagnostic.cache_clear()
+
+
 def test_all_eight_catalogs_cover_every_interface_message_with_matching_placeholders():
     english = i18n.catalog("en")
     assert len(i18n.LANGUAGES) == 8 and len(english) >= 300

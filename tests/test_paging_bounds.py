@@ -49,7 +49,10 @@ def test_qt_stops_at_last_page_and_resets_after_filter(tmp_path):
     try:
         window.submit_open_project({"project": str(project), "existing_only": True})
         wait_for(app, lambda: window.review_count == 401 and not window.page_pending)
-        assert window.parallel_requests.maximum() == 16
+        assert window.parallel_requests.maximum() == 36
+        assert window.parallel_requests.minimum() == window.parallel_requests.value() == 1
+        window.parallel_requests.setValue(36)
+        assert window.parallel_requests.value() == 36
         assert not window.previous_page.isEnabled() and window.next_page.isEnabled()
         for offset in (200, 400):
             window.next_page.click()

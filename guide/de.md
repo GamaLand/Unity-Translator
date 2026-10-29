@@ -25,7 +25,7 @@ Quell- oder Zielsprache des Projekts.
    Tragen Sie die lokale Adresse und Modell-ID ein und testen Sie die Verbindung.
 4. **Glossar:** Ergänzen Sie bei Bedarf geschützte Namen, Fachbegriffe und Stilregeln.
 5. **Übersetzen:** Führen Sie zuerst einen repräsentativen Pilotlauf durch und prüfen
-   Sie ihn, bevor Sie den Gesamtauftrag starten. Wählen Sie 1–16 parallele Anfragen
+   Sie ihn, bevor Sie den Gesamtauftrag starten. Wählen Sie 1–36 parallele Anfragen
    passend zum Server. Minimieren stoppt den Auftrag nicht. Pause wartet auf laufende
    Anfragen; Abbrechen beendet die Client-Aufgaben.
 6. **Prüfen:** Vergleichen und bearbeiten Sie Texte, speichern Sie und genehmigen Sie
@@ -106,4 +106,4 @@ Direkte Installation in den Originalordner bleibt nicht unterstützt.
 
 Zeigt der Pilotbericht einen laufenden Auftrag, aktualisieren Sie ihn nach dessen Ende. Ein abgebrochener Pilot kann bewertet werden, wenn die gesamte erforderliche Stichprobe versucht wurde und Ergebnisse vorliegen. Dies ermöglicht den Gesamtauftrag bei gleichen Einstellungen und Quellen, gibt aber keine Übersetzungen frei.
 
-Ist der Gesamtauftrag wegen geänderter Einstellungen gesperrt, wählt Geprüfte Piloteinstellungen verwenden nach Bestätigung die genauen Pilotwerte. Neuere Regeln bleiben gespeichert, werden dabei aber nicht verwendet. Geänderte Regeln erfordern einen passenden geprüften Piloten.
+Nach der Pilotbewertung gelten gespeicherte Glossar-/Stiländerungen ohne neuen Pilotlauf für neue Anfragen. Laufende Anfragen verwenden ihre ursprünglichen Regeln; vorhandene Übersetzungen bleiben unverändert. Prüfen Sie betroffene Einträge und übersetzen Sie sie bei Bedarf ausdrücklich neu. Geprüfte Piloteinstellungen verwenden stellt Modell-/Generierungswerte wieder her und behält das aktuelle Glossar und den aktuellen Stil.

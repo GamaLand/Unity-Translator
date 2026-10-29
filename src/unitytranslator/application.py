@@ -5,7 +5,7 @@ import json
 import sqlite3
 import threading
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -20,7 +20,7 @@ from unitytranslator.jobs import JobStore, TranslationJobService
 from unitytranslator.pilot import select_pilot
 from unitytranslator.policy import GlossaryRule, PolicyStore
 from unitytranslator.portable import PortableService
-from unitytranslator.providers import LocalProvider
+from unitytranslator.providers import LocalProvider, local_endpoint
 from unitytranslator.reader_adapters import deployment_adapter_for, result_from_report
 from unitytranslator.reports import job_report, save_current_quality_audit, save_job_report
 from unitytranslator.repository import ProjectRepository, now
@@ -324,10 +324,11 @@ class ApplicationSession:
             }
         if command == "set_policies":
             policy = PolicyStore(self.repo)
-            glossary = policy.set_glossary(
-                [GlossaryRule.model_validate(v) for v in data["glossary"]]
-            )
-            style = policy.set_styles(data["styles"])
+            with self.repo.transaction():
+                glossary = policy.set_glossary(
+                    [GlossaryRule.model_validate(v) for v in data["glossary"]]
+                )
+                style = policy.set_styles(data["styles"])
             return {"glossary_version": glossary, "style_version": style}
         if command == "edit":
             return self.repo.edit(data["unit_id"], data["version"], data["text"])
@@ -407,8 +408,10 @@ class ApplicationSession:
             if not job["report_seen"] or store.pilot_review_blocker(job["id"]) is not None:
                 raise ValueError("A reviewed representative pilot for current sources is required.")
             profile = GenerationProfile(**json.loads(job["profile_json"]))
-            PolicyStore(self.repo).select_pinned_versions(
-                profile.glossary_version, profile.style_version,
+            policy = PolicyStore(self.repo)
+            profile = replace(
+                profile, glossary_version=policy.active_version("glossary"),
+                style_version=policy.active_version("style"),
             )
             return {"project_id": self.repo.project_id, "request_token": data.get("request_token"),
                     "profile": profile.to_dict()}
@@ -504,6 +507,19 @@ class ApplicationSession:
         if command == "run_job":
             if self.jobs is None or self.extracting:
                 raise ValueError("Proje/çıkarma durumu çeviriye uygun değil.")
+            if "model_selection" in data:
+                selected = data["model_selection"]
+                saved = json.loads(JobStore(self.repo).job(data["job_id"])["profile_json"])
+                if (
+                    selected["provider"] != saved["provider"]
+                    or local_endpoint(selected["address"]) != local_endpoint(saved["address"])
+                    or selected["model"] != saved["model"]
+                ):
+                    raise ValueError(
+                        "The selected provider, server or model differs from this job's saved "
+                        "settings. Restore the job's model settings to resume, or start a new "
+                        "pilot with the selected model."
+                    )
             return await self.jobs.run(
                 data["job_id"], self.progress, parallel_requests=data.get("parallel_requests", 1)
             )

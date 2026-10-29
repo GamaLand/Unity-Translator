@@ -23,7 +23,7 @@ your choice applies when you reopen the app. It does not change the game's trans
    local server address and model ID, then test the connection. The app does not start them.
 4. **Glossary:** optionally enter preserved names, preferred terms and category styles.
 5. **Translate:** run and review the representative pilot before starting the bulk job.
-   Select 1–16 parallel requests according to server capacity. Minimized translation continues.
+   Select 1–36 parallel requests according to server capacity. Minimized translation continues.
    Pause stops new requests and waits for active ones; cancel stops client tasks.
 6. **Review:** compare source and translation, save edits, then approve. Draft autosave
    does not grant approval. Page approval affects selected eligible records on that page.
@@ -112,4 +112,4 @@ successful model response does not prove font coverage, layout or every game sce
 
 If a pilot report still shows a running job, refresh the report after it stops. A cancelled pilot can be reviewed when the full required sample was attempted and completed results exist. Saving the evaluation unlocks bulk work for matching settings and sources; it does not approve translations.
 
-If bulk translation is blocked because settings changed, Use reviewed pilot settings selects the pilot’s exact model, generation, glossary and style settings after confirmation. Saved newer policies are kept but are not used by that selection. To use changed policies, run and review a matching pilot.
+After pilot review, saved glossary/style changes apply to new requests without another pilot. Active requests finish with their original rules; existing translations are unchanged. Review affected records and regenerate them explicitly if needed. Use reviewed pilot settings restores the model/generation settings while keeping the current saved glossary/style.

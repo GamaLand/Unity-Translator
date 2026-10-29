@@ -375,5 +375,8 @@
   "Glossary / style": "Glossary / style",
   "Model / generation": "Model / generation",
   "Bulk job unavailable: settings changed after pilot review ({settings}).": "Bulk job unavailable: settings changed after pilot review ({settings}).",
-  "Bulk job unavailable: source records changed after pilot review.": "Bulk job unavailable: source records changed after pilot review."
+  "Bulk job unavailable: source records changed after pilot review.": "Bulk job unavailable: source records changed after pilot review.",
+  "The selected provider, server or model differs from this job's saved settings. Restore the job's model settings to resume, or start a new pilot with the selected model.": "The selected provider, server or model differs from this job's saved settings. Restore the job's model settings to resume, or start a new pilot with the selected model.",
+  "Save glossary/style changes to apply them to new requests without another pilot. Active requests keep their settings; existing translations are unchanged.": "Save glossary/style changes to apply them to new requests without another pilot. Active requests keep their settings; existing translations are unchanged.",
+  "Use the reviewed pilot's model and generation settings? Current glossary/style settings and existing translations are kept.": "Use the reviewed pilot's model and generation settings? Current glossary/style settings and existing translations are kept."
 }

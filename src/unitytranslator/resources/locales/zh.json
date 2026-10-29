@@ -375,5 +375,8 @@
   "Glossary / style": "术语表 / 风格",
   "Model / generation": "模型 / 生成",
   "Bulk job unavailable: settings changed after pilot review ({settings}).": "无法批量翻译：试译评估后设置已变更（{settings}）。",
-  "Bulk job unavailable: source records changed after pilot review.": "无法批量翻译：试译评估后源记录已变更。"
+  "Bulk job unavailable: source records changed after pilot review.": "无法批量翻译：试译评估后源记录已变更。",
+  "The selected provider, server or model differs from this job's saved settings. Restore the job's model settings to resume, or start a new pilot with the selected model.": "所选提供方、服务器或模型与此任务保存的设置不同。请恢复任务的模型设置以继续，或使用所选模型启动新的试译。",
+  "Save glossary/style changes to apply them to new requests without another pilot. Active requests keep their settings; existing translations are unchanged.": "保存术语表/风格修改后，新请求将使用这些设置，无需重新试译。正在处理的请求保留原设置，已有译文不变。",
+  "Use the reviewed pilot's model and generation settings? Current glossary/style settings and existing translations are kept.": "使用已评估试译的模型和生成设置？当前术语表/风格设置及已有译文将保留。"
 }

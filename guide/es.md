@@ -24,7 +24,7 @@ de origen y destino del proyecto.
    dirección local y el identificador del modelo, y prueba la conexión.
 4. **Glosario:** añade opcionalmente nombres protegidos, términos preferidos y reglas de estilo.
 5. **Traducir:** realiza y revisa primero una prueba representativa; después inicia el
-   trabajo completo. Selecciona de 1 a 16 solicitudes paralelas según la capacidad del
+   trabajo completo. Selecciona de 1 a 36 solicitudes paralelas según la capacidad del
    servidor. Minimizar no detiene la traducción. La pausa espera las solicitudes activas;
    cancelar interrumpe las tareas del cliente.
 6. **Revisión:** compara, corrige, guarda y aprueba. Guardar un borrador no lo aprueba.
@@ -102,4 +102,4 @@ No se admite instalar directamente en la carpeta original.
 
 Si el informe del piloto muestra un trabajo en curso, actualízalo cuando se detenga. Un piloto cancelado puede evaluarse si se intentó toda la muestra necesaria y existen resultados completos. La evaluación habilita el trabajo completo con los mismos ajustes y fuentes; no aprueba traducciones.
 
-Si el trabajo completo está bloqueado por ajustes cambiados, Usar los ajustes del piloto revisado selecciona sus valores exactos tras confirmar. Las reglas más recientes se conservan, pero no se usan con esa selección. Para usarlas, ejecuta y revisa un piloto con esos ajustes.
+Tras revisar la prueba, los cambios guardados de glosario/estilo se aplican a nuevas solicitudes sin repetirla. Las solicitudes en curso conservan sus reglas originales; las traducciones existentes no cambian. Revisa los registros afectados y vuelve a traducirlos explícitamente si hace falta. Usar los ajustes del piloto revisado restaura el modelo y la generación, conservando el glosario/estilo actual.

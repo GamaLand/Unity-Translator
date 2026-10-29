@@ -110,7 +110,15 @@ and glossary checks with language-aware case handling. English-to-Turkish has ex
 narrow negation/condition hints. Automatic checks cannot prove meaning, tone, font
 coverage, shaping or layout. Equal source text does not force equal translations.
 
-A reviewed pilot enables bulk generation only for its matching source/profile state.
+A reviewed pilot enables bulk generation for matching sources and model/generation
+settings; glossary/style versions are excluded from this gate. All queue modes use
+the project's current saved glossary and style at the start of each attempt,
+including retries and resumed jobs. Saving both policies is atomic. In-flight
+requests finish with their captured versions; later requests use the new versions
+without another pilot. Attempt profiles and translation revision metadata record
+the exact versions used. Original job profiles and policy versions remain immutable.
+Policy changes mark affected records for review; existing translations, drafts and
+approvals are preserved and regeneration remains an explicit action.
 An interrupted pilot can also be reviewed after cancellation if the complete required
 sample was attempted, at least one result completed, and no requests remain active.
 Its cancelled status, failed/unfinished records, revisions and individual approvals
@@ -118,13 +126,12 @@ remain unchanged. Too-small/unattempted samples and changed sources cannot unloc
 bulk generation. Pilot reports expose this backend eligibility, show outstanding
 counts and offer refresh so an earlier running snapshot does not hide the current state.
 Bulk readiness distinguishes changed sources, changed profile fields and missing review.
-The user may explicitly select the exact settings of a reviewed pilot for current
-sources, including its pinned glossary/style versions or the historical unset values.
-This changes only future-job settings; policy versions, impacts, translations and
-approvals remain intact. Selection requires a current project, explicit confirmation,
-no active extraction/job, and valid pinned policy versions. It neither grants a new
-pilot review nor authorizes changed settings against an older pilot. New glossary/style
-settings still require their own matching pilot. Reasoning-option changes refresh readiness.
+The user may explicitly select the model/generation settings of a reviewed pilot
+for current sources. This keeps current saved glossary/style selections, policy
+versions, impacts, translations and approvals. Selection requires a current project,
+explicit confirmation and no active extraction/job. It neither grants a new pilot
+review nor authorizes changed model/generation settings against an older pilot.
+Reasoning-option changes refresh readiness.
 It approves no individual translation. Approval binds exact source/translation
 revisions. Generation and imports never replace current approvals automatically.
 Changed source text invalidates approval. Editor drafts have optimistic versions;
@@ -132,7 +139,14 @@ unfinished drafts block affected export/installation selections. Page approval u
 eligible reviewed records; whole-project approval retains its two confirmations and
 atomic preview revalidation. Legacy confirmation payloads are protocol data.
 
-Jobs allow 1-16 concurrent requests. Pause stops new claims and saves in-flight
+Jobs allow 1-36 concurrent requests, with a default of one. The UI and backend share
+the same bound; concurrency is an execution setting and does not alter the reviewed
+generation profile. Existing jobs retain their saved model/generation settings. Desktop
+start/resume checks the selected provider, normalized endpoint and model against
+that saved profile before claiming records or sending HTTP requests; a mismatch
+requires restoring the job's settings or preparing a new pilot. Legacy session
+callers without a model selection retain the saved-profile behavior.
+Pause stops new claims and saves in-flight
 results; cancellation closes client tasks. Recovery retains attempts and revisions.
 Request timeout or queue delay differs from window focus. The optional LM Studio
 `reasoning_effort="none"` is request-scoped; other providers reject it. Default

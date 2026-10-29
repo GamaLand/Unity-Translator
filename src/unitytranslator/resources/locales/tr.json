@@ -375,5 +375,8 @@
   "Glossary / style": "Sözlük / üslup",
   "Model / generation": "Model / üretim",
   "Bulk job unavailable: settings changed after pilot review ({settings}).": "Toplu iş kapalı: pilot incelemesinden sonra ayarlar değişti ({settings}).",
-  "Bulk job unavailable: source records changed after pilot review.": "Toplu iş kapalı: pilot incelemesinden sonra kaynak kayıtları değişti."
+  "Bulk job unavailable: source records changed after pilot review.": "Toplu iş kapalı: pilot incelemesinden sonra kaynak kayıtları değişti.",
+  "The selected provider, server or model differs from this job's saved settings. Restore the job's model settings to resume, or start a new pilot with the selected model.": "Seçili sağlayıcı, sunucu veya model bu işin kayıtlı ayarlarından farklı. Devam etmek için işin model ayarlarını geri yükleyin veya seçili modelle yeni bir pilot başlatın.",
+  "Save glossary/style changes to apply them to new requests without another pilot. Active requests keep their settings; existing translations are unchanged.": "Sözlük/üslup değişikliklerini kaydettiğinizde yeni isteklerde uygulanır; yeni pilot gerekmez. Devam eden isteklerin ayarları ve mevcut çeviriler değişmez.",
+  "Use the reviewed pilot's model and generation settings? Current glossary/style settings and existing translations are kept.": "İncelenmiş pilotun model ve üretim ayarları kullanılsın mı? Güncel sözlük/üslup ayarları ve mevcut çeviriler korunur."
 }

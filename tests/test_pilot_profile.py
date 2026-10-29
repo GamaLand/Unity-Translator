@@ -1,4 +1,4 @@
-"""Restore exact reviewed settings explicitly, without weakening the bulk gate."""
+"""Review gates model settings while current saved policies remain editable."""
 import asyncio
 from dataclasses import replace
 
@@ -22,7 +22,7 @@ def saved_policy(policy, term):
 
 
 @pytest.mark.parametrize("pinned_policy", [False, True])
-def test_policy_change_is_diagnosed_and_explicit_selection_restores_exact_pilot(
+def test_policy_change_needs_no_new_pilot_and_model_selection_keeps_current_policies(
     tmp_path, pinned_policy,
 ):
     game = tmp_path / "game"
@@ -40,7 +40,8 @@ def test_policy_change_is_diagnosed_and_explicit_selection_restores_exact_pilot(
             initial = replace(profile(), glossary_version=old[0], style_version=old[1])
             store, job, _ = interrupted(repo, generation_profile=initial)
             store.acknowledge_pilot(job)
-            saved_policy(policy, "New")
+            original_profile = store.job(job)["profile_json"]
+            current = saved_policy(policy, "New")
             rows = repo.page() + repo.page(offset=200)
             versions = list(repo.db.execute("SELECT * FROM glossary_versions"))
             styles = list(repo.db.execute("SELECT * FROM style_versions"))
@@ -49,17 +50,18 @@ def test_policy_change_is_diagnosed_and_explicit_selection_restores_exact_pilot(
                 if k not in ("glossary_version", "style_version")
             }}
             readiness = await session.dispatch("bulk_readiness", request)
-            assert readiness["reason"] == "profile_changed" and not readiness["allowed"]
-            assert readiness["different_fields"] == ["glossary_version", "style_version"]
-            assert readiness["pilot_job_id"] == job
+            assert readiness["allowed"] and not readiness["different_fields"]
             action = {"project_id": repo.project_id, "job_id": job, "request_token": "choice"}
             with pytest.raises(ValueError, match="Explicitly"):
                 await session.dispatch("use_pilot_profile", action)
             assert policy.active_version("glossary") != old[0]
             result = await session.dispatch("use_pilot_profile", {**action, "user_action": True})
-            assert result["profile"] == initial.to_dict()
+            assert result["profile"] == replace(
+                initial, glossary_version=current[0], style_version=current[1],
+            ).to_dict()
             assert result["request_token"] == "choice"
-            assert (policy.active_version("glossary"), policy.active_version("style")) == old
+            assert (policy.active_version("glossary"), policy.active_version("style")) == current
+            assert store.job(job)["profile_json"] == original_profile
             assert list(repo.db.execute("SELECT * FROM glossary_versions")) == versions
             assert list(repo.db.execute("SELECT * FROM style_versions")) == styles
             assert repo.page() + repo.page(offset=200) == rows
@@ -137,9 +139,13 @@ def test_desktop_selects_reviewed_pilot_settings_after_policy_change(tmp_path, m
     window.show()
     window.open_project()
     try:
-        wait_for(app, lambda: bool(window.reviewed_pilot_id))
+        wait_for(app, lambda: window.bulk_button.isEnabled())
+        window.output_tokens.setValue(4096)
+        wait_for(app, lambda: (
+            window.reviewed_pilot_id == job and not window.bulk_button.isEnabled()
+        ))
         assert not window.bulk_button.isEnabled()
-        assert "sözlük" in window.bulk_note.text().lower()
+        assert "model" in window.bulk_note.text().lower()
         monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.No)
         window.pilot_profile_button.click()
         assert window.reviewed_pilot_id == job and not window.bulk_button.isEnabled()
@@ -152,6 +158,6 @@ def test_desktop_selects_reviewed_pilot_settings_after_policy_change(tmp_path, m
         window.close()
         wait_for(app, lambda: window.backend_closed)
     with ProjectRepository(paths) as repo:
-        assert PolicyStore(repo).active_version("glossary") is None
+        assert PolicyStore(repo).active_version("glossary") is not None
         assert repo.db.execute("SELECT count(*) FROM glossary_versions").fetchone()[0] == 1
         assert JobStore(repo).job(job)["report_seen"] == 1
