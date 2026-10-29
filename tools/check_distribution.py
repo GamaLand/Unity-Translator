@@ -39,7 +39,9 @@ def main() -> int:
         "copilot-instructions.md",
         ".env",
     }
-    extensions = (".gguf", ".assets", ".sqlite3", ".ress", ".dll")
+    extensions = (
+        ".gguf", ".assets", ".sqlite3", ".ress", ".dll", ".rpa", ".rpyc", ".rpy", "_ren.py",
+    )
     for archive in archives:
         if archive.suffix == ".whl":
             with zipfile.ZipFile(archive) as stream:
@@ -61,6 +63,8 @@ def main() -> int:
         ]
         if forbidden:
             raise ValueError(f"{archive.name} contains private or binary data: {forbidden[:5]}")
+        if not any(name.endswith("/resources/renpy-source-NOTICE.txt") for name in names):
+            raise ValueError("Missing Ren'Py source-behavior notice.")
         for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
             if not any(name.endswith("/locales/" + code + ".json") for name in names):
                 raise ValueError("Missing interface language: " + code)

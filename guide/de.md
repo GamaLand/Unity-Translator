@@ -57,8 +57,53 @@ Quell- und Zielsprache der Spielübersetzung sind unabhängig von der Oberfläch
 
 ## Krypta FM
 
-Für den geprüften Build die Quellsprache `en` wählen und Texte normal extrahieren. Das Profil liest drei Container zusammen: 34 TextAssets mit 442 Feldern. Zwei Quellen sind ausdrücklich ausgeschlossen; weitere Spieltexte liegen außerhalb des Profils. Nach Modellübersetzung, Prüfung und Freigabe unter Export die genehmigten TextAsset-Texte exportieren. Es entstehen vorbereitete Textdateien und ein Manifest im Projekt; ungeprüfte Felder behalten ihren Originaltext. Dies installiert keine Übersetzung und verändert keine Unity-Dateien. Die Spielinstallation wird für dieses Profil nicht unterstützt. Ältere App-Versionen vor dem Öffnen eines Schema-5-Projekts schließen.
+Für den passenden Krypta-FM-Build `en` als Quelle und `tr` als Ziel wählen. Profil 2 umfasst 449 Felder aus 34 TextAssets und einem Tagebuchraster; zwei Quellen und weitere UI-/Bildtexte bleiben ausgeschlossen. IDs und Freigaben bleiben erhalten.
+
+Nach Prüfung und Freigabe das Spiel schließen und unter „Auf Spiel anwenden“ den Plan für die zwei neuen Dateien `winhttp.dll` und `doorstop_config.ini` prüfen. Die experimentelle Laufzeit bleibt im separaten Projekt; Originaldateien werden nicht ersetzt. Zusätze über dasselbe Projekt entfernen. Textexporte sind keine Installationspakete; teilbare Installations-ZIPs unterstützen auch den passenden Krypta-Build en→tr. Empfänger starten Install.cmd, prüfen den Dateiplan und geben INSTALL ein; Uninstall.cmd entfernt nur unveränderte eigene Zusätze. Die portable Kombination wurde synthetisch geprüft; eine eigene Prüfung im Spiel steht aus. Start/Menü, Optionen, Übergang ins Spiel, Pause und Untertitel wurden beobachtet. Andere Ansichten, Sprachwechsel und Textlayout müssen manuell geprüft werden; eine lange Optionsbeschriftung kann ihren Hilfetext überlagern.
 
 In den erweiterten Modelleinstellungen lässt sich der Denkmodus für LM-Studio-Anfragen optional deaktivieren. Dadurch kann mehr Ausgabebudget für die Übersetzung bleiben. Die Unterstützung hängt vom geladenen Modell und Server ab; eine nicht unterstützte Option kann den Auftrag stoppen. Standardwerte und globale Servereinstellungen bleiben erhalten.
 
-Profilversion 2 liest außerdem sieben englische Tagebuchziele aus statischen Metadaten. Insgesamt werden 449 Felder aus 34 TextAssets und einem Tagebuchraster erfasst; bisherige Quellidentitäten und Freigaben bleiben erhalten. Der neue Tagebuch-Hook wurde nur kompiliert und synthetisch getestet; der frühere Menüpilot mit drei Beschriftungen wurde im Spiel beobachtet. Die normale Krypta-Installation über die Oberfläche ist noch nicht unterstützt.
+## Ren'Py-Übersetzung
+
+Wählen Sie unter Texte die Engine und scannen Sie das Spiel. Eine Datei unter
+`game/tl/<Sprache>/*.rpy` liest den gesamten Sprachordner. Ursprüngliche `.rpy`,
+verifizierte `_ren.py` und RPA-3.0-Archive mit Quellen werden anhand geprüfter
+Quellverträge aus Ren'Py 8.1.2 und 8.3.6 kontrolliert. Die Versionsnummer allein
+gewährt keine Unterstützung. Große Mengen und überschneidungsfreie lose Dateien
+und Archive werden unterstützt; gleiche Pfade oder Quellbasisnamen werden abgelehnt.
+Abgedeckt sind einzeilige Dialoge mit Charakter- und temporären `@`-Attributen,
+`nointeract`, ausdrückliche `_()`-Schlüssel und Menütexte. Menüsätze müssen vor den
+Auswahlmöglichkeiten stehen und dürfen nicht mit Überschriften gemischt werden.
+Voice/nvl-Gruppen, mehrzeilige Dialoge, dynamischer Text, rein kompilierte Eingaben
+und Bildbeschriftungen bleiben ausgeschlossen. Beachten Sie die gemeldeten Lücken.
+Spielcode wird nicht ausgeführt. Große Exporte können nummerierte Dateien enthalten;
+bewahren Sie den vollständigen Export zusammen auf.
+
+Installations-ZIPs bleiben auf Ren'Py `8.1.2.23090503` beschränkt; private Repository-, KI-Werkzeug- oder Zugangsdaten verhindern die Kopierpaketierung.
+
+Verwenden Sie die vorhandene Modell-, Pilot-, Entwurfs- und Freigabeprüfung.
+Vorlagentexte bleiben im Verlauf schreibgeschützt und werden nicht automatisch
+freigegeben. Geben Sie nach menschlicher Freigabe eine Ren'Py-Zielkennung wie
+`turkish` ein; Sprachcodes werden nicht automatisch zugeordnet. Entwürfe zuerst
+abschließen oder verwerfen. Native Dateien werden nur im Projekt vorbereitet;
+widersprüchliche freigegebene globale Schlüssel verhindern den Export.
+
+**Ren'Py-Installations-ZIP erstellen** unterstützt den passenden Build mit genau
+einer Spiel-EXE im Hauptordner. Das ZIP enthält keine Spielinhalte. Entpacken Sie
+es außerhalb des Originals und starten Sie `Install.cmd`. Wählen Sie das passende
+Original und einen separaten Ausgabeordner, dann prüfen Sie den genauen Dateiplan.
+Die Installation erstellt eine vollständige übersetzte Kopie und benötigt zusätzlichen
+Speicher. Originaldateien werden nicht ersetzt und das Spiel wird nicht gestartet.
+`Play-Translated.cmd` in der Kopie startet die gewählte Sprache. Originalspielstände,
+Logs und Caches werden nicht kopiert; neue Spielstände bleiben getrennt.
+Empfänger benötigen weder Python noch ein Modell noch UnityTranslator.
+
+Bewahren Sie das ZIP für `Remove.cmd` auf. Nur unveränderte eigene Kopiedateien
+werden entfernt; geänderte oder neu erzeugte Laufzeitdateien und Belege bleiben
+erhalten. Der Ordner wird nicht vollständig geleert.
+CLI: `export-renpy-zip --game ... --project ... --language turkish`.
+Direkte Installation in den Originalordner bleibt nicht unterstützt.
+
+Zeigt der Pilotbericht einen laufenden Auftrag, aktualisieren Sie ihn nach dessen Ende. Ein abgebrochener Pilot kann bewertet werden, wenn die gesamte erforderliche Stichprobe versucht wurde und Ergebnisse vorliegen. Dies ermöglicht den Gesamtauftrag bei gleichen Einstellungen und Quellen, gibt aber keine Übersetzungen frei.
+
+Ist der Gesamtauftrag wegen geänderter Einstellungen gesperrt, wählt Geprüfte Piloteinstellungen verwenden nach Bestätigung die genauen Pilotwerte. Neuere Regeln bleiben gespeichert, werden dabei aber nicht verwendet. Geänderte Regeln erfordern einen passenden geprüften Piloten.

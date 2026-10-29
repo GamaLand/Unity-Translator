@@ -10,6 +10,10 @@ from pydantic import BaseModel, ConfigDict, StrictStr
 
 from unitytranslator.json_boundary import strict_json
 from unitytranslator.language import turkish_lower
+from unitytranslator.renpy_format import RENPY_FORMAT
+from unitytranslator.renpy_format import format_matches as renpy_format_matches
+from unitytranslator.renpy_format import tokens as renpy_tokens
+from unitytranslator.renpy_format import visible_text as renpy_visible_text
 
 PARAMETER = r"\{\[[A-Za-z_0-9]+\]\}|\{[0-9]+:[fF][0-9]{1,2}\}|\{[A-Za-z_0-9]+\}"
 TOKEN = re.compile(
@@ -223,6 +227,16 @@ class MaskedText:
     rules: str = PROTECTED_FORMAT_VERSION
 
     def restore(self, translated: str) -> str:
+        if self.rules not in (PROTECTED_FORMAT_VERSION, LITERAL_LINE_FORMAT, RENPY_FORMAT):
+            raise ValueError("Unknown source format rules.")
+        if self.rules == RENPY_FORMAT:
+            if Counter(MARKER.findall(translated)) != Counter(self.replacements.keys()):
+                raise ValueError("Missing, duplicate or damaged Ren'Py protection marker.")
+            for marker, original in self.replacements.items():
+                translated = translated.replace(marker, original)
+            if [t.text for t in renpy_tokens(translated)] != list(self.replacements.values()):
+                raise ValueError("Ren'Py interpolation, tag or escape tokens changed.")
+            return translated
         if self.rules == LITERAL_LINE_FORMAT:
             if not literal_line_valid(translated) or "__UT_" in translated:
                 raise ValueError("Literal translation must remain one nonempty physical line.")
@@ -243,6 +257,18 @@ class MaskedText:
 
 
 def mask(text: str, *, rules: str = PROTECTED_FORMAT_VERSION) -> MaskedText:
+    if rules == RENPY_FORMAT:
+        prefix = uuid4().hex[:8]
+        renpy_replacements: dict[str, str] = {}
+        output: list[str] = []
+        cursor = 0
+        for token in renpy_tokens(text):
+            marker = f"__UT_{prefix}_{len(renpy_replacements)}__"
+            renpy_replacements[marker] = token.text
+            output.extend((text[cursor:token.start], marker))
+            cursor = token.end
+        output.append(text[cursor:])
+        return MaskedText("".join(output), renpy_replacements, rules)
     if rules == LITERAL_LINE_FORMAT:
         if not literal_line_valid(text) or "__UT_" in text:
             raise ValueError("Unsupported literal source line.")
@@ -270,8 +296,10 @@ def review_issues(
     rules: str = PROTECTED_FORMAT_VERSION,
 ) -> list[str]:
     """Numeric checks and narrow en-to-tr hints; not semantic or approval proof."""
+    if rules not in (PROTECTED_FORMAT_VERSION, LITERAL_LINE_FORMAT, RENPY_FORMAT):
+        return ["unsupported_format"]
     try:
-        if rules == LITERAL_LINE_FORMAT:
+        if rules in (LITERAL_LINE_FORMAT, RENPY_FORMAT):
             original_branches, target_branches = {"Plural": source}, {"Plural": translated}
         else:
             original_branches = plural_branches(source)
@@ -300,6 +328,11 @@ def review_issues(
         (source, translated) if rules == LITERAL_LINE_FORMAT
         else (TOKEN.sub(" ", source), TOKEN.sub(" ", translated))
     )
+    if rules == RENPY_FORMAT:
+        try:
+            original_text, result_text = renpy_visible_text(source), renpy_visible_text(translated)
+        except ValueError:
+            return ["unsupported_or_unbalanced_format"]
     if numeric_mismatch(original_text, result_text, source_language, target_language):
         issues.append("numeric_content_review")
     if percentages(original_text.casefold(), source_language) != percentages(
@@ -329,6 +362,13 @@ def review_issues(
 def format_issues(
     source: str, translated: str, *, rules: str = PROTECTED_FORMAT_VERSION
 ) -> list[str]:
+    if rules == RENPY_FORMAT:
+        try:
+            return (
+                [] if renpy_format_matches(source, translated) else ["protected_content_mismatch"]
+            )
+        except ValueError:
+            return ["unsupported_or_unbalanced_format"]
     if rules == LITERAL_LINE_FORMAT:
         return [] if literal_line_valid(source) and literal_line_valid(translated) else [
             "literal_line_structure_mismatch"

@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.deployment import DeploymentService, VolatileFile
+from unitytranslator.engines import engine_evidence
 from unitytranslator.filesystem import checked_path, hash_file
 from unitytranslator.i2_activation import install_reviewed_trial, prepare_activation_review
 from unitytranslator.i2_trial import prepare_i2_trial
@@ -24,6 +25,9 @@ class InstallationSession:
         self.pending: dict[str, Any] | None = None
 
     def adapter_kind(self) -> str:
+        engine = engine_evidence(self.repo.paths.game)["engine"]
+        if engine in ("renpy", "ambiguous"):
+            return "unsupported"
         adapters = {
             row[0]
             for row in self.repo.db.execute(
@@ -39,12 +43,13 @@ class InstallationSession:
 
     def require_installation_adapter(self) -> None:
         kind = self.adapter_kind()
-        if kind == "unsupported" or (
-            kind == "krypta" and KryptaRuntimeKit().catalog.get("ui_trial_enabled") is not True
-        ):
+        if kind == "unsupported":
             raise ValueError(
-                "This source adapter supports staged text exports only; game installation "
-                "is not implemented."
+                "Game installation is not implemented for this source adapter or engine selection."
+            )
+        if kind == "krypta" and KryptaRuntimeKit().catalog.get("ui_trial_enabled") is not True:
+            raise ValueError(
+                "This Krypta runtime is not yet cleared for reviewed experimental installation."
             )
 
     def status(self) -> dict[str, Any]:
@@ -74,6 +79,11 @@ class InstallationSession:
                         raise ValueError("Bu oyun yapısıyla eşleşen uygulama adaptörü bulunmuyor.")
                     assembly_relative = candidates[0].relative_to(self.repo.paths.game).as_posix()
                 kit.check_game(self.repo, assembly_relative)
+                if self.adapter_kind() == "krypta":
+                    reason = (
+                        "Experimental Krypta FM installation is available. "
+                        "Remaining screens and text layout require in-game review."
+                    )
         except ValueError as exc:
             available, reason = False, str(exc)
         except OSError:
@@ -83,6 +93,7 @@ class InstallationSession:
             )
         return {
             "project_id": self.repo.project_id,
+            "adapter_kind": self.adapter_kind(),
             "approved": count,
             "kit_available": available,
             "kit_reason": reason,

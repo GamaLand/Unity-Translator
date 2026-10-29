@@ -261,6 +261,22 @@ class CandidateHistoryDialog(QDialog):
         self.details.setReadOnly(True)
         self.details.setMaximumHeight(120)
         layout.addWidget(self.details)
+        candidate = history.get("template_candidate")
+        if candidate:
+            note = QLabel(tr(
+                "Unreviewed template text: {language} · {file}:{line}. "
+                "Its target language and approval are not verified.",
+                language=candidate["template_language"], file=candidate["source_file"],
+                line=str(candidate["line"]),
+            ))
+            note.setTextFormat(Qt.TextFormat.PlainText)
+            note.setWordWrap(True)
+            layout.addWidget(note)
+            self.template_text = QTextEdit()
+            self.template_text.setReadOnly(True)
+            self.template_text.setPlainText(candidate["text"])
+            self.template_text.setMaximumHeight(100)
+            layout.addWidget(self.template_text)
         layout.addWidget(
             QLabel(
                 tr(
@@ -658,6 +674,8 @@ class MainWindow(QMainWindow):
         self.approve_selection_token = None
         self.approve_all_token = None
         self.bulk_readiness_token = None
+        self.reviewed_pilot_id = None
+        self.pilot_profile_token = None
         self.page_token = None
         self.editor_loading = False
         self.draft_deferred = None
@@ -755,6 +773,7 @@ class MainWindow(QMainWindow):
             self.output_tokens.valueChanged,
             self.temperature.valueChanged,
             self.structured.toggled,
+            self.disable_reasoning.toggled,
         ):
             signal.connect(self.schedule_bulk_readiness)
         for key, action in (
@@ -838,8 +857,16 @@ class MainWindow(QMainWindow):
 
     def sources_tab(self):
         layout = self.tab(tr("2 · Texts"))
+        self.inspection_engine = QComboBox()
+        self.inspection_engine.addItem(tr("Automatic detection"), "auto")
+        self.inspection_engine.addItem("Unity", "unity")
+        self.inspection_engine.addItem("Ren'Py", "renpy")
+        layout.addWidget(QLabel(tr("Inspection engine")))
+        layout.addWidget(self.inspection_engine)
         scan_button = QPushButton(tr("Read-only compatibility scan"))
-        scan_button.clicked.connect(lambda: self.bridge.submit("scan"))
+        scan_button.clicked.connect(lambda: self.bridge.submit(
+            "scan", {"engine": self.inspection_engine.currentData()}
+        ))
         layout.addWidget(scan_button)
         game_check = QPushButton(tr("Check whether the game is running"))
         game_check.clicked.connect(self.check_game_process)
@@ -854,7 +881,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.source_file)
         extract = QPushButton(tr("Read the source and extract text"))
         extract.clicked.connect(
-            lambda: self.bridge.submit("extract", {"source": self.source_file.currentText()})
+            lambda: self.bridge.submit("extract", {
+                "source": self.source_file.currentText(),
+                "engine": self.inspection_engine.currentData(),
+            })
         )
         layout.addWidget(extract)
         cancel_extract = QPushButton(tr("Cancel text extraction"))
@@ -1033,9 +1063,10 @@ class MainWindow(QMainWindow):
                 )
             )
         )
-        pilot = QPushButton(tr("Prepare and start representative pilot"))
-        pilot.clicked.connect(self.start_pilot)
-        layout.addWidget(pilot)
+        self.pilot_button = QPushButton(tr("Prepare and start representative pilot"))
+        self.pilot_button.setEnabled(False)
+        self.pilot_button.clicked.connect(self.start_pilot)
+        layout.addWidget(self.pilot_button)
         row = QHBoxLayout()
         self.pause_button = QPushButton(tr("Pause"))
         self.pause_button.clicked.connect(lambda: self.bridge.submit("pause"))
@@ -1075,7 +1106,12 @@ class MainWindow(QMainWindow):
         self.bulk_note = QLabel(
             tr("Bulk job unavailable: representative pilot and human review are incomplete.")
         )
+        self.bulk_note.setWordWrap(True)
         layout.addWidget(self.bulk_note)
+        self.pilot_profile_button = QPushButton(tr("Use reviewed pilot settings"))
+        self.pilot_profile_button.setVisible(False)
+        self.pilot_profile_button.clicked.connect(self.use_pilot_profile)
+        layout.addWidget(self.pilot_profile_button)
         report = QPushButton(tr("Selected job measurements / review report"))
         report.clicked.connect(
             lambda: (
@@ -1209,6 +1245,7 @@ class MainWindow(QMainWindow):
             )
         )
         note.setWordWrap(True)
+        self.export_note = note
         layout.addWidget(note)
         export = QPushButton(tr("Export translation project as JSON"))
         export.clicked.connect(lambda: self.bridge.submit("export"))
@@ -1233,7 +1270,36 @@ class MainWindow(QMainWindow):
             "textasset_export", {"project_id": self.current_project_id}
         ))
         layout.addWidget(self.textasset_export_button)
+        self.renpy_available = False
+        self.renpy_export_group = QGroupBox(tr("Ren'Py native-file export"))
+        native_layout = QVBoxLayout(self.renpy_export_group)
+        native_layout.addWidget(QLabel(tr("Ren'Py target language identifier")))
+        self.renpy_language = QLineEdit()
+        native_layout.addWidget(self.renpy_language)
+        native_note = QLabel(tr(
+            "Enter the Ren'Py identifier for the project's target language, for example turkish. "
+            "A language code is not mapped automatically. Native files stay in the project. "
+            "The installation ZIP prepares a separate translated copy."
+        ))
+        native_note.setWordWrap(True)
+        native_layout.addWidget(native_note)
+        self.renpy_export_button = QPushButton(tr("Export approved Ren'Py files"))
+        self.renpy_export_button.setEnabled(False)
+        self.renpy_export_button.clicked.connect(self.prepare_renpy_export)
+        self.renpy_language.textChanged.connect(self.update_renpy_actions)
+        native_layout.addWidget(self.renpy_export_button)
+        self.renpy_package_button = QPushButton(tr("Create a Ren'Py installation ZIP"))
+        self.renpy_package_button.setEnabled(False)
+        self.renpy_package_button.setToolTip(tr(
+            "Installs a separate translated copy. Original saves and caches are not copied."
+        ))
+        self.renpy_package_button.clicked.connect(lambda: self.prepare_renpy_export(package=True))
+        native_layout.addWidget(self.renpy_package_button)
+        self.renpy_export_group.setVisible(False)
+        layout.addWidget(self.renpy_export_group)
         self.shareable_export_button = QPushButton(tr("Create a shareable translation ZIP"))
+        self.shareable_available = False
+        self.shareable_export_button.setEnabled(False)
         self.shareable_export_button.setToolTip(
             tr(
                 "Only approved text and required loader files. The recipient "
@@ -1242,6 +1308,13 @@ class MainWindow(QMainWindow):
         )
         self.shareable_export_button.clicked.connect(self.prepare_shareable_export)
         layout.addWidget(self.shareable_export_button)
+        self.shareable_note = QLabel(tr(
+            "Shareable installation ZIPs are unavailable for this source adapter. "
+            "Use approved game-text export; it is not an installation package."
+        ))
+        self.shareable_note.setWordWrap(True)
+        self.shareable_note.setVisible(False)
+        layout.addWidget(self.shareable_note)
         backup = QPushButton(tr("Back up data, drafts and job history"))
         backup.setToolTip(
             tr(
@@ -1481,6 +1554,33 @@ class MainWindow(QMainWindow):
             "temperature": self.temperature.value(),
         }
 
+    def apply_profile(self, profile):
+        self.provider.setCurrentIndex(max(0, self.provider.findData(profile["provider"])))
+        self.address.setText(profile["address"])
+        self.model.setCurrentText(profile["model"])
+        self.context_tokens.setValue(profile["context_tokens"])
+        self.output_tokens.setValue(profile["output_tokens"])
+        self.temperature.setValue(profile["temperature"])
+        self.structured.setChecked(profile["structured_output"])
+        self.disable_reasoning.setChecked(profile.get("reasoning_effort") == "none")
+
+    def use_pilot_profile(self):
+        if not self.reviewed_pilot_id or not self.current_project_id:
+            return
+        if QMessageBox.question(
+            self, tr("Use reviewed pilot settings"),
+            tr("Use the reviewed pilot's model, generation, glossary and style settings? "
+               "Saved policies and translations are kept. Newer glossary/style settings "
+               "will not be used."),
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        self.pilot_profile_token = uuid4().hex
+        self.pilot_profile_button.setEnabled(False)
+        self.bridge.submit("use_pilot_profile", {
+            "project_id": self.current_project_id, "job_id": self.reviewed_pilot_id,
+            "request_token": self.pilot_profile_token, "user_action": True,
+        })
+
     def model_selected(self):
         value = self.model.currentData()
         if isinstance(value, dict) and value.get("context_tokens"):
@@ -1668,6 +1768,10 @@ class MainWindow(QMainWindow):
             )
             + tr("Automated checks do not guarantee meaning; human review is required.")
         )
+        if self.current_item and (context := self.current_item.get("native_context")):
+            self.review_details.setText(self.review_details.text() + "\n" + tr(
+                "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}", **context
+            ))
         self.draft_state_changed()
 
     def editor_changed(self):
@@ -1718,6 +1822,9 @@ class MainWindow(QMainWindow):
                     self.submit_open_project(data)
                 elif action == "backup":
                     self.bridge.submit("backup")
+                elif action in ("renpy_export", "renpy_package"):
+                    self.setEnabled(True)
+                    self.bridge.submit(action, data)
                 else:
                     self.closing = True
                     self.statusBar().showMessage(tr("Finishing the active job safely…"))
@@ -1873,6 +1980,8 @@ class MainWindow(QMainWindow):
 
     def schedule_bulk_readiness(self):
         self.bulk_readiness_token = None
+        self.reviewed_pilot_id = None
+        self.pilot_profile_button.setVisible(False)
         self.bulk_button.setEnabled(False)
         if self.project_open and not self.closing:
             self.bulk_timer.start()
@@ -1906,6 +2015,21 @@ class MainWindow(QMainWindow):
             "shareable_export",
             {"project_id": self.current_project_id, "request_token": self.shareable_export_token},
         )
+
+    def update_renpy_actions(self):
+        enabled = self.renpy_available and bool(self.renpy_language.text().strip())
+        self.renpy_export_button.setEnabled(enabled)
+        self.renpy_package_button.setEnabled(enabled)
+
+    def prepare_renpy_export(self, checked=False, *, package=False):
+        if not self.project_open or self.draft_deferred or not self.renpy_available:
+            return
+        self.draft_deferred = ("renpy_package" if package else "renpy_export", {
+            "project_id": self.current_project_id, "language": self.renpy_language.text().strip(),
+        })
+        self.setEnabled(False)
+        self.drafts.flush()
+        self.draft_state_changed()
 
     def prepare_runtime_export(self):
         project_id = self.current_project_id
@@ -1944,6 +2068,9 @@ class MainWindow(QMainWindow):
 
     def completed(self, command, result):
         if command == "open":
+            self.renpy_language.clear()
+            self.renpy_available = False
+            self.renpy_export_group.setVisible(False)
             self.current_item = None
             self.current_project_id = result["project_id"]
             self.drafts.reset(self.current_project_id)
@@ -1953,7 +2080,9 @@ class MainWindow(QMainWindow):
             self.game_process_token = None
             self.runtime_export_token = None
             self.shareable_export_token = None
-            self.shareable_export_button.setEnabled(True)
+            self.shareable_available = False
+            self.shareable_export_button.setEnabled(False)
+            self.pilot_button.setEnabled(False)
             self.deployment_token = None
             self.deployment_status_token = None
             self.deployment = None
@@ -1997,14 +2126,7 @@ class MainWindow(QMainWindow):
             self.category_filter.blockSignals(False)
             profile = result.get("last_profile")
             if profile:
-                self.provider.setCurrentIndex(max(0, self.provider.findData(profile["provider"])))
-                self.address.setText(profile["address"])
-                self.model.setCurrentText(profile["model"])
-                self.context_tokens.setValue(profile["context_tokens"])
-                self.output_tokens.setValue(profile["output_tokens"])
-                self.temperature.setValue(profile["temperature"])
-                self.structured.setChecked(profile["structured_output"])
-                self.disable_reasoning.setChecked(profile.get("reasoning_effort") == "none")
+                self.apply_profile(profile)
             self.refresh()
             self.bridge.submit("policies")
             self.bridge.submit("jobs")
@@ -2063,11 +2185,38 @@ class MainWindow(QMainWindow):
             ):
                 return
             self.bulk_button.setEnabled(result["allowed"])
+            self.reviewed_pilot_id = result.get("pilot_job_id")
+            self.pilot_profile_button.setVisible(bool(self.reviewed_pilot_id))
+            self.pilot_profile_button.setEnabled(bool(self.reviewed_pilot_id))
             self.bulk_note.setText(
                 tr("Bulk job ready: the pilot was reviewed for this profile and sources.")
                 if result["allowed"]
                 else tr("Bulk job unavailable: review the pilot for this profile/sources.")
             )
+            if result.get("reason") == "profile_changed":
+                fields = set(result.get("different_fields", ()))
+                settings = []
+                if fields & {"glossary_version", "style_version"}:
+                    settings.append(tr("Glossary / style"))
+                if fields - {"glossary_version", "style_version"}:
+                    settings.append(tr("Model / generation"))
+                self.bulk_note.setText(tr(
+                    "Bulk job unavailable: settings changed after pilot review ({settings}).",
+                    settings=", ".join(settings),
+                ))
+            elif result.get("reason") == "source_changed":
+                self.bulk_note.setText(tr(
+                    "Bulk job unavailable: source records changed after pilot review."
+                ))
+        elif command == "use_pilot_profile":
+            if result["project_id"] != self.current_project_id or result.get("request_token") != (
+                self.pilot_profile_token
+            ):
+                return
+            self.pilot_profile_token = None
+            self.apply_profile(result["profile"])
+            self.bridge.submit("policies")
+            self.schedule_bulk_readiness()
         elif command.startswith("deployment_"):
             expected_token = (
                 self.deployment_status_token
@@ -2096,7 +2245,13 @@ class MainWindow(QMainWindow):
                 self.installation_state.setText(
                     (tr("Installation recorded. ") if active else tr("No active installation. "))
                     + tr("{p0} current approved translations. ", p0=f"{result['approved']}")
-                    + result["kit_reason"]
+                    + (
+                        tr(
+                            "Experimental Krypta FM installation is available. "
+                            "Remaining screens and text layout require in-game review."
+                        ) if result.get("adapter_kind") == "krypta" and result["kit_available"]
+                        else diagnostic(result["kit_reason"])
+                    )
                 )
                 if result["exclusions"]:
                     self.installation_log.setText(
@@ -2195,6 +2350,37 @@ class MainWindow(QMainWindow):
             self.previous_page.setEnabled(self.offset > 0)
             self.next_page.setEnabled(self.offset + len(result["rows"]) < result["count"])
             self.project_totals = result.get("totals")
+            adapters = set(result.get("source_adapters", ()))
+            self.renpy_available = bool({"renpy-templates", "renpy-scripts"} & set(adapters))
+            self.renpy_export_group.setVisible(self.renpy_available)
+            self.export_note.setVisible(not self.renpy_available)
+            self.update_renpy_actions()
+            self.textasset_export_button.setEnabled("krypta-textassets" in adapters)
+            self.runtime_export_button.setEnabled(
+                adapters in ({"i2"}, {"krypta-textassets"})
+            )
+            eligible = (self.project_totals or {}).get("pilot_eligible", 0)
+            self.pilot_button.setEnabled(eligible > 0)
+            self.pilot_button.setToolTip(
+                "" if eligible else tr(
+                    "No untranslated records remain. Review or export existing translations."
+                )
+            )
+            shareable = result.get("shareable_available", True)
+            self.shareable_available = shareable
+            self.shareable_note.setVisible(not shareable and not self.renpy_available)
+            self.shareable_export_button.setVisible(not self.renpy_available)
+            self.shareable_export_button.setEnabled(shareable)
+            self.shareable_export_button.setToolTip(
+                "" if shareable else tr(
+                    "Shareable installation ZIPs are unavailable for this source adapter. "
+                    "Use approved game-text export; it is not an installation package."
+                )
+            )
+            if not eligible and not self.current_job:
+                self.job_status.setText(tr(
+                    "No untranslated records remain. Review or export existing translations."
+                ))
             self.update_next_step()
             self.draft_refresh_pending = False
             selected = self.current_item["unit_id"] if self.current_item else None
@@ -2226,13 +2412,25 @@ class MainWindow(QMainWindow):
         elif command == "scan":
             report = result["result"]
             self.source_file.clear()
+            engine = report.get("engine_report", {}).get("engine", "unknown")
+            templates = [
+                item for item in report.get("renpy_inputs", {}).get("source_candidates", ())
+                if item["kind"] == "translation_template_candidate"
+            ]
+            candidates = list(report["source_candidates"]) if engine != "renpy" else []
+            if engine != "unity":
+                candidates.extend(templates)
+                candidates.extend(
+                    item for item in report.get("renpy_inputs", {}).get("source_candidates", ())
+                    if item["kind"] in ("archive", "loose_script", "renpy_python_source")
+                )
             self.source_file.addItems(
                 [
                     item["path"]
-                    for item in sorted(report["source_candidates"], key=lambda i: i["size"])
+                    for item in sorted(candidates, key=lambda i: i["size"])
                 ]
             )
-            if report.get("recommendations"):
+            if report.get("recommendations") and engine != "renpy":
                 self.source_file.setCurrentText(report["recommendations"][0]["source"])
             self.discovery.setPlainText(
                 tr(
@@ -2242,11 +2440,17 @@ class MainWindow(QMainWindow):
                         "verified. Report: {p5}"
                     ),
                     p1=f"{', '.join(report['runtime_indicators']) or tr('Unknown')}",
-                    p3=f"{len(report['source_candidates'])}",
+                    p3=f"{len(candidates)}",
                     p5=f"{result['report']}",
                 )
             )
-            if report.get("recommendations"):
+            self.discovery.append(tr(
+                "Engine evidence: {engine}. Ren'Py template candidates: {count}.",
+                engine={"unity": "Unity", "renpy": "Ren'Py",
+                        "ambiguous": "Unity / Ren'Py"}.get(engine, tr("Unknown")),
+                count=str(len(templates)),
+            ))
+            if report.get("recommendations") and engine != "renpy":
                 self.discovery.append(
                     tr(
                         "The first source candidate for this game profile was "
@@ -2327,6 +2531,11 @@ class MainWindow(QMainWindow):
             self.bridge.submit("policies")
             self.schedule_bulk_readiness()
         elif command in ("create_job", "create_affected_job"):
+            if result.get("reason") == "no_eligible_records":
+                self.job_status.setText(tr(
+                    "No untranslated records remain. Review or export existing translations."
+                ))
+                return
             self.current_job = result["job_id"]
             self.job_status.setText(tr("Job prepared for {p0} records.", p0=f"{result['count']}"))
             self.job_progress.setRange(0, 0)
@@ -2350,8 +2559,11 @@ class MainWindow(QMainWindow):
             self.refresh()
         elif command == "job_report":
             dialog = PilotReportDialog(result["report"], result["path"], self)
-            if dialog.exec() and dialog.acknowledged:
+            outcome = dialog.exec()
+            if outcome == QDialog.DialogCode.Accepted and dialog.acknowledged:
                 self.bridge.submit("pilot_seen", {"job_id": result["report"]["job_id"]})
+            elif outcome == 2:
+                self.bridge.submit("job_report", {"job_id": result["report"]["job_id"]})
         elif command == "pilot_seen":
             self.bulk_note.setText(
                 tr("Pilot review saved. Bulk jobs are available for the same profile and sources.")
@@ -2428,12 +2640,29 @@ class MainWindow(QMainWindow):
                 self.bridge.submit("policies")
         elif command == "export":
             self.export_status.setPlainText(tr("Translation project exported:\n") + result)
+        elif command == "renpy_export":
+            if result.get("project_id") != self.current_project_id:
+                return
+            self.export_status.setPlainText(tr(
+                "Staged {files} Ren'Py files with {approved} approved translations. "
+                "Files remain in the project. Folder: {folder}",
+                files=str(result["files"]), approved=str(result["approved_translations"]),
+                folder=result["folder"],
+            ))
+        elif command == "renpy_package":
+            if result.get("project_id") != self.current_project_id:
+                return
+            self.export_status.setPlainText(tr(
+                "Created a Ren'Py ZIP with {records} approved translations. "
+                "Install.cmd prepares a new translated copy. ZIP: {path}",
+                records=str(result["records"]), path=result["path"],
+            ))
         elif command == "textasset_export":
             if result.get("project_id") != self.current_project_id:
                 return
             self.export_status.setPlainText(tr(
                 "Exported {sources} payloads with {approved} approved translations. "
-                "Installation is unsupported. Folder: {folder}",
+                "Staged data only; use Apply to game for a reviewed installation. Folder: {folder}",
                 sources=str(result["sources"]), approved=str(result["approved_translations"]),
                 folder=result["folder"],
             ))
@@ -2443,7 +2672,7 @@ class MainWindow(QMainWindow):
                 or result.get("request_token") != self.shareable_export_token
             ):
                 return
-            self.shareable_export_button.setEnabled(True)
+            self.shareable_export_button.setEnabled(self.shareable_available)
             self.export_status.setPlainText(
                 tr(
                     (
@@ -2603,12 +2832,15 @@ class MainWindow(QMainWindow):
             )
 
     def failed(self, command, message):
+        if command == "use_pilot_profile":
+            self.pilot_profile_token = None
+            self.schedule_bulk_readiness()
         message = diagnostic(message)
         if command in ("approve_all_preview", "approve_all"):
             self.approve_all_button.setEnabled(True)
             self.approve_all_token = None
         if command == "shareable_export":
-            self.shareable_export_button.setEnabled(True)
+            self.shareable_export_button.setEnabled(self.shareable_available)
         if command == "page":
             self.page_pending = False
         if command == "run_job":
@@ -2684,6 +2916,16 @@ class PilotReportDialog(QDialog):
         summary.setWordWrap(True)
         summary.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(summary)
+        status = report["progress"]["status"]
+        state = QLabel(tr(
+            "Job status: {status}. Pending: {pending}; cancelled: {cancelled}; skipped: {skipped}.",
+            status=JOB_STATUS.get(status, status),
+            pending=counts.get("queued", 0) + counts.get("processing", 0),
+            cancelled=counts.get("cancelled", 0), skipped=counts.get("skipped", 0),
+        ))
+        state.setWordWrap(True)
+        state.setTextFormat(Qt.TextFormat.PlainText)
+        layout.addWidget(state)
         if report["record_count"] > 200:
             layout.addWidget(
                 QLabel(tr("Showing the first 200 records; filter the rest in Review."))
@@ -2729,13 +2971,27 @@ class PilotReportDialog(QDialog):
         layout.addWidget(self.reviewed)
         acknowledge = QPushButton(tr("Save pilot review"))
         acknowledge.setEnabled(False)
-        eligible = report["kind"] == "pilot" and report["progress"]["status"] in (
-            "completed",
-            "completed_with_errors",
-        )
+        eligible = report.get("pilot_review_eligible", report["kind"] == "pilot" and status in (
+            "completed", "completed_with_errors",
+        ))
+        if not eligible or status == "cancelled":
+            note = QLabel(
+                tr("Cancelled pilot: all required samples were attempted. Saving this review "
+                   "does not approve translations.")
+                if eligible else tr(
+                    "Pilot review is unavailable until a representative sample has stopped "
+                    "and sources still match. Refresh this report for current results."
+                )
+            )
+            note.setWordWrap(True)
+            note.setTextFormat(Qt.TextFormat.PlainText)
+            layout.addWidget(note)
         self.reviewed.toggled.connect(lambda checked: acknowledge.setEnabled(checked and eligible))
         acknowledge.clicked.connect(self.acknowledge)
         layout.addWidget(acknowledge)
+        refresh = QPushButton(tr("Refresh pilot report"))
+        refresh.clicked.connect(lambda: self.done(2))
+        layout.addWidget(refresh)
         close = QPushButton(tr("Close"))
         close.clicked.connect(self.reject)
         layout.addWidget(close)

@@ -246,6 +246,7 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
             row["review_status"] = "needs_review"
         else:
             row["review_status"] = "translated"
+    review_blocker = store.pilot_review_blocker(job_id)
     return {
         "format_version": 1,
         "job_id": job_id,
@@ -280,6 +281,8 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         "changed_after_generation": corrections,
         "human_review_complete": approved == len(rows) and bool(rows),
         "pilot_review_acknowledged": bool(job["report_seen"]),
+        "pilot_review_eligible": review_blocker is None,
+        "pilot_review_blocker": review_blocker,
         "quality_note": "Biçim kontrolleri anlam doğruluğunu garanti etmez. "
         "İnsan incelemesi gereklidir.",
         "project_time_estimate": project_estimate(repository, job_id),

@@ -92,7 +92,7 @@ def main() -> int:
         for name in plugin["source_files"]:
             path = build / name if name == "BuildIdentity.cs" else root / "adapters/kryptafm" / name
             z.write(path, name)
-        for name in ("LICENSE", "tools/build_kryptafm.py", "docs/krypta-runtime-design.md"):
+        for name in ("LICENSE", "tools/build_kryptafm.py", "docs/runtime-components.md"):
             z.write(root / name, name)
     upstream_notices = strict_json((base.root / "RUNTIME-NOTICES.json").read_bytes())
     components = [
@@ -116,7 +116,8 @@ def main() -> int:
         json.dumps(upstream_notices, indent=2), encoding="utf-8"
     )
     (output / "README.txt").write_text(
-        "Experimental Krypta FM runtime; not verified in-game. No installation is authorized.\n"
+        "Experimental Krypta FM runtime; in-game coverage is reported separately.\n"
+        "No installation is authorized by this component kit alone.\n"
         "Use only a concrete reviewed create-new file plan and current approved translations.\n"
         "Sources and licenses are included. No proprietary game DLL or game text is included.\n",
         encoding="utf-8",

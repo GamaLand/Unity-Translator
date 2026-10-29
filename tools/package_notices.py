@@ -67,6 +67,8 @@ def main() -> int:
         shutil.copytree(portable_kit.root, portable_destination)
     PortableRuntimeKit(portable_destination).validate()
     notices.mkdir(exist_ok=True)
+    shutil.copyfile(root / "src/unitytranslator/resources/renpy-source-NOTICE.txt",
+                    notices / "RenPySource-NOTICE.txt")
     native_notices = root / "adapters/native_licenses"
     native_catalog = json.loads((native_notices / "catalog.json").read_text(encoding="utf-8"))
     destination = notices / "NativeRuntime"
@@ -85,15 +87,10 @@ def main() -> int:
         "SOURCE-ACCESS.md",
         "NATIVE-NOTICES.md",
         "dependencies.md",
-        "release-audit.md",
         "compatibility.md",
         "installation.md",
-        "quality.md",
         "runtime-components.md",
-        "shareable-patch.md",
         "development.md",
-        "roadmap.md",
-        "krypta-runtime-design.md",
         "windows-package.md",
         "loader-component-audit.md",
         "protected-source-trace.md",

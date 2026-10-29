@@ -1,9 +1,9 @@
 # Compatibility
 
-Current version: UnityTranslator 0.4.0. The previous published validation baseline
+Current version: UnityTranslator 0.5.0. The previous published validation baseline
 is 0.1.0 RC7, validated on 16 October 2026. Current Krypta evidence is scoped below.
 Source additions described below were validated locally on 23 October 2026; they do
-not replace published RC7 artifacts or establish new installation support.
+not replace published RC7 artifacts. Krypta installation evidence is scoped below.
 
 ## Current support
 
@@ -14,17 +14,18 @@ not replace published RC7 artifacts or establish new installation support.
 | Source extraction | Identified I2 Localization structures through UnityPy; a narrow Unity 2017 Mono metadata fallback |
 | Krypta FM text sources | Reviewed Unity 2022.3.10f1/Mono build: 442 fields from 34 TextAssets plus 7 journal objective fields from one pinned literal grid; 449 fields total |
 | TextAsset export | Staged approved payload files in the project, with original control fields and source hash checks |
-| Krypta FM installation | Normal UI installation unsupported; separate experimental reviewed trial, with only a three-label menu pilot observed in-game |
+| Krypta FM installation | Reviewed experimental UI installation for the pinned en→tr build; limited runtime observation accepted by the user, with remaining screens checked manually |
 | Translation languages | Editable language tags, 32 suggestions, independent of the eight interface languages |
 | Runtime application | Experimental Mono/I2 plugin with matching game, Unity, managed-reference and binary fingerprints |
 | Reference game | An identified build of Warhammer 40,000: Mechanicus |
-| Shareable patches | Self-contained runtime; recipient needs no UnityTranslator, Python or model |
+| Shareable patches | Pinned I2 and Krypta en→tr builds; self-contained runtime, reviewed file plan, no UnityTranslator/Python/model required for recipients |
 | JSON import/export | Translation project interchange; not a generic game JSON reader |
 | Generic JSON/CSV/XML game files | Planned; not implemented |
 | Unity Localization String Tables | Planned; not implemented |
 | General AssetBundle/Addressables traversal | Planned; not implemented |
 | IL2CPP runtime application | Not implemented |
-| Unreal Engine | Outside the Unity roadmap |
+| Ren'Py | Native templates and an audited static `.rpy`/`_ren.py`/RPA-3.0 behavior family, bounded large sets, disjoint containers, shared LLM/review and sharded native staging; translated-copy ZIP remains limited to 8.1.2.23090503 with limited preferences-label copy pilots; original-folder deployment remains unsupported |
+| Unreal Engine | Deferred feasibility investigation after Ren'Py and further Unity work; no current support |
 
 Mono/IL2CPP describe code execution backends. Asset containers and localization
 systems are separate concerns. A Mono directory, a `.json` extension or an `.assets`
@@ -43,6 +44,10 @@ These results do not verify all game scenes, every language's rendering, another
 build of the reference game or another Unity game. The standalone synthetic check
 ran on a development machine with an isolated PATH, not on a clean Windows VM.
 A physical llama.cpp server test and clean Windows validation remain deferred.
+Krypta shareable packages use the same scoped plugin with the separately guarded
+portable preloader. Synthetic recipient install/remove and source/ownership checks
+do not establish in-game validation of this portable combination. The observed
+Krypta trial used the external project runtime.
 
 ## Language limits
 
@@ -56,9 +61,13 @@ and hard-coded assembly strings are outside this profile. Extraction/export supp
 does not mean complete game coverage. The bounded local export check used synthetic
 fixture approvals in a private QA project. A later user-reviewed three-label menu
 pilot rendered Turkish text, including `ş`, `ç` and `ı`, in the actual game, and original
-hashes matched after exit. A separate live local-model pilot produces unapproved
-candidates. Settings/language switching, scene reload, other runtime consumers and
-full-game Turkish gameplay remain unverified. Profile revision 2 adds seven English
+hashes matched after exit. A later trial applied 449 current approved translations
+with the journal-capable binary. Startup/menu, options, transition into gameplay,
+pause and Turkish subtitles were observed, and original hashes matched after user exit.
+The user accepted this limited observation and will inspect remaining translation quality.
+Forum/journal display, language switching, scene reload and full-game coverage remain
+unverified. A long settings label overlapped its explanation; control-help labels
+outside the profile remained English. Profile revision 2 adds seven English
 journal objective literals from the pinned constructor's 4x3 grid. Existing TextAsset
 source identities, revisions, drafts and approvals remain intact. The fixed journal
 runtime hook compiles and passes synthetic rollback tests but is unverified in-game.
@@ -81,4 +90,166 @@ Include the game/version, runtime indicators, detected localization system, a sa
 compatibility report and the failing step. Do not upload game assets, DLLs, models,
 translation databases, personal paths or extracted copyrighted text to the public repo.
 An unsupported installation must not fall back to replacing original game files.
-See the [roadmap](roadmap.md) for the acceptance gates for new adapters and profiles.
+See the [Ren'Py roadmap and later engine work](development.md#renpy-roadmap) for the acceptance gates for new adapters and profiles.
+
+## Release evidence (historical)
+
+This consolidates the former release audit. Each row describes checks recorded for
+that version, not tests rerun for this documentation change or proof about later
+code. Published artifacts and matching source/license archives remain immutable.
+
+| Version / event | Recorded evidence and limits |
+| --- | --- |
+| 0.5.0 | Shareable I2 and pinned Krypta en-to-tr packages. Synthetic recipient install/remove, relocation, links, changed files, wrong builds, tampering, plan approval and Qt export checks. Both kits' sources/licenses and shared core hash agreement are required. Portable Krypta gameplay and clean Windows remain deferred. |
+| 0.4.2 | Reviewed experimental Krypta UI install/remove, readiness bound to the observed plugin hash. A user-approved 449-translation trial showed startup/menu, options, transition into gameplay, pause and subtitles; original hashes matched after exit. Remaining consumers/quality/lifecycle checks were retained by the user. Its then-I2-only ZIP limitation was superseded by 0.5.0. |
+| 0.4.1 | Completed projects no longer queue empty pilot jobs; stale requests preserve approvals. Adapter-aware small/runtime-data exports remain distinct from installable ZIPs. Shareable ZIPs were I2-only at that version. |
+| 0.4.0 | Built-in contracts, backed-up schema-5 ownership, scoped 449-field Krypta pipeline and approved exports. Recorded 601 Python tests passed, one skipped; Ruff/mypy passed; Krypta C# suites covered 18 data and 27 lifecycle scenarios. Development-machine standalone UI/extraction checks retained original hashes. Runtime evidence at that time was only the earlier three-label menu pilot; later observation belongs to 0.4.2. |
+| 0.1.0 RC7, 16 October 2026 | 481 Python tests passed, one skipped; Ruff/mypy and C# payload/hash/language/rollback checks passed. Development-machine synthetic Qt checks covered review, drafts, Unicode, install/export and workers with isolated PATH. Packaged extraction read 6,737 French records without changing the source hash. The user verified the reference game's main menu and Turkish glyphs. |
+| Cleanup after RC7, 16 October 2026 | 488 Python tests passed, one skipped; Ruff/mypy and the then-three C# suites passed, including 14 diagnostics and six portable-guard scenarios. Eight localized help actions and seven CLI help checks passed. The then-27 public Markdown files/67 links and source archives were audited. These are historical counts; current layout uses the consolidated documents. |
+
+The cleanup moved user guides to `guide/` and synchronized help, wheel/sdist and
+future Windows packaging. Older RC7 ZIPs may keep their original layout. Source
+archives excluded local AI instructions, real game/model data, user projects and
+build caches. Historical manual evidence never authorizes a new game launch.
+
+## Next support boundary
+
+Original-source reading now uses audited source behavior instead of an exact version
+allowlist. Critical canonicalization, ID/grouping, lexer/parser and source-loading
+declarations were compared in official 8.1.2.23090503 and 8.3.6.25022803 sources.
+An unknown version with matching contracts can be read; missing or changed contracts
+refuse reading. The legacy 8.1.2 profile remains for layouts without engine source.
+This does not establish a continuous version range or Ren'Py 7/Python 2 support.
+The recipient ZIP retains its separate exact 8.1.2.23090503 runtime gate.
+
+The static subset supports symbolic attributes/removals, temporary `@` attributes,
+`nointeract`, explicit literal UI/menu keys and verified `_ren.py` block conversion.
+A menu say before choices retains implicit `nointeract`; reordered or caption-mixed
+forms refuse reading. Disjoint loose/archive unions retain provenance and reject
+overlapping paths/effective basenames. Compiled-only input, dynamic text, multiline
+dialogue, voice/nvl groups and image labels remain unsupported. Exclusions are counted.
+
+Synthetic checks cover native-ID vectors, logical multiline expressions and opaque
+block boundaries, source/approval continuity, complete-scope failure, over 32 MiB
+framed reports, incremental limits and block-preserving native shards. Recipient
+checks reject cross-file ID/key conflicts and structure/token injection. An old
+project's anchor remains stable when a new filename sorts earlier. Native staging
+does not grant installation authority; the
+[broader milestone](development.md#broader-renpy-support-planned), including wider
+runtime families and overlapping/mod resolution, remains incomplete.
+
+Ren'Py discovery reports engine hints, input/container kind and bounded static version
+evidence separately from extraction, translation, export and installation support.
+Mixed-engine auto detection requires an explicit inspection selection; this grants
+no installation authority. Real-game inspection on 28 October 2026 found an RPA-3.0
+archive and static Ren'Py 8.1.2.23090503 version evidence in the user-selected
+Invulnerable 1.10 build. No loose `game/tl` templates were present. Bounded literal
+index inspection found 2,776 members, including 84 `.rpy` and 84 `.rpyc` files;
+only default-language common `.rpym`/`.rpymc` translation modules were present.
+Selected source members were read as bytes without engine execution or object
+deserialization. The active main menu uses image buttons; its visible labels are
+image assets. The text-based `main_menu3` screen is a separate backup. Preferences
+contains explicit translatable UI strings. No extraction into a game project,
+installation, launch or gameplay was verified by these static checks.
+
+Ren'Py reading supports a strict subset of existing native translation templates
+through a bounded worker. Synthetic tests cover paired-comment dialogue, string
+tables, token injection rejection, shared pilot/review, source/structure changes and
+portable ownership without imported approvals becoming local approvals. This proves
+neither full script coverage nor universal Ren'Py input support.
+Native export tests cover exact approved revisions, explicit project/native language
+mapping, dialogue fallback, omitted unapproved strings, global string conflicts and
+rejection of source/draft/approval/output changes during staging. Outputs are reparsed
+with the strict grammar and source hashes remain unchanged. The desktop exposes the
+same exporter, displays template candidates as read-only provenance and flushes editor
+drafts before export. These checks prove local staging, not engine loading or gameplay.
+At the initial pinned-reader increment, the original-source reader extracted 9,259 records from the supplied
+archive: 8,809 plain dialogue records and 450 explicit UI/menu keys. All 84 source
+members matched their RPC2 source-footer digest; all 8,809 generated dialogue IDs
+were present as compiled pickle string literals. That static evidence did not
+deserialize objects or execute scripts. The archive hash remained unchanged. A new
+private project held all records pending and had no real-game translation job.
+Reported exclusions include 36 multiline/backtick literals, 38 noninteractive menu
+say statements, 12 unsupported source literals, 177 says without a usable label,
+1,164 unsupported say prefixes with character attributes, 31 unsupported suffixes
+and one unsupported text syntax occurrence. Image-menu text
+is outside text extraction. Other versions and multiple containers were unsupported
+at that increment. Compiled-only input and overlapping load order remain unsupported.
+RPA index inspection alone grants no deployment support.
+No Ren'Py engine-version range, full-game coverage or original-root
+installation/removal has been verified. See the
+[design and acceptance gates](development.md#renpy-native-template-integration).
+
+Three synthetic original-source records were sent through the real shared queue to
+the user's existing local `gemma4-12b-qat-uncensored-hauhaucs-balanced` model in LM
+Studio. A 512-token output budget truncated two responses; retrying those records
+with 2,048 output tokens and requested `reasoning_effort="none"` completed them.
+Final candidates preserved interpolation/tags/newlines and remained unapproved.
+No model/server was started or downloaded and no bulk game translation ran.
+
+A read-only inspection of a second local layout, LR2, found static Ren'Py
+8.3.6.25022803 evidence, 588 loose `.rpy` files totaling 18,701,812 bytes,
+289 `_ren.py` files and 877 `.rpyc` files, with no `game/tl` directory.
+The initial reader refused this layout at its exact-version check; the then-128-file/
+8-MiB bounds and unsupported `_ren.py` dialect were additional gaps. The current
+reader verifies the installed source behavior and handles this large mixed source
+layout. This supplies static reading evidence only; no new runtime compatibility,
+game translation, installation or launch is implied.
+
+On 29 October, the expanded reader processed all 877 LR2 source members into
+93,937 pending records: 91,654 dialogue IDs and 2,283 global string keys. All 91,654
+dialogue IDs appeared as Unicode literals in the matching RPC2 post-transformation
+slot, with original-source footer digests checked. This was bounded inert opcode
+inspection, without object deserialization or engine execution; literal presence
+does not prove complete runtime behavior. Every tracked source, compiled script and
+engine-source hash and the input inventory remained unchanged. The separate private
+project contains no translation revisions, jobs or approvals. Checks exposed and
+fixed commented block-header and multiline-expression false positives before the
+project was activated. Reported omissions include 249 multiline/backtick literals,
+262 unsupported say suffixes, 731 unsupported say literals, 19,150 unsupported
+prefixes, 377 says without a usable label, eight private-name forms and unsupported
+call/label mappings. These counts describe excluded syntax occurrences, not unique
+missing translations or a full-game coverage percentage.
+
+The current local regression run passed Ruff, mypy, 880 Python tests (one skipped)
+and the relevant synthetic C# suites. The eight guides and public document links
+were checked. This is development-checkout evidence, not a newly published binary.
+
+The translated-copy ZIP has synthetic Windows checks for exact plan binding,
+wrong builds/targets, native fixed grammar, nested interpolation, Unicode, token
+injection, identity/link/hash removal and preservation of modified/unknown runtime
+files. Qt/CLI checks use the same exporter and draft/approval gates. The package
+contains no original game files or saves. It requires a matching local build and
+space for a full independent copy.
+
+On 29 October, the actual archive reader supplied a separate QA project's one
+explicitly user-approved `Display` to `Ekran` record to this ZIP exporter. The user
+reviewed its concrete 1,204-build-file copy plan. The package's own recipient
+installer completed it and its installed launcher selected Turkish. Options rendered
+`Ekran`, then main-menu Quit closed the copy normally. After exit, all 1,347 original
+files and inventory membership matched; all 1,210 receipt-owned copy files remained
+unchanged. Runtime files, including the 988-byte `.rpyc`, local persistent mirror,
+separate saves/logs and Python/script caches, were new files in the copy. The requested
+Python no-bytecode environment flag did not prevent these embedded-runtime caches.
+The compiled sidecar's source footer matched, but it was not adopted as an owned
+addition. Real-copy removal was not run; modified/unknown preservation has synthetic
+checks. This proves the one-label archive/read/review/ZIP/install/launch path, not
+full-game text, fonts or original-root installation. The main translation project
+remained pending with no game translation job. Later literal-serialization refinements
+for dialogue escaped spaces versus Python-style string tables were checked with
+synthetic exporter/Windows recipient tests; the one-label field ZIP predates those
+refinements and its string payload is unaffected. The earlier manually prepared pilot
+below is separate evidence.
+
+An earlier explicitly reviewed one-label field pilot ran on a separate full
+copy of Invulnerable 1.10. A manually prepared native template for the confirmed
+preferences key passed through the shared revision/approval/export pipeline; this
+was not automatic archive source extraction. The user confirmed `Display` rendered
+as `Ekran` and closed the game. The exact 130-byte create-new addition had a reviewed
+plan and a local identity/hash receipt. All 1,347 original files and inventory
+membership matched after exit. The copy gained the `.rpy` and a 986-byte `.rpyc`;
+127 pre-existing copied files changed: two Ren'Py caches, the copy's local persistent
+save and 124 engine Python bytecode caches. Explicit `--savedir` and log routing
+created separate saves/logs but did not prevent the local persistent mirror.
+These observations block an original-root no-original-writes claim; no removal was
+attempted. Other text, glyphs, scenes and image-menu localization remain unverified.

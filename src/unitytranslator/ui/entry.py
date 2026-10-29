@@ -38,6 +38,16 @@ def entry() -> int:
 
         sys.argv = [sys.argv[0], *sys.argv[2:]]
         return textasset_main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--renpy-worker":
+        from unitytranslator.workers.renpy_probe import main as renpy_main
+
+        sys.argv = [sys.argv[0], *sys.argv[2:]]
+        return renpy_main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--renpy-script-worker":
+        from unitytranslator.workers.renpy_script_probe import main as renpy_script_main
+
+        sys.argv = [sys.argv[0], *sys.argv[2:]]
+        return renpy_script_main()
     from unitytranslator.__main__ import main
 
     if len(sys.argv) == 1:

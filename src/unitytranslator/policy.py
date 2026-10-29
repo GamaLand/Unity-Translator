@@ -142,6 +142,20 @@ class PolicyStore:
         ).fetchone()
         return str(row[0]) if row is not None else None
 
+    def select_pinned_versions(self, glossary: str | None, style: str | None) -> None:
+        """Select existing settings for future jobs; retain policy and review history."""
+        self.rules(glossary)
+        self.style(style, "unknown")
+        with self.repository.transaction() as db:
+            for kind, version in (("glossary", glossary), ("style", style)):
+                if version is None:
+                    db.execute("DELETE FROM project_settings WHERE key=?", (kind,))
+                else:
+                    db.execute(
+                        "INSERT INTO project_settings VALUES(?,?) ON CONFLICT(key) "
+                        "DO UPDATE SET value=excluded.value", (kind, version),
+                    )
+
     def rules(self, version: str | None) -> list[GlossaryRule]:
         if version is None:
             return []

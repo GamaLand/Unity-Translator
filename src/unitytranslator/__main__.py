@@ -12,15 +12,19 @@ from unitytranslator.repository import ProjectRepository
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="UnityTranslator - local Unity game translation")
+    parser = argparse.ArgumentParser(
+        description="UnityTranslator - local game translation and review"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("gui", help="Open the desktop interface")
     for command, description in (
         ("scan", "Scan read-only compatibility indicators"),
-        ("probe", "Inspect one Unity source in an isolated process"),
+        ("probe", "Inspect a supported source in an isolated process"),
         ("extract", "Extract a supported source into the SQLite project"),
         ("project", "Create or open a translation project"),
         ("export-textassets", "Export current approved game-text payloads to the project only"),
+        ("export-renpy", "Stage approved native Ren'Py files in a new project export directory"),
+        ("export-renpy-zip", "Package approved Ren'Py text for a new translated-copy installation"),
     ):
         item = sub.add_parser(command, help=description)
         item.add_argument("--game", required=True, type=Path, help="Game installation directory")
@@ -33,6 +37,16 @@ def main() -> int:
         if command in ("probe", "extract"):
             item.add_argument(
                 "--source", required=True, help="Source path relative to the game directory"
+            )
+        if command in ("scan", "probe", "extract"):
+            item.add_argument(
+                "--engine", choices=("auto", "unity", "renpy"), default="auto",
+                help="Inspection engine override; does not grant installation support",
+            )
+        if command in ("export-renpy", "export-renpy-zip"):
+            item.add_argument(
+                "--language", required=True,
+                help="Explicit Ren'Py language identifier for the project's target language",
             )
         if command in ("project", "probe"):
             item.add_argument("--source-language", default="en")
@@ -69,26 +83,41 @@ def main() -> int:
                 print(json.dumps(translated, ensure_ascii=True, indent=2))
             return 0
         paths = ProjectPaths(args.game, args.project)
-        if args.command == "export-textassets":
-            from unitytranslator.textasset_export import export_payloads
-
+        if args.command in ("export-textassets", "export-renpy", "export-renpy-zip"):
             existing = ProjectRepository.existing_paths(args.project)
             if existing.game != paths.game:
                 raise ValueError("Project is bound to another game directory.")
             with ProjectRepository(existing) as repository:
-                print(json.dumps(export_payloads(repository), ensure_ascii=True, indent=2))
+                if args.command == "export-renpy-zip":
+                    from unitytranslator.renpy_package import export_copy_package
+
+                    exported = export_copy_package(repository, args.language)
+                elif args.command == "export-renpy":
+                    from unitytranslator.renpy_export import export_native
+
+                    exported = export_native(repository, args.language)
+                else:
+                    from unitytranslator.textasset_export import export_payloads
+
+                    exported = export_payloads(repository)
+                print(json.dumps(exported, ensure_ascii=True, indent=2))
             return 0
         if args.command == "project":
             with ProjectRepository(paths, args.source_language, args.target_language) as repository:
                 print(json.dumps(repository.manifest(), ensure_ascii=True, indent=2))
             return 0
         if args.command == "extract":
-            print(json.dumps(extract_to_project(paths, args.source), ensure_ascii=True, indent=2))
+            print(json.dumps(
+                extract_to_project(paths, args.source, engine=args.engine),
+                ensure_ascii=True, indent=2,
+            ))
             return 0
         result = (
-            scan(paths)
+            scan(paths, engine=args.engine)
             if args.command == "scan"
-            else probe_source(paths, args.source, source_language=args.source_language)
+            else probe_source(
+                paths, args.source, source_language=args.source_language, engine=args.engine
+            )
         )
         output = save_report(paths, args.command, result)
         summary = {
@@ -97,9 +126,12 @@ def main() -> int:
             "application": result["application"],
             "capabilities": result["capabilities"],
         }
+        if "engine_report" in result:
+            summary["engine_report"] = result["engine_report"]
         if "counts" in result:
             summary["counts"] = result["counts"]
-            summary["unity_versions"] = result["unity_versions"]
+            if "unity_versions" in result:
+                summary["unity_versions"] = result["unity_versions"]
         print(json.dumps(summary, ensure_ascii=True, indent=2))
         return 0
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:

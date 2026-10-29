@@ -47,6 +47,15 @@ def test_extraction_does_not_establish_export_or_installation():
     assert json.loads(json.dumps(report.to_dict()))["extraction"]["status"] == "supported"
 
 
+def test_krypta_extraction_requires_an_independent_reviewed_runtime():
+    report = discovery_capabilities(
+        {"adapter_id": "krypta-textassets", "units": [{"unit_id": "one"}]}, inspected=True
+    )
+    assert report.extraction.status == report.export.status == Support.SUPPORTED
+    assert report.installation.status == Support.UNKNOWN
+    assert report.installation.reason == "reviewed_runtime_required"
+
+
 def test_scan_keeps_hints_separate_and_shared_with_application(tmp_path):
     game = tmp_path / "game"
     data = game / "Example_Data"

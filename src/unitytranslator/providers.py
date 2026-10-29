@@ -256,7 +256,10 @@ class LocalProvider:
             raise ProviderError("unsupported_option", "Unsupported provider reasoning option.")
         if not 128 <= output_tokens <= 8192 or not 512 <= context_tokens <= 1_048_576:
             raise ProviderError("context", "Bağlam/çıkış token sınırı geçersiz.")
-        branches = {"Plural": text} if format_rules == "literal-lines-v1" else plural_branches(text)
+        branches = (
+            {"Plural": text} if format_rules in ("literal-lines-v1", "renpy-text-v1")
+            else plural_branches(text)
+        )
         protected = {form: mask(branch, rules=format_rules) for form, branch in branches.items()}
         ids = {
             form: request_id if len(branches) == 1 else request_id + ":" + form for form in branches

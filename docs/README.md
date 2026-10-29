@@ -1,25 +1,37 @@
 # Documentation
 
-The source tree describes the current RC7 baseline and the next development milestone.
-Planned features are not current compatibility claims.
+Current checkout: 0.5.0. Unity installation remains fingerprint-bound. Initial
+Ren'Py templates, audited original-source behavior, `_ren.py`, large disjoint source
+sets, shared review and sharded native staging are implemented in source. The
+experimental translated-copy ZIP retains its pinned runtime gate. See Compatibility
+for evidence and limits; original-folder Ren'Py installation remains unsupported.
+
+## Start here
+
+1. [Development](development.md): current architecture, shared review rules, Ren'Py
+   backend/UI design, ordered acceptance gates and deferred Unity/Unreal work.
+   The next milestone is [broader Ren'Py support](development.md#broader-renpy-support-planned),
+   including remaining syntax, overlapping sources and wider runtime families.
+2. [Compatibility](compatibility.md): implemented support, limitations and historical
+   release evidence. A roadmap is not a compatibility claim.
+3. [Installation](installation.md): original-file protection, project-managed and
+   shareable Unity patches, ownership and recovery.
+
+## Reference documents
 
 | Document | Purpose |
 | --- | --- |
-| [User guides](../guide/en.md) | Installation and everyday use, available in eight languages |
-| [Compatibility](compatibility.md) | Current support, evidence and known limitations |
-| [Development](development.md) | Source layout, architecture, checks and contribution rules |
-| [Roadmap](roadmap.md) | The next milestone: adapter contracts, JSON/CSV readers and another I2 profile |
-| [Installation](installation.md) | Read-only sources, installation ownership and conflict recovery |
-| [Quality](quality.md) | Validation, drafts, approval and translation limitations |
-| [Runtime components](runtime-components.md) | Experimental I2 plugin, protected loaders and source traceability |
-| [Shareable patches](shareable-patch.md) | Recipient installation without the application or a model |
-| [Windows packaging](windows-package.md) | Build, verify and distribute a Windows release |
-| [Release validation](release-audit.md) | RC7 evidence and the validation boundary of the repository cleanup |
-| [Dependency notices](dependencies.md) | Application and development dependencies |
-| [Native notices](NATIVE-NOTICES.md) | Native component notices |
-| [Source access](SOURCE-ACCESS.md) | Corresponding sources for binary releases |
-| [Loader component audit](loader-component-audit.md) | Versioned upstream component provenance |
+| [User guides](../guide/en.md) | Everyday use in eight languages; Windows quick start is [README-WINDOWS.md](README-WINDOWS.md) |
+| [Runtime components](runtime-components.md) | Unity/I2 and Krypta runtime contracts, fixed hooks and build/source chain |
+| [Windows packaging](windows-package.md) | Build, verify and distribute new Windows candidates |
+| [Dependencies](dependencies.md) | Recorded dependency versions and purposes |
+| [Native notices](NATIVE-NOTICES.md) | Native redistribution notices |
+| [Source access](SOURCE-ACCESS.md) | Matching application/component/dependency sources for binary releases |
+| [Loader audit](loader-component-audit.md) | Versioned upstream component provenance |
 | [Protected source trace](protected-source-trace.md) | Modified preloader source/binary correspondence |
 
-Original third-party license texts are retained under `adapters/` and in generated
-runtime packages. Source-only documentation is not a substitute for release notices.
+Architecture, roadmap and quality notes are consolidated in Development; release
+evidence in Compatibility; shareable patches in Installation; the Krypta design in
+Runtime components. Maintain those documents rather than parallel plans or diaries.
+Localized guides, original licenses and detailed source/provenance records remain
+separate because users and distribution tooling need them.

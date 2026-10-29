@@ -55,8 +55,51 @@ Los idiomas de origen y destino del juego son independientes del idioma de la in
 
 ## Krypta FM
 
-Para la versión verificada, selecciona `en` como idioma de origen y extrae los textos normalmente. El perfil lee tres contenedores juntos: 34 TextAssets con 442 campos. Dos fuentes están excluidas explícitamente; hay otros textos fuera del perfil. Tras traducir, revisar y aprobar, usa la exportación de textos TextAsset aprobados. Se crean archivos de texto preparados y un manifiesto dentro del proyecto; los campos no aprobados conservan su texto original. No se modifican archivos Unity ni se instala una traducción. La instalación en el juego no es compatible con este perfil. Cierra las versiones anteriores antes de abrir un proyecto de esquema 5.
+Para la versión compatible de Krypta FM, elija origen `en` y destino `tr`. El perfil 2 cubre 449 campos de 34 TextAssets y una tabla del diario; quedan excluidas dos fuentes y otros textos de interfaz o imágenes. Se conservan las identidades y aprobaciones.
+
+Tras revisar y aprobar las traducciones, cierre el juego y revise en «Aplicar al juego» el plan de los dos archivos nuevos: `winhttp.dll` y `doorstop_config.ini`. El runtime experimental permanece en el proyecto separado; no se sustituyen archivos originales. Retire los añadidos desde el mismo proyecto. La exportación de textos no es un instalador; los ZIP de instalación también admiten la versión Krypta en→tr verificada. El destinatario ejecuta Install.cmd, revisa el plan y escribe INSTALL; Uninstall.cmd elimina solo los añadidos propios sin cambios. La combinación portátil tiene pruebas sintéticas; su prueba específica dentro del juego queda pendiente. Se observaron inicio/menú, opciones, entrada al juego, pausa y subtítulos. Otras pantallas, cambios de idioma y disposición del texto requieren revisión manual; una etiqueta larga puede superponerse a su explicación.
 
 En los ajustes avanzados puedes desactivar opcionalmente el razonamiento para las solicitudes de LM Studio. Esto puede dejar más presupuesto de salida para la traducción. La compatibilidad depende del modelo y servidor; una opción no admitida puede detener el trabajo. Se conservan los valores predeterminados y los ajustes globales del servidor.
 
-La revisión 2 del perfil también lee siete objetivos del diario desde metadatos estáticos. El total es de 449 campos en 34 TextAssets y una matriz del diario; se conservan las identidades y aprobaciones anteriores. El nuevo enlace del diario solo tiene pruebas de compilación y sintéticas; el piloto anterior de tres etiquetas se observó en el juego. La instalación normal de Krypta desde la interfaz aún no está admitida.
+## Traducción Ren'Py
+
+En Textos, selecciona el motor y analiza el juego. Un archivo
+`game/tl/<idioma>/*.rpy` lee toda la carpeta de idioma. Los `.rpy` originales,
+`_ren.py` verificados y archivos RPA-3.0 con fuentes se comprueban mediante contratos
+de comportamiento comparados con Ren'Py 8.1.2 y 8.3.6; la versión por sí sola no
+concede soporte. Se admiten conjuntos grandes y contenedores sin solapamientos;
+se rechazan rutas o nombres base de fuentes coincidentes. Se cubren diálogos de una
+línea con atributos de personaje y temporales `@`, `nointeract`, claves explícitas
+`_()` y textos de menú. El diálogo del menú debe preceder a las opciones y no puede
+mezclarse con títulos. Quedan excluidos los grupos voice/nvl, diálogos multilínea,
+texto dinámico, scripts solo compilados y textos en imágenes. Revisa las exclusiones.
+No se ejecuta código del juego. Los grandes resultados pueden dividirse en archivos
+numerados; conserva junto todo el árbol exportado.
+
+El ZIP de instalación sigue limitado a Ren'Py `8.1.2.23090503`; los metadatos privados de repositorios, herramientas de IA o credenciales bloquean el empaquetado de la copia.
+
+Usa el modelo, piloto, borradores y revisión humana existentes. Las traducciones
+anteriores de las plantillas quedan en el historial para lectura. Tras aprobar,
+introduce un identificador Ren'Py de destino, como `turkish`; no se convierte
+automáticamente el código de idioma. Termina o descarta los borradores.
+El exportador nativo prepara los archivos en el proyecto; las traducciones aprobadas
+contradictorias de una clave global bloquean la exportación.
+
+**Crear ZIP de instalación Ren'Py** admite la versión correspondiente con un solo
+EXE de juego en la raíz. El ZIP no contiene archivos originales del juego.
+Extráelo fuera del original y ejecuta `Install.cmd`. Selecciona el juego coincidente
+y una carpeta de salida independiente; revisa el plan exacto de archivos nuevos.
+Se crea una copia traducida completa que requiere espacio adicional. No se sustituyen
+originales ni se inicia el juego. `Play-Translated.cmd` en la copia inicia el idioma
+del paquete. No se copian partidas, registros ni cachés originales; las partidas
+de la copia son independientes. El destinatario no necesita Python, modelo ni UnityTranslator.
+
+Conserva el ZIP para `Remove.cmd`. Solo se eliminan archivos propios sin cambios;
+se conservan los modificados o creados durante la ejecución y los recibos.
+La carpeta no se vacía por completo.
+CLI: `export-renpy-zip --game ... --project ... --language turkish`.
+No se admite instalar directamente en la carpeta original.
+
+Si el informe del piloto muestra un trabajo en curso, actualízalo cuando se detenga. Un piloto cancelado puede evaluarse si se intentó toda la muestra necesaria y existen resultados completos. La evaluación habilita el trabajo completo con los mismos ajustes y fuentes; no aprueba traducciones.
+
+Si el trabajo completo está bloqueado por ajustes cambiados, Usar los ajustes del piloto revisado selecciona sus valores exactos tras confirmar. Las reglas más recientes se conservan, pero no se usan con esa selección. Para usarlas, ejecuta y revisa un piloto con esos ajustes.

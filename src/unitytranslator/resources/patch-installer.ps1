@@ -1,6 +1,8 @@
 param(
     [ValidateSet('Install','Remove')][string]$Action = 'Install',
-    [string]$GameFolder = ''
+    [string]$GameFolder = '',
+    [switch]$ReviewOnly,
+    [ValidatePattern('^$|^[a-f0-9]{64}$')][string]$ReviewedPlanSha256 = ''
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -176,6 +178,26 @@ foreach ($entry in $package.files) {
     $source = Confined ($packageRoot+'\payload') $entry.path
     if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or (Get-Item -LiteralPath $source).Length -ne $entry.bytes -or (Digest $source) -ne $entry.sha256) { throw ('Package hash mismatch: '+$entry.path) }
 }
+$planFiles = @($package.files)+@(@{path='doorstop_config.ini';sha256=$iniHash;bytes=$iniBytes.Length})
+$planText = $game+"`n"+$package.package_id+"`n"
+foreach ($entry in $planFiles) { $planText += $entry.path+"`t"+$entry.sha256+"`t"+$entry.bytes+"`n" }
+$algorithm = [Security.Cryptography.SHA256]::Create()
+try { $planHash = [BitConverter]::ToString($algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($planText))).Replace('-','').ToLowerInvariant() }
+finally { $algorithm.Dispose() }
+$plan = @{format_version=1;game=$game;package_id=$package.package_id;files=$planFiles;receipt=$receiptPath;sha256=$planHash}
+if ($ReviewOnly) { Write-Output ($plan | ConvertTo-Json -Depth 8); exit 0 }
+if ($ReviewedPlanSha256) {
+    if ($ReviewedPlanSha256 -cne $planHash) { throw 'The reviewed installation plan changed; review it again.' }
+} else {
+    Write-Output ('Game folder: '+$game)
+    Write-Output ('Approved records: '+$package.records+'. New files only; no existing file is replaced.')
+    foreach ($entry in $planFiles) { Write-Output ($entry.path+' | '+$entry.bytes+' bytes | SHA-256 '+$entry.sha256) }
+    Write-Output ('Ownership receipt: '+$receiptPath)
+    Write-Output ('Plan SHA-256: '+$planHash)
+    Write-Output 'Experimental runtime. The game will not be started.'
+    if ((Read-Host 'Review this exact file plan. Type INSTALL to proceed') -cne 'INSTALL') { throw 'Installation was not approved; no game files were written.' }
+}
+CheckGame
 $receipt = @{format_version=1;package_id=$package.package_id;game=$game;status='installing';files=@()}
 [void][IO.Directory]::CreateDirectory($patchRoot)
 $script:receiptIdentity = ''

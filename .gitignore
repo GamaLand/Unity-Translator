@@ -50,5 +50,9 @@ GEMINI.md
 *.safetensors
 *.unitypackage
 *.bundle
+*.rpa
+*.rpyc
+*.rpy
+*_ren.py
 
 .venv-*/

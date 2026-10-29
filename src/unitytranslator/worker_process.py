@@ -17,6 +17,7 @@ def run_json_worker(
     timeout: float,
     cancelled: Callable[[], bool],
     max_output: int = 32 * 1024 * 1024,
+    stream_report: bool = False,
 ) -> dict[str, Any]:
     """The command is constructed exclusively by bundled reader implementations."""
     if not math.isfinite(timeout) or not 0 < timeout <= 120:
@@ -51,6 +52,15 @@ def run_json_worker(
                 details = output.read(4096).decode("utf-8", errors="replace")
                 raise ValueError(f"Source worker failed ({process.returncode}): {details}")
             output.seek(0)
+            if stream_report:
+                from unitytranslator.report_stream import read_report
+
+                def interrupted() -> bool:
+                    if time.monotonic() > deadline:
+                        raise ValueError("Source worker exceeded its time limit.")
+                    return cancelled()
+
+                return read_report(output, cancelled=interrupted, max_bytes=max_output)
             value = strict_json(output.read(max_output + 1))
             if not isinstance(value, dict):
                 raise ValueError("Source worker returned an invalid result.")

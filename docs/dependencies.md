@@ -72,3 +72,9 @@ Development-only dependencies include [dncil](https://github.com/mandiant/dncil)
 [fontTools](https://fonttools.readthedocs.io/en/latest/ttLib/ttFont.html) 4.66.1 (MIT),
 used to inspect font coverage in memory. They do not execute game assemblies, export
 game fonts or become desktop runtime dependencies. Consult `uv.lock` for the pinned build.
+
+Static Ren'Py behavior contracts and `_ren.py` conversion reference the official
+8.1.2.23090503 and 8.3.6.25022803 sources. No engine module is a runtime dependency
+or executable reader plugin. Their original MIT notice is retained in
+[renpy-source-NOTICE.txt](../src/unitytranslator/resources/renpy-source-NOTICE.txt)
+and copied into Windows license notices and native-copy packages.

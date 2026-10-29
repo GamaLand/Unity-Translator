@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from unitytranslator.discovery import probe_source, save_report, scan
+from unitytranslator.discovery import probe_source, save_report, scan, validate_source_selection
 from unitytranslator.domain import GenerationProfile
 from unitytranslator.editor_drafts import EditorDraftStore
 from unitytranslator.filesystem import ProjectPaths
@@ -26,7 +26,7 @@ from unitytranslator.reports import job_report, save_current_quality_audit, save
 from unitytranslator.repository import ProjectRepository, now
 from unitytranslator.review_selection import all_approval_preview, approve_all, approve_selection
 from unitytranslator.runtime_export import export_selected_runtime
-from unitytranslator.shareable import export_shareable_patch
+from unitytranslator.shareable import export_shareable_patch, supports_shareable_patch
 
 
 class ApplicationSession:
@@ -197,6 +197,10 @@ class ApplicationSession:
             last_offset = ((max(1, count) - 1) // 200) * 200
             offset = min(max(0, int(data.get("offset", 0))), last_offset)
             rows = self.repo.page(offset, **filters)
+            if any(row["format_rules"] == "renpy-text-v1" for row in rows):
+                from unitytranslator.renpy_export import add_review_context
+
+                add_review_context(self.repo, rows)
             drafts = EditorDraftStore(self.repo)
             for row in rows:
                 row["editor_draft"] = drafts.get(row["unit_id"])
@@ -207,10 +211,18 @@ class ApplicationSession:
                     self.repo.db.execute(
                         "SELECT count(*) AS total, "
                         "coalesce(sum(w.translation_revision IS NOT NULL),0) AS translated, "
-                        "coalesce(sum(w.status='approved'),0) AS approved "
+                        "coalesce(sum(w.status='approved'),0) AS approved, "
+                        "coalesce(sum(w.status!='approved' AND "
+                        "w.translation_revision IS NULL),0) AS pilot_eligible "
                         "FROM text_units u JOIN work_items w USING(unit_id) WHERE u.active=1"
                     ).fetchone()
                 ),
+                "shareable_available": supports_shareable_patch(self.repo),
+                "source_adapters": [row[0] for row in self.repo.db.execute(
+                    "SELECT DISTINCT d.adapter_id FROM text_units u "
+                    "JOIN source_descriptors d ON d.id=u.logical_source_id "
+                    "WHERE u.active=1 AND d.active=1 ORDER BY d.adapter_id"
+                )],
                 "rows": rows,
                 "count": count,
                 "offset": offset,
@@ -222,7 +234,9 @@ class ApplicationSession:
                 ],
             }
         if command == "scan":
-            result = await asyncio.to_thread(scan, self.repo.paths)
+            result = await asyncio.to_thread(
+                scan, self.repo.paths, engine=data.get("engine", "auto")
+            )
             return {"result": result, "report": str(save_report(self.repo.paths, "scan", result))}
         if command == "game_process":
             # The session may change while awaiting; inspect only the captured game.
@@ -247,12 +261,14 @@ class ApplicationSession:
                     data["source"],
                     source_language=self.repo.source_language,
                     cancellation=self.extraction_cancelled.is_set,
+                    engine=data.get("engine", "auto"),
                 )
                 output = save_report(self.repo.paths, "extract", report)
                 if self.extraction_cancelled.is_set():
                     raise ValueError("Extraction cancelled; existing records were preserved.")
                 if report["extraction"] != "supported":
                     raise ValueError(f"Çıkarma desteklenmedi; tanı raporu: {output}")
+                validate_source_selection(self.repo, report)
                 snapshot = self.repo.ingest_reader_result(
                     result_from_report(
                         report, replace_source_set=report.get("complete_source_set") is True
@@ -376,10 +392,33 @@ class ApplicationSession:
             return {
                 "project_id": self.repo.project_id,
                 "request_token": data.get("request_token"),
-                "allowed": JobStore(self.repo).pilot_reviewed(profile),
+                **JobStore(self.repo).bulk_readiness(profile),
             }
+        if command == "use_pilot_profile":
+            if (
+                data.get("project_id") != self.repo.project_id
+                or data.get("user_action") is not True
+            ):
+                raise ValueError("Explicitly select pilot settings for the current project.")
+            if self.extracting or (self.jobs is not None and self.jobs.active_job is not None):
+                raise ValueError("Stop extraction or translation before selecting pilot settings.")
+            store = JobStore(self.repo)
+            job = store.job(data["job_id"])
+            if not job["report_seen"] or store.pilot_review_blocker(job["id"]) is not None:
+                raise ValueError("A reviewed representative pilot for current sources is required.")
+            profile = GenerationProfile(**json.loads(job["profile_json"]))
+            PolicyStore(self.repo).select_pinned_versions(
+                profile.glossary_version, profile.style_version,
+            )
+            return {"project_id": self.repo.project_id, "request_token": data.get("request_token"),
+                    "profile": profile.to_dict()}
         if command == "history":
-            return self.repo.history(data["unit_id"])
+            history = self.repo.history(data["unit_id"])
+            if self.repo.format_rules(data["unit_id"]) == "renpy-text-v1":
+                from unitytranslator.renpy_export import template_candidate
+
+                history["template_candidate"] = template_candidate(self.repo, data["unit_id"])
+            return history
         if command == "select_candidate":
             return self.repo.select_candidate(
                 data["unit_id"],
@@ -393,6 +432,23 @@ class ApplicationSession:
             if data.get("project_id") != self.repo.project_id or self.extracting:
                 raise ValueError("Project changed or extraction is active; retry when it finishes.")
             return {**export_payloads(self.repo), "project_id": self.repo.project_id}
+        if command == "renpy_export":
+            from unitytranslator.renpy_export import export_native
+
+            if data.get("project_id") != self.repo.project_id or self.extracting:
+                raise ValueError("Project changed or extraction is active; retry when it finishes.")
+            return {
+                **export_native(self.repo, data["language"]), "project_id": self.repo.project_id
+            }
+        if command == "renpy_package":
+            from unitytranslator.renpy_package import export_copy_package
+
+            if data.get("project_id") != self.repo.project_id or self.extracting:
+                raise ValueError("Project changed or extraction is active; retry when it finishes.")
+            return {
+                **export_copy_package(self.repo, data["language"]),
+                "project_id": self.repo.project_id,
+            }
         if command == "export":
             return str(PortableService(self.repo).export())
         if command == "runtime_export":
@@ -435,6 +491,8 @@ class ApplicationSession:
                 if data["kind"] == "bulk"
                 else data["units"]
             )
+            if not units and data["kind"] in ("prototype", "pilot", "bulk"):
+                return {"job_id": None, "count": 0, "reason": "no_eligible_records"}
             identifier = JobStore(self.repo).create(
                 units,
                 profile,

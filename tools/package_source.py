@@ -64,8 +64,11 @@ def main() -> int:
                 or ".." in relative.parts
                 or any(part.casefold() in private for part in relative.parts)
                 or relative.name.casefold() in names
+                or relative.name.casefold().endswith("_ren.py")
                 or ":" in str(relative)
-                or relative.suffix.lower() in {".dll", ".exe", ".gguf", ".assets", ".sqlite3"}
+                or relative.suffix.lower() in {
+                    ".dll", ".exe", ".gguf", ".assets", ".sqlite3", ".rpa", ".rpyc", ".rpy"
+                }
                 or str(relative).casefold() in seen
             ):
                 raise ValueError("Private or invalid source entry: " + str(relative))

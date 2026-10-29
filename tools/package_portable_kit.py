@@ -59,7 +59,7 @@ def main() -> int:
             "tools/package_portable_kit.py",
             "adapters/bepinex-protected/PortableRuntimeDiagnostics.cs",
             "LICENSE",
-            "docs/shareable-patch.md",
+            "docs/installation.md",
         ):
             if name not in zipped.namelist():
                 zipped.write(root / name, name)

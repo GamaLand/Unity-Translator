@@ -1,5 +1,6 @@
 """Keep existing Turkish UI regression expectations independent of user preferences."""
 
+import gc
 import os
 
 import pytest
@@ -20,3 +21,16 @@ def retain_qt_application():
     yield
     app.closeAllWindows()
     app.processEvents()
+    # Process deleteLater events while Python wrappers and the application are alive.
+    # Leaving these objects to interpreter shutdown can abort inside Qt on Windows.
+    from PySide6.QtCore import QCoreApplication, QEvent
+    from shiboken6 import delete, isValid
+
+    gc.collect()
+    for widget in app.topLevelWidgets():
+        if isValid(widget):
+            widget.deleteLater()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    app.processEvents()
+    gc.collect()
+    delete(app)

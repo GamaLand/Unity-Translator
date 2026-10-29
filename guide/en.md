@@ -33,15 +33,9 @@ your choice applies when you reopen the app. It does not change the game's trans
 
 ## Back up, install and share
 
-For the reviewed Krypta FM build, choose source language `en` and scan/extract normally.
-The profile reads all three declared containers together, even if a scene is selected.
-It currently exposes 442 fields from 34 TextAssets; two sources are explicitly excluded
-and other game text may remain outside this profile. Use the usual model, pilot,
-review and approval steps. In **Export**, choose **Export approved game-text payloads**.
-This creates verified text payloads and a coverage manifest inside the project, retaining
-original text in unapproved slots. It does not modify Unity assets or install a patch;
-**Apply to game** is unsupported for this profile. Source changes require extraction
-and review again. Close older app versions before opening a schema-5 project.
+For the pinned Krypta FM build, use source `en` and target `tr`. Profile 2 covers 449 fields from 34 TextAssets and one journal grid; two sources and other UI/image text remain outside the profile. Existing identities and approvals are preserved.
+
+After review and approval, close the game and use **Apply to game** to prepare and review the two-file plan (`winhttp.dll`, `doorstop_config.ini`). The experimental runtime stays in the separate project; original game files are not replaced. Remove additions through the same project. Text-payload export is data only, and shareable installation ZIPs also support the pinned Krypta en-to-tr build. Recipients run Install.cmd, review the file plan and type INSTALL; Uninstall.cmd removes unchanged owned additions. Portable install/remove has synthetic checks; a separate in-game check of this portable combination is deferred. Startup/menu, options, transition into gameplay, pause and subtitles were observed. Other screens, language switching and text layout need manual review; a long settings label can overlap its explanation.
 
 **Export** offers JSON exchange and a project data backup. Keep backups outside the game.
 For a supported installation, close the game, open **Apply to game**, prepare a plan,
@@ -63,4 +57,59 @@ Game translation languages: source and target are separate from the interface la
 
 In advanced model settings, you can optionally disable model reasoning for LM Studio requests. This may leave more output budget for the translation. Support depends on the loaded model/server; an unsupported option can stop the job. Defaults and server-wide settings are preserved.
 
-Profile revision 2 also reads seven English journal objectives as static metadata. The total is 449 fields from 34 TextAssets and one journal grid; the previous source identities and approvals are preserved. The new journal runtime hook has only compile/synthetic evidence, while the earlier three-label menu pilot was observed in-game. Normal Krypta installation in the UI remains unsupported.
+## Engine inspection and Ren'Py translation
+
+In Texts, select the engine, scan and choose an input. Native templates under
+`game/tl/<language>/*.rpy` are read as a complete language folder. Original `.rpy`,
+verified `_ren.py` and script-bearing RPA-3.0 inputs use audited source behavior
+contracts, compared against Ren'Py 8.1.2 and 8.3.6. Version evidence alone does not
+grant support. Large sets and disjoint loose/archive containers are supported;
+overlapping paths or source basenames are refused. The static reader covers single-line
+dialogue with character and temporary `@` attributes, `nointeract`, explicit literal
+`_()` keys and menu choices/captions. Menu dialogue must precede choices and cannot
+mix with captions. Voice/nvl groups, multiline dialogue, dynamic text, compiled-only
+input and image labels remain outside scope. Check reported exclusions. Game code
+is never executed during extraction. Large exports can contain multiple numbered
+files; keep the complete exported tree together.
+
+Installation ZIP support remains limited to Ren'Py `8.1.2.23090503`; private repository, AI-tooling or credential metadata blocks copy packaging.
+
+Use the existing model connection, pilot, drafts and human review. Old template
+translations appear read-only in history and are never approved automatically.
+Review context includes the member file, line, native block and speaker. Source and
+target languages are independent of the interface language.
+
+After human approval, enter an explicit Ren'Py target identifier, for example
+`turkish` for a `tr` project. Finish or discard drafts first. Native-file export
+stages approved files and a coverage manifest in the project; it does not install.
+Unapproved keys are omitted and conflicting approved global string mappings block
+export.
+
+**Create a Ren'Py installation ZIP** supports the pinned build with a single root
+game executable. The ZIP contains reviewed translations and a fixed Windows
+installer, not game assets. Extract it outside the original game, run `Install.cmd`,
+select the matching original game and a separate output parent, and review the
+exact create-new file plan. Installation prepares a full separate translated copy
+and needs additional disk space. It never starts the game or replaces original files.
+
+Use `Play-Translated.cmd` in the new copy to select the package language and play.
+Original saves, logs and caches are not copied; the copy starts with separate saves.
+The recipient needs neither Python nor a model nor UnityTranslator.
+Keep the ZIP for `Remove.cmd`: it removes only unchanged owned copy files.
+Changed or runtime-created files, sidecars, saves and the removal receipt are
+preserved. Removal does not promise an empty copy directory.
+
+The CLI uses the same checks:
+
+```powershell
+unitytranslator extract --game C:\Game --project C:\Translations --source game/archive.rpa --engine renpy
+unitytranslator export-renpy --game C:\Game --project C:\Translations --language turkish
+unitytranslator export-renpy-zip --game C:\Game --project C:\Translations --language turkish
+```
+
+Installation into the original game folder remains unsupported. A staged file or
+successful model response does not prove font coverage, layout or every game scene.
+
+If a pilot report still shows a running job, refresh the report after it stops. A cancelled pilot can be reviewed when the full required sample was attempted and completed results exist. Saving the evaluation unlocks bulk work for matching settings and sources; it does not approve translations.
+
+If bulk translation is blocked because settings changed, Use reviewed pilot settings selects the pilot’s exact model, generation, glossary and style settings after confirmation. Saved newer policies are kept but are not used by that selection. To use changed policies, run and review a matching pilot.

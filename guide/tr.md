@@ -2,14 +2,9 @@
 
 ## Krypta FM metinleri
 
-Doğrulanmış Krypta FM sürümünde kaynak dilini `en` seçip normal tarama/çıkarma
-adımlarını kullanın. Bir sahne seçili olsa da profil üç kaynak dosyasını birlikte okur.
-Şu anda 34 TextAsset içindeki 442 alan çıkarılır; iki kaynak açıkça kapsam dışında
-tutulur ve diğer oyun metinleri bu profilin dışında kalabilir. Normal model, pilot,
-inceleme ve onay adımlarından sonra **Dışa aktar > Onaylı oyun metinlerini dışa aktar** seçeneğini kullanın. Projede metin dosyaları ve kapsam bildirimi oluşturulur;
-onaylanmamış alanların özgün metni korunur. Unity dosyaları değiştirilmez ve oyuna
-yama kurulmaz. Bu profil için **Oyuna uygula** desteklenmez. Kaynaklar değişirse
-yeniden çıkarma ve inceleme gerekir. Şema 5 projesini açmadan önce eski uygulamayı kapatın.
+Eşleşen Krypta FM sürümünde kaynak `en`, hedef `tr` seçin. Profil 2; 34 TextAsset ve bir günlük dizisinden 449 alanı kapsar. İki kaynak ile profil dışı arayüz/görsel metinleri kapsanmaz. Önceki kimlikler ve onaylar korunur.
+
+Çevirileri inceleyip onayladıktan sonra oyunu kapatın. **Oyuna uygula** bölümünde iki yeni dosyanın (`winhttp.dll`, `doorstop_config.ini`) planını hazırlayıp inceleyin ve kurulumu onaylayın. Deneysel çalışma zamanı ayrı projede kalır; özgün oyun dosyaları değiştirilmez. Ekleri aynı projeden kaldırın. Metin çıktısı kurulum paketi değildir; paylaşılabilir kurulum ZIP’i eşleşen Krypta en→tr sürümünü de destekler. Alıcı ZIP’i ayrı klasöre çıkarır, Kur.cmd ile oyun klasörünü seçer, dosya planını inceleyip INSTALL yazar. Kaldir.cmd yalnızca değişmemiş, pakete ait ekleri kaldırır. Taşınabilir kurulum/kaldırma sentetik olarak test edilmiştir; bu birleşimin ayrıca oyun içi kontrolü ertelenmiştir. Başlangıç/menü, ayarlar, oynanışa geçiş, duraklatma ve altyazılar gözlemlendi. Diğer ekranlar, dil geçişi ve metin yerleşimi elle kontrol edilmelidir; uzun bir ayar etiketi açıklamasıyla çakışabilir.
 
 ## Kurulum ve dil seçimi
 
@@ -64,4 +59,49 @@ Oyun çevirisinde kaynak ve hedef dil, arayüz dilinden bağımsızdır. Japonca
 
 Gelişmiş model ayarlarında LM Studio istekleri için model düşünmesini isteğe bağlı kapatabilirsin. Böylece çeviriye daha fazla çıktı bütçesi kalabilir. Destek, yüklü model ve sunucuya bağlıdır; desteklenmeyen seçenek işi durdurabilir. Varsayılanlar ve sunucunun genel ayarları korunur.
 
-Profilin 2. sürümü günlükteki yedi İngilizce görev metnini de statik metaveriden okur. Toplam kapsam 34 TextAsset ve bir günlük dizisinden 449 alandır; önceki kaynak kimlikleri ve onaylar korunur. Yeni günlük runtime kancası yalnızca derleme ve sentetik testlerden geçti; önceki üç etiketli menü pilotu oyunda görüldü. Arayüzden normal Krypta kurulumu henüz desteklenmiyor.
+## Ren'Py çevirisi
+
+Metinler sekmesinde motoru seçip tarayın. `game/tl/<dil>/*.rpy` şablonlarından biri
+aynı dil klasörünün tamamını okur. Özgün `.rpy`, doğrulanmış `_ren.py` ve kaynak betik
+içeren RPA-3.0 girdileri, Ren'Py 8.1.2 ve 8.3.6 ile karşılaştırılan kaynak davranışı
+sözleşmeleriyle denetlenir; sürüm numarası tek başına destek sağlamaz. Büyük kümeler
+ve çakışmayan gevşek dosya/arşiv birleşimleri desteklenir; aynı yol veya kaynak taban
+adındaki çakışmalar reddedilir. Tek satırlı diyaloglar, karakter ve geçici `@`
+nitelikleri, `nointeract`, açık `_()` anahtarları ve seçim/menü başlıkları kapsanır.
+Menü konuşması seçeneklerden önce gelmeli ve başlıklarla karışmamalıdır. Voice/nvl
+grupları, çok satırlı diyalog, dinamik metin, yalnızca derlenmiş betikler ve görsel
+yazıları kapsam dışındadır; bildirilen eksikleri kontrol edin. Oyun kodu çalıştırılmaz.
+Büyük dışa aktarımlar numaralı dosyalara bölünebilir; çıktı ağacını bir arada tutun.
+
+Kurulum ZIP’i hâlâ yalnızca Ren'Py `8.1.2.23090503` için desteklenir; özel depo, yapay zekâ araçları veya kimlik bilgisi metaverileri kopya paketlemeyi durdurur.
+
+Mevcut model, pilot, taslak ve insan incelemesi akışını kullanın. Şablondaki eski
+çeviriler geçmişte salt okunur gösterilir; otomatik onaylanmaz. İncelemede kaynak
+üyesi, satır, yerel blok ve konuşmacı görünür. İnsan onayından sonra hedef dil için
+`turkish` gibi açık bir Ren'Py tanımlayıcısı girin; `tr` otomatik eşlenmez.
+Önce taslakları tamamlayın veya kaldırın. Yerel dosya dışa aktarma, onaylı metinleri
+ve kapsam manifestini proje içinde hazırlar. Onaysız anahtarlar atlanır; aynı global
+anahtarın çelişen onaylı çevirileri dışa aktarmayı durdurur.
+
+**Ren'Py kurulum ZIP'i oluştur**, tek kök oyun EXE'si bulunan eşleşen sürümü destekler.
+ZIP oyun varlıkları içermez. Özgün oyunun dışında çıkarıp `Install.cmd` çalıştırın;
+eşleşen özgün oyun ile ayrı bir çıktı üst klasörü seçin ve kesin yeni dosya planını
+inceleyin. Kurulum ek disk alanında tam bir çevrilmiş kopya hazırlar; özgün dosyaları
+değiştirmez ve oyunu başlatmaz.
+
+Yeni kopyadaki `Play-Translated.cmd` paketin dilini seçerek oyunu açar. Özgün kayıtlar,
+loglar ve önbellekler kopyalanmaz; yeni kopyanın kayıtları ayrıdır.
+Alıcıda Python, model veya UnityTranslator gerekmez. ZIP'i saklayın: `Remove.cmd`
+yalnızca değişmemiş sahipli kopya dosyalarını kaldırır. Değiştirilmiş ve çalışma
+sırasında oluşmuş dosyalar, derlenmiş yan dosyalar, kayıtlar ve makbuz korunur.
+Kaldırma, kopya klasörünün tamamen boşaltılması anlamına gelmez.
+
+CLI'da `extract --game ... --project ... --source game/archive.rpa --engine renpy`,
+`export-renpy --game ... --project ... --language turkish` ve
+`export-renpy-zip --game ... --project ... --language turkish` aynı denetimleri kullanır.
+Özgün oyun klasörüne doğrudan kurulum desteklenmez. Yazı tipi, taşmalar ve diğer
+sahneler oyun içinde ayrıca incelenmelidir.
+
+Pilot raporu işi hâlâ çalışıyor gösteriyorsa iş durduktan sonra raporu yenileyin. Gerekli örneklemin tamamı denenmiş ve tamamlanan sonuçlar varsa iptal edilmiş pilot da değerlendirilebilir. Değerlendirme aynı ayarlar ve kaynaklar için toplu işi açar; çevirileri onaylamaz.
+
+Toplu iş ayarlar değiştiği için kapalıysa İncelenmiş pilot ayarlarını kullan, onayından sonra pilotun model, üretim, sözlük ve üslup ayarlarını seçer. Daha yeni sözlük/üslup sürümleri saklanır fakat bu seçimde kullanılmaz. Değişen ayarları kullanmak için o ayarlarla pilot çalıştırıp incele.

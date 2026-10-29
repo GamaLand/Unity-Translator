@@ -12,12 +12,14 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.capabilities import discovery_capabilities
+from unitytranslator.engines import engine_evidence, renpy_inputs
 from unitytranslator.filesystem import ProjectPaths, checked_path, hash_file
 from unitytranslator.profiles import match_profile
 from unitytranslator.repository import ProjectRepository
 
 
-def scan(paths: ProjectPaths) -> dict[str, Any]:
+def scan(paths: ProjectPaths, *, engine: str = "auto") -> dict[str, Any]:
+    engines = engine_evidence(paths.game, engine)
     evidence = []
     candidates = []
     runtimes: set[str] = set()
@@ -84,7 +86,14 @@ def scan(paths: ProjectPaths) -> dict[str, Any]:
             "Haricî dil/mod ve font desteği henüz doğrulanmadı.",
         ],
         "recommendations": recommendations,
+        "engine_report": engines,
     }
+    if "renpy" in engines["detected"] or engines["engine"] == "renpy":
+        inputs = renpy_inputs(paths.game)
+        report["renpy_inputs"] = inputs
+        report["container_indicators"] = inputs["container_indicators"] + (
+            ["serialized_asset_candidate"] if candidates else []
+        )
     report["capabilities"] = discovery_capabilities(report).to_dict()
     return report
 
@@ -152,6 +161,7 @@ def _probe_i2_source(
 def probe_source(
     paths: ProjectPaths, relative: str, timeout: float = 120, *, source_language: str = "en",
     cancellation: Callable[[], bool] | None = None,
+    engine: str = "auto",
 ) -> dict[str, Any]:
     from unitytranslator.reader_adapters import BUILTIN_READERS
     from unitytranslator.source_contracts import ReaderContext, validate_relative_source
@@ -160,6 +170,45 @@ def probe_source(
     source = checked_path(paths.game / relative)
     if not source.is_relative_to(paths.game) or not source.is_file():
         raise ValueError("Source must be an existing file inside the game directory.")
+    engines = engine_evidence(paths.game, engine)
+    if engines["engine"] == "ambiguous":
+        raise ValueError("Ambiguous engine evidence; select an explicit inspection engine.")
+    if (
+        engines["engine"] == "renpy" and source.suffix.lower() == ".rpy"
+        and Path(relative).parts[:2] == ("game", "tl")
+    ):
+        return BUILTIN_READERS.select(("renpy-templates",)).probe(
+            ReaderContext(
+                paths.game, paths.project, source_language, timeout, cancellation or (lambda: False)
+            ), relative,
+        ).report
+    if (
+        engines["engine"] == "renpy" and (
+            source.suffix.lower() in (".rpy", ".rpa") or source.name.endswith("_ren.py")
+        )
+        and Path(relative).parts[0] == "game"
+    ):
+        return BUILTIN_READERS.select(("renpy-scripts",)).probe(
+            ReaderContext(
+                paths.game, paths.project, source_language, timeout, cancellation or (lambda: False)
+            ), relative,
+        ).report
+    if source.name.lower().endswith("_ren.py"):
+        raise ValueError(
+            "Ren'Py input detected: _ren.py is a separate unsupported source dialect; "
+            "native text mapping has not been verified. No Python file is executed."
+        )
+    if engines["engine"] == "renpy" or source.suffix.lower() in (".rpy", ".rpyc", ".rpa"):
+        raise ValueError(
+            "Ren'Py input detected. Select a supported loose game/tl/<language>/*.rpy template; "
+            "or a supported original .rpy/RPA-3.0 source. Compiled-only reading is unsupported."
+        )
+    if engines["engine"] == "unknown" and not (
+        source.suffix.lower() == ".assets"
+        or source.name == "globalgamemanagers"
+        or re.fullmatch(r"level\d+", source.name)
+    ):
+        raise ValueError("No engine or built-in reader matches this source; select an engine.")
     reader_id = "i2"
     info = checked_path(paths.game / Path(relative).parts[0] / "app.info")
     if info.is_file() and info.stat().st_size <= 4096:
@@ -179,15 +228,60 @@ def save_report(paths: ProjectPaths, kind: str, report: dict[str, Any]) -> Path:
     return paths.write_json(f"snapshots/{kind}-{uuid4().hex}.json", report)
 
 
-def extract_to_project(paths: ProjectPaths, relative: str) -> dict[str, Any]:
+def validate_source_selection(repository: ProjectRepository, report: dict[str, Any]) -> None:
+    """Missing Ren'Py templates require a separate decision, never silent retirement."""
+    if report.get("adapter_id") not in ("renpy-templates", "renpy-scripts"):
+        return
+    profiles = {source["profile_id"] for source in report["source_descriptors"]}
+    active_profiles = {
+        row[0] for row in repository.db.execute(
+            "SELECT DISTINCT profile_id FROM source_descriptors "
+            "WHERE adapter_id IN ('renpy-templates','renpy-scripts') AND active=1"
+        )
+    }
+    if active_profiles - profiles:
+        raise ValueError("This project already has another active Ren'Py template language set.")
+    incoming = {source["logical_id"] for source in report["source_descriptors"]}
+    existing = {
+        row["id"] for row in repository.db.execute(
+            "SELECT id,profile_id FROM source_descriptors "
+            "WHERE adapter_id IN ('renpy-templates','renpy-scripts') AND active=1"
+        ) if row["profile_id"] in profiles
+    }
+    if missing := existing - incoming:
+        raise ValueError(
+            "Previously active Ren'Py templates are missing: " + ", ".join(sorted(missing))
+        )
+    if report["adapter_id"] == "renpy-scripts":
+        payloads = {payload["logical_id"]: payload for payload in report["payloads"]}
+        for logical in existing & incoming:
+            previous = repository.db.execute(
+                "SELECT ss.metadata_json FROM snapshot_sources s "
+                "JOIN source_snapshots ss ON ss.id=s.snapshot_id WHERE s.source_id=? "
+                "ORDER BY ss.created_at DESC,ss.rowid DESC LIMIT 1", (logical,),
+            ).fetchone()
+            if previous is None:
+                continue
+            old = {member["name"] for member in json.loads(previous[0]).get("original_members", ())}
+            new = {member["name"] for member in payloads[logical]["original_members"]}
+            if old - new:
+                raise ValueError("Previously active Ren'Py original-source members are missing.")
+
+
+def extract_to_project(
+    paths: ProjectPaths, relative: str, *, engine: str = "auto"
+) -> dict[str, Any]:
     # Hold the writer lock during extraction, but no transaction while the worker runs.
     with ProjectRepository(paths) as repository:
-        report = probe_source(paths, relative, source_language=repository.source_language)
+        report = probe_source(
+            paths, relative, source_language=repository.source_language, engine=engine
+        )
         output = save_report(paths, "extract", report)
         if report["extraction"] != "supported":
             raise ValueError(f"Çıkarma tamamlanamadı; tanı raporu: {output}")
         from unitytranslator.reader_adapters import result_from_report
 
+        validate_source_selection(repository, report)
         snapshot = repository.ingest_reader_result(result_from_report(
             report, replace_source_set=report.get("complete_source_set") is True
         ))[0]

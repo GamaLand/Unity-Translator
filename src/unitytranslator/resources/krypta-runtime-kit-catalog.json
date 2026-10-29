@@ -7,13 +7,13 @@
     "menu-lines-v1",
     "subtitle-lines-v1"
   ],
-  "ui_trial_enabled": false,
+  "ui_trial_enabled": true,
   "purpose": "experimental-krypta-textassets-runtime",
   "application_verified": false,
   "assembly_sha256": "1ae192ca7e2a381a309003bc412ae10bd56b8eab7c4c79bcf6f15482c8ee29ef",
   "unity_player_sha256": "cf16a39232daafb7d89318a22ac35465fb86e59caf396dd3712dd33d83e6c112",
   "files": {
-    "README.txt": "3696363e38601a6a5db0f57d924558067bad1b386a9e8ead98be62e25603a9a5",
+    "README.txt": "a3bb0531d54cdfcb6f5c9613f4e1c9cf47f51fa26991bf61ea0a339bc857d9a2",
     "RUNTIME-NOTICES.json": "f34d2a3aee4efa75140ed6bf2880fef8810e356fd03866c1cc7e2faaa2f61ffb",
     "winhttp.dll": "8c6cdbc38836dee87e3368f5de1994d7c0ccebf29e4ce7aba3c0981f9375412c",
     "core/0Harmony.dll": "1a21cc03424fc82c3dd1346905d16494536b9595ae4162228d99fb7c285c1031",
@@ -68,5 +68,27 @@
     "core/Mono.Cecil.Rocks.dll": "54ac539fb5ddc8b44c0e9acd0fcb7324f89d1a072edf8ebc1b06dd691e3d3927",
     "core/MonoMod.Utils.dll": "9d1495f147ac93c4f81f84538c1a326e8f8a6aefc78d6289d798f3ce1162c5e9",
     "core/MonoMod.RuntimeDetour.dll": "40e49bb314391cd7bddc2644f8553eeba92c194b940836b103df16955c464e0c"
+  },
+  "ui_trial_evidence": {
+    "format_version": 1,
+    "scope": "limited-user-accepted",
+    "plugin_sha256": "18eb9426a28d99a991c990a9e8d82064e25b788db82d10d9789b2b187750a834",
+    "observed": [
+      "startup",
+      "menu",
+      "options",
+      "menu-to-game",
+      "pause",
+      "subtitles"
+    ],
+    "deferred": [
+      "journal-display",
+      "forum-display",
+      "language-switch",
+      "scene-reload",
+      "full-gameplay",
+      "clean-windows"
+    ],
+    "date": "2026-10-23"
   }
 }

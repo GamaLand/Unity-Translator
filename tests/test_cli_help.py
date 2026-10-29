@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.parametrize(
     "command", [[], ["scan"], ["probe"], ["extract"], ["project"], ["models"], ["sample"],
-                ["export-textassets"]]
+                ["export-textassets"], ["export-renpy"], ["export-renpy-zip"]]
 )
 def test_cli_help_is_english_without_game_or_server_input(command):
     result = subprocess.run(

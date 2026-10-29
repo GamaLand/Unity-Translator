@@ -3,11 +3,19 @@
 A Windows desktop app for translating supported Unity game text with a local AI model.
 Extract text, translate it, review the results and prepare a translation patch in one workspace.
 
-Current version: **0.4.0**, the third feature update after the initial 0.1.0 release.
+Current version: **0.5.0**, adding shareable Krypta FM installation ZIPs to the
+reviewed experimental runtime workflow.
 This update adds source-scoped adapter contracts, backed-up schema-5 migration and
 the fingerprint-bound Krypta FM reader. Its 449 scoped fields can be translated,
-reviewed and exported. The newer experimental Krypta runtime still requires in-game
-lifecycle verification; normal Krypta installation remains disabled.
+reviewed and exported. Reviewed experimental Krypta installation is available for
+the pinned English-to-Turkish build. Startup, menu/options, the transition into gameplay,
+pause and subtitles were observed in-game; remaining screens and translation quality
+are user-led checks. This does not establish complete game-text coverage.
+The shareable ZIP combines the same scoped plugin with the separately guarded
+portable loader. Recipient install/remove is synthetically tested; this portable
+combination has not had a separate in-game observation. Recipients review an exact
+file plan, and need neither this application nor a model. Only the matching build
+and English-to-Turkish profile are supported.
 
 ## Features
 
@@ -88,7 +96,17 @@ This is not a universal Unity patcher. Extraction and installation support depen
 game's engine version, runtime and localization system. The reference adapter targets
 an identified Mono/I2 installation of *Warhammer 40,000: Mechanicus*. In-game application
 remains experimental; the reference menu and Turkish glyphs were user-verified, not every
-scene or game version. IL2CPP and Unreal installation are not currently supported.
+scene or game version. The source checkout also reads a strict subset of supplied
+Ren'Py native templates and an audited static `.rpy`/`_ren.py`/RPA-3.0 subset through the same
+review pipeline. Approved output can be staged or packaged as an experimental
+matching-build ZIP that prepares a separate translated game copy. Original-folder
+Ren'Py installation, IL2CPP installation and Unreal support are not implemented.
+
+The [broader Ren'Py milestone](docs/development.md#broader-renpy-support-planned)
+now includes source behavior checks, bounded large sets and sharded native output.
+Overlapping source precedence, wider syntax and runtime families remain planned.
+The installation ZIP still requires its pinned runtime/build; source reading alone
+does not establish runtime compatibility.
 
 Automated checks cannot guarantee translation meaning. Clean Windows validation remains
 pending. Some technical diagnostics retain their original wording. Interface translations
@@ -97,9 +115,18 @@ have automated resource checks; native-speaker review is welcome.
 ## Development and roadmap
 
 Start with the [documentation index](docs/README.md) and [developer guide](docs/development.md).
-The [next milestone](docs/roadmap.md) adds built-in adapter contracts, JSON/CSV game-source
-readers, independent capability reports and a second verified I2 profile. These are
-planned features; [current compatibility](docs/compatibility.md) remains separate.
+The [native-template integration](docs/development.md#renpy-native-template-integration)
+reuses the existing translation/review pipeline. Engine discovery, the strict reader,
+text protection and approved native staging with explicit language mapping are implemented.
+The original-source reader verifies audited engine behavior for `.rpy`, `_ren.py`
+and disjoint script-bearing RPA-3.0 containers, including large source sets and
+symbolic character attributes. Overlapping sources, multiline dialogue and
+compiled-only input remain unsupported. The translated-copy ZIP keeps its separate
+8.1.2.23090503 runtime gate and keeps
+original game files and saves separate; its current evidence and exclusions are
+documented in Compatibility.
+Further Unity methods and a possible Unreal investigation follow later.
+[Current compatibility](docs/compatibility.md) remains separate from these plans.
 For loader conflicts, see [installation and recovery](docs/installation.md).
 
 The repository uses English developer-facing names and documentation. Guides and UI

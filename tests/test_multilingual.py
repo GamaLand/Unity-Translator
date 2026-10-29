@@ -100,13 +100,14 @@ def test_extract_approve_export_language_pair(tmp_path, source, target, text, tr
     assert hash_file(assembly) == original_hash
 
 
-def test_application_forwards_source_language_to_worker(tmp_path, monkeypatch):
+@pytest.mark.parametrize("engine", [None, "unity"])
+def test_application_forwards_source_language_to_worker(tmp_path, monkeypatch, engine):
     game = tmp_path / "game"
     game.mkdir()
     captured = []
 
-    def probe(paths, source, *, source_language, cancellation=None):
-        captured.append(source_language)
+    def probe(paths, source, *, source_language, cancellation=None, engine="auto"):
+        captured.append((source_language, engine))
         units = extract_i2(
             {
                 "m_Name": "synthetic",
@@ -141,7 +142,10 @@ def test_application_forwards_source_language_to_worker(tmp_path, monkeypatch):
                     "target_language": "ja",
                 },
             )
-            result = await session.dispatch("extract", {"source": "synthetic.assets"})
+            options = {"source": "synthetic.assets"}
+            if engine is not None:
+                options["engine"] = engine
+            result = await session.dispatch("extract", options)
             assert session.repo.page()[0]["source_text"] == "Inizia"
             assert result["capabilities"]["translation"]["status"] == "supported"
             assert result["capabilities"]["installation"]["status"] == "unknown"
@@ -149,7 +153,7 @@ def test_application_forwards_source_language_to_worker(tmp_path, monkeypatch):
             await session.close()
 
     asyncio.run(run())
-    assert captured == ["it"]
+    assert captured == [("it", engine or "auto")]
 
 
 def test_sample_uses_selected_target_and_neutral_prompt():

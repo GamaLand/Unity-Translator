@@ -13,6 +13,7 @@ from unitytranslator.filesystem import checked_path
 from unitytranslator.json_boundary import strict_json
 from unitytranslator.policy import GlossaryRule, PolicyStore
 from unitytranslator.repository import ProjectRepository, canonical, now
+from unitytranslator.source_contracts import SourceDescriptor
 
 
 class PortableTranslation(BaseModel):
@@ -70,11 +71,12 @@ class ArchivedUnit(BaseModel):
     sources: list[ArchivedSource] = Field(min_length=1, max_length=10000)
     translations: list[ArchivedTranslation] = Field(max_length=10000)
     imported_reviews: list[dict[str, str]] = Field(default_factory=list, max_length=10000)
+    logical_source_id: str | None = None
 
 
 class PortableProject(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    format_version: Literal[1, 2]
+    format_version: Literal[1, 2, 3]
     project_id: str
     source_language: str
     target_language: str
@@ -82,6 +84,7 @@ class PortableProject(BaseModel):
     glossary: list[GlossaryRule] = Field(max_length=5000)
     styles: dict[str, str]
     history: list[ArchivedUnit] = Field(default_factory=list, max_length=100_000)
+    source_descriptors: list[dict[str, Any]] = Field(default_factory=list, max_length=10000)
 
 
 def portable_metadata(value: Any) -> Any:
@@ -142,8 +145,30 @@ class PortableService:
                     "SELECT styles_json FROM style_versions WHERE id=?", (style_version,)
                 ).fetchone()[0]
             )
+        descriptors = [
+            json.loads(row[0]) for row in self.repository.db.execute(
+                "SELECT descriptor_json FROM source_descriptors ORDER BY id"
+            )
+        ]
+        scoped = any(item["adapter_id"] in ("renpy-templates", "renpy-scripts")
+                     for item in descriptors)
+        history = self.export_history()
+        if scoped:
+            owners = dict(self.repository.db.execute(
+                "SELECT unit_id,logical_source_id FROM text_units"
+            ))
+            for archived in history:
+                owner = owners[archived["unit_id"]]
+                if owner is None:
+                    legacy = SourceDescriptor.legacy(
+                        archived["source_file"], self.repository.source_language
+                    )
+                    owner = legacy.logical_id
+                    if not any(item["logical_id"] == owner for item in descriptors):
+                        descriptors.append(asdict(legacy))
+                archived["logical_source_id"] = owner
         value = {
-            "format_version": 2,
+            "format_version": 3 if scoped else 2,
             "project_id": self.repository.project_id,
             "source_language": self.repository.source_language,
             "target_language": self.repository.target_language,
@@ -152,8 +177,10 @@ class PortableService:
                 rule.model_dump() for rule in policies.rules(policies.active_version("glossary"))
             ],
             "styles": styles,
-            "history": self.export_history(),
+            "history": history,
         }
+        if scoped:
+            value["source_descriptors"] = descriptors
         PortableProject.model_validate(value)
         if len(canonical(value).encode("utf-8")) > 64 * 1024 * 1024:
             raise ValueError("Taşınabilir proje boyut sınırı aşıldı.")
@@ -249,11 +276,37 @@ class PortableService:
             raise ValueError("İçe aktarma dil çifti projeyle eşleşmiyor.")
         if value.format_version == 1 and value.history:
             raise ValueError("Eski JSON sürümü revizyon arşivi içeremez.")
+        descriptors = {
+            source.logical_id: source
+            for source in (SourceDescriptor(**item) for item in value.source_descriptors)
+        }
+        if len(descriptors) != len(value.source_descriptors):
+            raise ValueError("Duplicate portable source descriptors.")
+        if value.format_version != 3 and (descriptors or any(
+            unit.logical_source_id is not None or unit.unit_id.startswith("renpy-v1:")
+            for unit in value.history
+        )):
+            raise ValueError("Ren'Py source ownership requires portable format 3.")
         seen_units: set[str] = set()
         seen_sources: set[str] = set()
         seen_translations: set[str] = set()
         archived = {unit.unit_id: unit for unit in value.history}
         for unit in value.history:
+            if value.format_version == 3:
+                descriptor = descriptors.get(unit.logical_source_id or "")
+                if descriptor is None or (
+                    descriptor.source_file != unit.source_file
+                    or descriptor.source_language != value.source_language
+                    or (
+                        descriptor.source_object != -1
+                        and descriptor.source_object != unit.source_object
+                    )
+                    or (unit.unit_id.startswith("renpy-v1:") and (
+                        descriptor.adapter_id not in ("renpy-templates", "renpy-scripts")
+                        or descriptor.format_rules != "renpy-text-v1"
+                    ))
+                ):
+                    raise ValueError("Portable record has invalid source ownership or format.")
             if unit.unit_id in seen_units:
                 raise ValueError("Arşivde yinelenen kayıt kimliği.")
             seen_units.add(unit.unit_id)
@@ -327,7 +380,7 @@ class PortableService:
                     != review["source_revision"]
                 ):
                     raise ValueError("İçe aktarılmış arşiv onay ilişkisi geçersiz.")
-        if value.format_version == 2:
+        if value.format_version in (2, 3):
             if {unit.unit_id for unit in value.units} != {
                 unit.unit_id for unit in value.history if unit.active
             }:
@@ -528,11 +581,24 @@ class PortableService:
     def restore(self, value: PortableProject) -> dict[str, Any]:
         """Restore into an empty project; imported approvals remain archive history."""
         self.validate_history(value)
-        if value.format_version != 2 or not value.history:
+        if value.format_version not in (2, 3) or not value.history:
             raise ValueError("Geri yükleme revizyon arşivli JSON sürüm 2 gerektirir.")
         if self.repository.db.execute("SELECT count(*) FROM text_units").fetchone()[0]:
             raise ValueError("Geri yükleme yalnızca boş projede yapılabilir.")
         with self.repository.transaction():
+            if value.format_version == 3:
+                for item in value.source_descriptors:
+                    source = SourceDescriptor(**item)
+                    active = any(
+                        unit.active and unit.logical_source_id == source.logical_id
+                        for unit in value.history
+                    )
+                    self.repository.db.execute(
+                        "INSERT INTO source_descriptors VALUES(?,?,?,?,?,?,?,?,?)",
+                        (source.logical_id, source.adapter_id, source.profile_id,
+                         source.schema_version, source.source_file, source.source_object,
+                         source.source_language, canonical(asdict(source)), int(active)),
+                    )
             for unit in value.history:
                 self.repository.db.execute(
                     "INSERT INTO text_units(unit_id,original_key,source_file,source_object,"
@@ -549,6 +615,11 @@ class PortableService:
                 self.repository.db.execute(
                     "INSERT INTO work_items(unit_id,status) VALUES(?,'pending')", (unit.unit_id,)
                 )
+                if value.format_version == 3:
+                    self.repository.db.execute(
+                        "UPDATE text_units SET logical_source_id=? WHERE unit_id=?",
+                        (unit.logical_source_id, unit.unit_id),
+                    )
             self.import_history(value, {unit.unit_id for unit in value.history})
             result = self.apply(value)
             for unit in value.history:

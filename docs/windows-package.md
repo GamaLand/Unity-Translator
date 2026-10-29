@@ -1,8 +1,8 @@
 # Windows packaging
 
-Current application version: 0.4.0. The previous published baseline is 0.1.0 RC7;
+Current application version: 0.5.0. The previous published baseline is 0.1.0 RC7;
 historical release archives retain their original version and validation evidence.
-Build new 0.4.0 candidates from this checkout; runtime compatibility gates remain separate.
+Build new 0.5.0 candidates from this checkout; runtime compatibility gates remain separate.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ uv run python tools/package_windows.py --output-root dist/windows-next --label r
 ```
 
 The notice tool bundles the eight `guide/` documents, current documentation,
-license texts, corresponding-source notices and the two validated runtime kits.
+license texts, corresponding-source notices and the applicable validated runtime kits.
 The ZIP tool checks the complete file/hash manifest and refuses an existing archive.
 Never copy only the EXE, omit a runtime source archive or bypass an invalid catalog.
 Do not delete an output directory used by a running application.

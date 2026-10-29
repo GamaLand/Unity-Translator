@@ -104,6 +104,100 @@ def synthetic_runtime_profile(repo, monkeypatch):
     return profile
 
 
+def test_shareable_zip_rejects_textasset_sources_before_export_or_runtime_staging(
+    repo, monkeypatch
+):
+    from unitytranslator.shareable import export_shareable_patch, supports_shareable_patch
+
+    assert not supports_shareable_patch(repo)
+    monkeypatch.setattr(
+        "unitytranslator.shareable.export_selected_runtime",
+        lambda *args, **kwargs: pytest.fail("An unsupported shareable export must not stage data"),
+    )
+    with pytest.raises(ValueError, match="Shareable installation ZIPs are unavailable"):
+        export_shareable_patch(repo)
+    assert not (repo.paths.project / "exports").exists()
+
+
+def test_completed_project_has_no_empty_pilot_job_and_preserves_approvals(repo, monkeypatch):
+    from unitytranslator.application import ApplicationSession
+
+    for row in repo.page():
+        repo.edit(row["unit_id"], row["version"], row["source_text"])
+    for row in repo.page():
+        repo.approve(row["unit_id"], row["version"])
+    before = repo.page()
+    session = ApplicationSession()
+    session.repository = repo
+    session.jobs = TranslationJobService(repo)
+    monkeypatch.setattr(JobStore, "create", lambda *args, **kwargs: pytest.fail("No empty job"))
+    result = asyncio.run(
+        session.dispatch(
+            "create_job",
+            {
+                "kind": "pilot",
+                "profile": {
+                    "provider": "lm-studio",
+                    "address": "http://127.0.0.1:1234",
+                    "model": "synthetic",
+                    "context_tokens": 4096,
+                },
+            },
+        )
+    )
+    assert result == {"job_id": None, "count": 0, "reason": "no_eligible_records"}
+    page = asyncio.run(session.dispatch("page", {}))
+    assert page["totals"]["pilot_eligible"] == 0
+    assert page["shareable_available"] is False
+    assert repo.page() == before
+    assert repo.db.execute("SELECT count(*) FROM jobs").fetchone()[0] == 0
+
+
+def test_ui_disables_completed_pilot_and_unsupported_zip(repo):
+    from PySide6.QtWidgets import QApplication
+    from test_ui import wait_for
+
+    from unitytranslator.ui.window import MainWindow
+
+    app = QApplication.instance() or QApplication([])
+    for row in repo.page():
+        repo.edit(row["unit_id"], row["version"], row["source_text"])
+    for row in repo.page():
+        repo.approve(row["unit_id"], row["version"])
+    paths = repo.paths
+    count = repo.count()
+    repo.close()
+    window = MainWindow()
+    errors = []
+    window.bridge.failed.disconnect(window.failed)
+    window.bridge.failed.connect(lambda *args: errors.append(args))
+    window.game_path.setText(str(paths.game))
+    window.project_path.setText(str(paths.project))
+    window.show()
+    window.open_project()
+    original_submit = window.bridge.submit
+    try:
+        wait_for(app, lambda: window.review_model.rowCount() == count)
+        assert not window.pilot_button.isEnabled()
+        assert not window.shareable_export_button.isEnabled()
+        assert not window.shareable_note.isHidden()
+        submitted = []
+        window.bridge.submit = lambda *args: submitted.append(args)
+        window.completed(
+            "create_job", {"job_id": None, "count": 0, "reason": "no_eligible_records"}
+        )
+        assert not any(command[0] == "run_job" for command in submitted)
+        assert not errors
+    finally:
+        window.bridge.submit = original_submit
+        window.close()
+        wait_for(app, lambda: window.backend_closed)
+        window.bridge.thread.join(timeout=5)
+        assert not window.bridge.thread.is_alive()
+        window.deleteLater()
+        app.processEvents()
+
+
 def test_runtime_candidate_binds_approved_revisions_and_exact_payload(repo, monkeypatch):
     synthetic_runtime_profile(repo, monkeypatch)
     row = approve(repo)
@@ -385,13 +479,19 @@ def test_literal_record_uses_shared_queue_and_current_approval_selection(repo):
     assert export_payloads(repo)["approved_translations"] == 1
 
 
-def test_textasset_installation_is_blocked_before_inventory_or_plan_creation(repo):
+def test_unready_textasset_runtime_is_blocked_before_inventory_or_plan_creation(repo, monkeypatch):
+    from types import SimpleNamespace
+
     from unitytranslator.installation import InstallationSession
 
+    monkeypatch.setattr(
+        "unitytranslator.installation.KryptaRuntimeKit",
+        lambda: SimpleNamespace(catalog={"ui_trial_enabled": False}),
+    )
     approve(repo)
     installation = InstallationSession(repo)
     before = list(repo.paths.project.rglob("*"))
-    with pytest.raises(ValueError, match="staged text exports only"):
+    with pytest.raises(ValueError, match="not yet cleared"):
         installation.prepare()
     assert installation.pending is None
     assert list(repo.paths.project.rglob("*")) == before

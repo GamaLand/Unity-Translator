@@ -4,6 +4,7 @@ import base64
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, replace
+from hashlib import sha256
 from typing import Any
 
 from unitytranslator.domain import TextUnitDraft
@@ -195,7 +196,145 @@ class KryptaTextAssetReader:
         )
 
 
-BUILTIN_READERS = ReaderRegistry((I2Reader(), KryptaTextAssetReader()))
+class RenpyTemplateReader:
+    id = "renpy-templates"
+    version = "1"
+
+    def probe(self, context: ReaderContext, relative: str) -> ReaderProbe:
+        from unitytranslator.capabilities import discovery_capabilities
+        from unitytranslator.renpy_templates import MAX_FILE_BYTES, parse_template
+        from unitytranslator.worker_process import run_json_worker
+        from unitytranslator.workers.renpy_probe import template_files
+
+        worker = (
+            [sys.executable, "--renpy-worker"] if getattr(sys, "frozen", False)
+            else [sys.executable, "-m", "unitytranslator.workers.renpy_probe"]
+        )
+        report = run_json_worker(
+            [*worker, str(context.game), relative, context.source_language],
+            timeout=context.timeout, cancelled=context.cancelled,
+        )
+        if report.get("complete_source_set") is not True or report.get("adapter_id") != self.id:
+            raise ValueError("Incomplete or incorrect native Ren'Py reader result.")
+        language, files, _ = template_files(context.game, relative)
+        expected = {path.relative_to(context.game).as_posix() for path in files}
+        if set(report.get("fingerprints", ())) != expected:
+            raise ValueError("Ren'Py source selection changed before acceptance.")
+        result = result_from_report(report, replace_source_set=True)
+        if len(result.snapshots) != len(files) or {
+            snapshot.source.source_file for snapshot in result.snapshots
+        } != expected:
+            raise ValueError("Incomplete or duplicate Ren'Py source descriptors.")
+        for snapshot in result.snapshots:
+            if context.cancelled():
+                raise ValueError("Source extraction was cancelled.")
+            path = checked_path(context.game / snapshot.source.source_file)
+            with path.open("rb") as stream:
+                raw = stream.read(MAX_FILE_BYTES + 1)
+            if sha256(raw).hexdigest() != report["fingerprints"][snapshot.source.source_file]:
+                raise ValueError("Ren'Py source changed before acceptance.")
+            verified = parse_template(raw, language).snapshot(
+                snapshot.source.source_file, context.source_language
+            )
+            if verified != snapshot:
+                raise ValueError("Ren'Py records differ from their verified source snapshot.")
+        report["counts"] = {
+            "records": len(report["units"]), "sources": len(files), "errors": 0,
+            "unique_texts": len({u["source_text"] for u in report["units"]}),
+            "characters": sum(len(u["source_text"]) for u in report["units"]),
+        }
+        report["capabilities"] = discovery_capabilities(report, inspected=True).to_dict()
+        return ReaderProbe(tuple(s.source for s in result.snapshots), (), report)
+
+    def extract(
+        self, context: ReaderContext, relative: str, cancellation: Callable[[], bool]
+    ) -> ReaderResult:
+        return result_from_report(
+            self.probe(replace(context, cancelled=cancellation), relative).report,
+            replace_source_set=True,
+        )
+
+
+class RenpyScriptReader:
+    id = "renpy-scripts"
+    version = "1"
+
+    def probe(self, context: ReaderContext, relative: str) -> ReaderProbe:
+        from unitytranslator.capabilities import discovery_capabilities
+        from unitytranslator.report_stream import MAX_REPORT_BYTES, report_digest
+        from unitytranslator.worker_process import run_json_worker
+        from unitytranslator.workers.renpy_script_probe import probe
+
+        anchor = _renpy_source_anchor(context)
+        worker = (
+            [sys.executable, "--renpy-script-worker"] if getattr(sys, "frozen", False)
+            else [sys.executable, "-m", "unitytranslator.workers.renpy_script_probe"]
+        )
+        received = run_json_worker(
+            [*worker, str(context.game), relative, context.source_language,
+             *(["--anchor", anchor] if anchor else []), "--stream-report"],
+            timeout=context.timeout, cancelled=context.cancelled,
+            max_output=MAX_REPORT_BYTES, stream_report=True,
+        )
+        if context.cancelled():
+            raise ValueError("Source extraction was cancelled.")
+        # Independently reconstruct the bounded data in the parent. A worker report
+        # can never introduce a record, path, source descriptor or source byte.
+        expected_digest = report_digest(received)
+        del received  # Release the worker's complete object before reconstructing it locally.
+        report = probe(
+            context.game, relative, context.source_language,
+            cancelled=context.cancelled, timeout=context.timeout, anchor=anchor,
+        )
+        if expected_digest != report_digest(report):
+            raise ValueError("Ren'Py original-source report differs from verified local bytes.")
+        if context.cancelled():
+            raise ValueError("Source extraction was cancelled.")
+        result = result_from_report(report, replace_source_set=True)
+        report["counts"] = {
+            "records": len(report["units"]), "sources": len(result.snapshots), "errors": 0,
+            "unique_texts": len({u["source_text"] for u in report["units"]}),
+            "characters": sum(len(u["source_text"]) for u in report["units"]),
+        }
+        report["capabilities"] = discovery_capabilities(report, inspected=True).to_dict()
+        return ReaderProbe(tuple(s.source for s in result.snapshots), (), report)
+
+    def extract(
+        self, context: ReaderContext, relative: str, cancellation: Callable[[], bool],
+    ) -> ReaderResult:
+        return result_from_report(
+            self.probe(replace(context, cancelled=cancellation), relative).report,
+            replace_source_set=True,
+        )
+
+
+def _renpy_source_anchor(context: ReaderContext) -> str | None:
+    """Retain the existing logical source when a new filename sorts before it."""
+    import sqlite3
+    from contextlib import closing
+
+    database = checked_path(context.project / "project.sqlite3")
+    if not database.is_file():
+        return None
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as reader:
+        if reader.execute("PRAGMA user_version").fetchone()[0] < 5:
+            return None
+        rows = reader.execute(
+            "SELECT source_file FROM source_descriptors WHERE active=1 "
+            "AND adapter_id='renpy-scripts' ORDER BY id LIMIT 2"
+        ).fetchall()
+    if len(rows) > 1:
+        raise ValueError("The existing Ren'Py original-source scope is ambiguous.")
+    if not rows:
+        return None
+    anchor: str = rows[0][0]
+    validate_relative_source(anchor)
+    return anchor
+
+
+BUILTIN_READERS = ReaderRegistry((
+    I2Reader(), KryptaTextAssetReader(), RenpyTemplateReader(), RenpyScriptReader(),
+))
 
 
 class I2DeploymentAdapter:
@@ -222,7 +361,35 @@ class KryptaDeploymentAdapter(I2DeploymentAdapter):
     id = "krypta-memory"
 
 
-def deployment_adapter_for(installation: Any) -> I2DeploymentAdapter:
-    if installation.adapter_kind() == "krypta":
+class UnsupportedDeploymentAdapter:
+    """Report shared ownership state without selecting any Unity runtime or installer."""
+
+    id = "unsupported"
+    version = "1"
+
+    def __init__(self, installation: Any):
+        self.installation = installation
+
+    def probe(self) -> dict[str, Any]:
+        if self.installation.adapter_kind() != "unsupported":
+            raise ValueError("Deployment adapter selection changed before inspection.")
+        result: dict[str, Any] = self.installation.status()
+        return result
+
+    def prepare(self, **options: Any) -> dict[str, Any]:
+        raise ValueError(
+            "No built-in deployment adapter supports this source and engine selection."
+        )
+
+
+def deployment_adapter_for(
+    installation: Any,
+) -> I2DeploymentAdapter | UnsupportedDeploymentAdapter:
+    kind = installation.adapter_kind()
+    if kind == "krypta":
         return KryptaDeploymentAdapter(installation)
-    return I2DeploymentAdapter(installation)
+    if kind == "i2":
+        return I2DeploymentAdapter(installation)
+    if kind == "unsupported":
+        return UnsupportedDeploymentAdapter(installation)
+    raise ValueError("No built-in deployment adapter supports this source and engine selection.")

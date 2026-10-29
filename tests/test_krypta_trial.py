@@ -14,6 +14,34 @@ from unitytranslator.krypta_trial import install_krypta_review, prepare_krypta_r
 from unitytranslator.runtime_kit import CORE_NAMES
 
 
+@pytest.mark.parametrize("change", [None, "missing", "plugin", "scope", "observed"])
+def test_trial_readiness_is_bound_to_observed_binary(change):
+    kit = KryptaRuntimeKit.__new__(KryptaRuntimeKit)
+    evidence = {
+        "format_version": 1,
+        "scope": "limited-user-accepted",
+        "plugin_sha256": "a" * 64,
+        "observed": ["startup", "menu", "options", "menu-to-game", "pause", "subtitles"],
+    }
+    kit.catalog = {
+        "runtime_files": {"plugin/" + kit.plugin_name: "a" * 64},
+        "ui_trial_evidence": evidence,
+    }
+    if change == "missing":
+        kit.catalog.pop("ui_trial_evidence")
+    elif change == "plugin":
+        evidence["plugin_sha256"] = "b" * 64
+    elif change == "scope":
+        evidence["scope"] = "universal"
+    elif change == "observed":
+        evidence["observed"] = ["menu"]
+    if change is None:
+        kit.require_trial_evidence()
+    else:
+        with pytest.raises(ValueError, match="missing or stale"):
+            kit.require_trial_evidence()
+
+
 @pytest.mark.parametrize(
     "entries", [[{"schema": "journal-lines-v1"}], None, ["bad"], [{"schema": []}]]
 )
@@ -179,3 +207,23 @@ def test_ready_ui_adapter_uses_the_same_review_receipt_and_removal(trial, monkey
     assert not service.original_changes()
     session.remove(service.read_manifest()["plan_id"], user_action=True)
     assert not service.original_changes()
+
+
+def test_krypta_qt_installation_uses_review_and_owned_remove(trial, monkeypatch):
+    from test_installation import test_qt_installation_flow_uses_review_dialog_and_safe_remove
+
+    from unitytranslator.krypta_trial import load_profile
+
+    repo, kit, _, _ = trial
+    kit.catalog["ui_trial_enabled"] = True  # Synthetic kit only; no production gate is changed.
+    row = first(repo)
+    repo.approve(row["unit_id"], row["version"])
+    monkeypatch.setattr("unitytranslator.installation.KryptaRuntimeKit", lambda: kit)
+    monkeypatch.setattr("unitytranslator.installation.load_profile", load_profile)
+    monkeypatch.setattr(
+        "unitytranslator.installation.DeploymentService",
+        lambda repository: DeploymentService(
+            repository, process_probe=lambda _: GameProcessStatus("closed")
+        ),
+    )
+    test_qt_installation_flow_uses_review_dialog_and_safe_remove((repo, kit.root), monkeypatch)

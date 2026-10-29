@@ -499,7 +499,7 @@ class ProjectRepository:
         if row is None or row[0] is None:
             return PROTECTED_FORMAT_VERSION
         rules = json.loads(row[0]).get("format_rules", PROTECTED_FORMAT_VERSION)
-        if rules not in (PROTECTED_FORMAT_VERSION, "literal-lines-v1"):
+        if rules not in (PROTECTED_FORMAT_VERSION, "literal-lines-v1", "renpy-text-v1"):
             raise ValueError("Unknown built-in source format rules.")
         return str(rules)
 

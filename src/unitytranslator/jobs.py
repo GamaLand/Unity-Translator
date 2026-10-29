@@ -102,12 +102,40 @@ class JobStore:
         return (
             self.repository.db.execute(
                 "SELECT 1 FROM jobs WHERE kind='pilot' "
-                "AND status IN ('completed','completed_with_errors') "
+                "AND status IN ('completed','completed_with_errors','cancelled') "
                 "AND report_seen=1 AND profile_json=? AND source_fingerprint=?",
                 (canonical(profile.to_dict()), fingerprint or self.fingerprint()),
             ).fetchone()
             is not None
         )
+
+    def reviewed_pilot(self) -> dict[str, Any] | None:
+        row = self.repository.db.execute(
+            "SELECT * FROM jobs WHERE kind='pilot' AND report_seen=1 "
+            "AND status IN ('completed','completed_with_errors','cancelled') "
+            "AND source_fingerprint=? ORDER BY created_at DESC,rowid DESC LIMIT 1",
+            (self.fingerprint(),),
+        ).fetchone()
+        return dict(row) if row is not None else None
+
+    def bulk_readiness(self, profile: GenerationProfile) -> dict[str, Any]:
+        if self.pilot_reviewed(profile):
+            return {"allowed": True, "reason": None, "pilot_job_id": None,
+                    "different_fields": []}
+        pilot = self.reviewed_pilot()
+        if pilot is not None:
+            previous = GenerationProfile(**json.loads(pilot["profile_json"])).to_dict()
+            current = profile.to_dict()
+            return {
+                "allowed": False, "reason": "profile_changed", "pilot_job_id": pilot["id"],
+                "different_fields": sorted(key for key in previous.keys() | current.keys()
+                                           if previous.get(key) != current.get(key)),
+            }
+        seen = self.repository.db.execute(
+            "SELECT 1 FROM jobs WHERE kind='pilot' AND report_seen=1 LIMIT 1"
+        ).fetchone()
+        return {"allowed": False, "reason": "source_changed" if seen else "review_needed",
+                "pilot_job_id": None, "different_fields": []}
 
     def job(self, job_id: str) -> dict[str, Any]:
         row = self.repository.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
@@ -170,17 +198,39 @@ class JobStore:
         ).fetchone()
         return row[0] if row else None
 
-    def acknowledge_pilot(self, job_id: str) -> None:
+    def pilot_review_blocker(self, job_id: str) -> str | None:
+        """Allow reviewed interrupted results only after a full sample was attempted."""
         job = self.job(job_id)
-        if job["kind"] != "pilot" or job["status"] not in ("completed", "completed_with_errors"):
-            raise ValueError("Önce tamamlanmış pilot raporunu inceleyin.")
+        if job["kind"] != "pilot" or job["status"] not in (
+            "completed", "completed_with_errors", "cancelled",
+        ):
+            return "unfinished"
         if job["source_fingerprint"] != self.fingerprint():
-            raise ValueError("Kaynak değişti; yeni bir pilot değerlendirmesi gerekli.")
+            return "source_changed"
         count = self.repository.db.execute(
             "SELECT count(*) FROM job_items WHERE job_id=?", (job_id,)
         ).fetchone()[0]
-        if count < min(200, self.repository.count()):
-            raise ValueError("Pilot örneklemi yetersiz; temsilî pilot oluşturun.")
+        required = min(200, self.repository.count())
+        if count < required:
+            return "sample"
+        if job["status"] == "cancelled":
+            attempted, completed, active = self.repository.db.execute(
+                "SELECT coalesce(sum(attempts>0),0),coalesce(sum(status='completed'),0),"
+                "coalesce(sum(status IN ('queued','processing')),0) "
+                "FROM job_items WHERE job_id=?", (job_id,),
+            ).fetchone()
+            if attempted < required or completed == 0 or active:
+                return "sample"
+        return None
+
+    def acknowledge_pilot(self, job_id: str) -> None:
+        blocker = self.pilot_review_blocker(job_id)
+        if blocker is not None:
+            raise ValueError({
+                "unfinished": "Önce tamamlanmış pilot raporunu inceleyin.",
+                "source_changed": "Kaynak değişti; yeni bir pilot değerlendirmesi gerekli.",
+                "sample": "Pilot örneklemi yetersiz; temsilî pilot oluşturun.",
+            }[blocker])
         with self.repository.transaction() as db:
             db.execute("UPDATE jobs SET report_seen=1,updated_at=? WHERE id=?", (now(), job_id))
 

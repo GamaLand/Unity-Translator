@@ -1,4 +1,4 @@
-"""Pinned experimental Krypta runtime components; no normal installation capability."""
+"""Pinned Krypta runtime components and binary-bound experimental installation evidence."""
 
 from importlib.resources import files
 from pathlib import Path
@@ -40,6 +40,25 @@ class KryptaRuntimeKit(RuntimeKit):
             <= RUNTIME_SCHEMAS
         ):
             raise ValueError("Invalid experimental Krypta runtime catalog.")
+        if self.catalog.get("ui_trial_enabled") is True:
+            self.require_trial_evidence()
+
+    def require_trial_evidence(self) -> None:
+        """A rebuilt binary cannot inherit another binary's observed readiness."""
+        evidence = self.catalog.get("ui_trial_evidence")
+        if (
+            not isinstance(evidence, dict)
+            or evidence.get("format_version") != 1
+            or evidence.get("scope") != "limited-user-accepted"
+            or evidence.get("plugin_sha256")
+            != self.catalog["runtime_files"]["plugin/" + self.plugin_name]
+            or evidence.get("observed") != [
+                "startup", "menu", "options", "menu-to-game", "pause", "subtitles"
+            ]
+        ):
+            raise ValueError(
+                "The experimental Krypta runtime readiness evidence is missing or stale."
+            )
 
     def require_payload(self, payload: Path) -> None:
         path = checked_path(payload)
