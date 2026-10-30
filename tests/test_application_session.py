@@ -9,6 +9,38 @@ from unitytranslator.application import ApplicationSession
 from unitytranslator.game_process import GameProcessStatus
 
 
+def test_connection_test_forwards_selected_generation_settings(tmp_path, monkeypatch):
+    from unitytranslator.providers import LocalProvider
+
+    captured = {}
+
+    async def sample(self, model, text, **settings):
+        captured.update(settings)
+        return {"translation": "synthetic"}
+
+    monkeypatch.setattr(LocalProvider, "translate_sample", sample)
+    game = tmp_path / "game"
+    game.mkdir()
+
+    async def run():
+        session = ApplicationSession()
+        try:
+            await session.dispatch(
+                "open", {"game": str(game), "project": str(tmp_path / "project")}
+            )
+            await session.dispatch("connection_test", {
+                "provider": "llama-cpp", "address": "http://localhost:8080", "model": "synthetic",
+                "context_tokens": 10240, "output_tokens": 512, "temperature": 0.6,
+            })
+            assert captured["context_tokens"] == 10240
+            assert captured["output_tokens"] == 512
+            assert captured["temperature"] == 0.6
+        finally:
+            await session.close()
+
+    asyncio.run(run())
+
+
 def test_cancel_selected_paused_job_without_active_task_preserves_existing_work(tmp_path):
     from test_jobs import profile
 

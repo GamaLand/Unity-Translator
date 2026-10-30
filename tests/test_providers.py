@@ -173,6 +173,46 @@ def test_provider_specific_schema_mapping(provider: str, kind: str) -> None:
     assert result["schema_capability"] == "tested_supported"
 
 
+@pytest.mark.parametrize("limit", [1024, None, True, "10240", -1, 2_000_000])
+def test_llama_model_metadata_uses_valid_running_context_not_training_limit(limit):
+    provider = LocalProvider(
+        "llama-cpp", "http://localhost:8080",
+        httpx.MockTransport(lambda request: httpx.Response(200, json={"data": [{
+            "id": "synthetic", "meta": {
+                "n_ctx": limit, "n_ctx_train": 262144, "ftype": "IQ3_S mix",
+            },
+        }]})),
+    )
+    model = asyncio.run(provider.inspect_models())[0]
+    assert model["context_tokens"] == (1024 if type(limit) is int and limit == 1024 else None)
+    assert model["loaded"] == (True if type(limit) is int and limit == 1024 else "unknown")
+    assert model["quantization"] == "IQ3_S mix"
+
+
+def test_sample_uses_selected_generation_settings_and_checks_context_before_http():
+    requests = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        requests.append(payload)
+        raw = json.dumps({"translations": [{"id": "sample", "text": "Değer"}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": raw}}]})
+
+    provider = LocalProvider("llama-cpp", "http://localhost:8080", httpx.MockTransport(handler))
+    result = asyncio.run(provider.translate_sample(
+        "synthetic", "Value", context_tokens=10240, output_tokens=512, temperature=0.6,
+    ))
+    assert requests[0]["max_tokens"] == 512
+    assert requests[0]["temperature"] == 0.6
+    assert result["settings"]["context_tokens"] == 10240
+    with pytest.raises(ProviderError) as error:
+        asyncio.run(provider.translate_sample(
+            "synthetic", "Value", context_tokens=1024, output_tokens=4096,
+        ))
+    assert error.value.code == "context"
+    assert len(requests) == 1
+
+
 @pytest.mark.parametrize(
     "message,code",
     [

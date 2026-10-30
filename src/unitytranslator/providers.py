@@ -186,10 +186,29 @@ class LocalProvider:
         return [item["id"] for item in data]
 
     async def inspect_models(self) -> list[dict[str, Any]]:
+        listing = await self.request("GET", "/models")
+        data = listing.get("data")
+        if not isinstance(data, list) or any(
+            not isinstance(item, dict) or not isinstance(item.get("id"), str) for item in data
+        ):
+            raise ProviderError("invalid_response", "Model listesi çözülemedi.")
         models: list[dict[str, Any]] = [
-            {"id": name, "loaded": "unknown", "context_tokens": None, "quantization": None}
-            for name in await self.list_models()
+            {"id": item["id"], "loaded": "unknown", "context_tokens": None, "quantization": None}
+            for item in data
         ]
+        if self.provider == "llama-cpp":
+            for model, item in zip(models, data, strict=True):
+                meta = item.get("meta")
+                if not isinstance(meta, dict):
+                    continue
+                # n_ctx is the running server's per-slot limit, not n_ctx_train.
+                limit = meta.get("n_ctx")
+                if type(limit) is int and 512 <= limit <= 1_048_576:
+                    model["context_tokens"] = limit
+                    model["loaded"] = True
+                quantization = meta.get("ftype")
+                if isinstance(quantization, str) and len(quantization) <= 128:
+                    model["quantization"] = quantization
         if self.provider == "lm-studio":
             try:
                 metadata = await self.request("GET", "/api/v1/models", native=True)
@@ -217,6 +236,9 @@ class LocalProvider:
         source_language: str = "en",
         target_language: str = "tr",
         reasoning_effort: str = "default",
+        context_tokens: int = 8192,
+        output_tokens: int = 4096,
+        temperature: float = 0.2,
     ) -> dict[str, Any]:
         return await self.translate_record(
             model,
@@ -224,8 +246,9 @@ class LocalProvider:
             "sample",
             source_language,
             target_language,
-            context_tokens=8192,
-            output_tokens=4096,
+            context_tokens=context_tokens,
+            output_tokens=output_tokens,
+            temperature=temperature,
             prompt_version="sample-v1",
             reasoning_effort=reasoning_effort,
         )

@@ -16,6 +16,8 @@ it does not interrupt an active job or change the project's language pair.
    Saved rule changes apply to new requests without repeating the pilot; active
    requests and existing translations retain their original rules and text.
 5. Start the remaining translation, then edit and approve results in Review.
+   **Retranslate records on this page** queues up to 200 visible filtered records
+   using a matching reviewed pilot. Drafts are excluded and approved text is preserved.
 6. Export a backup/JSON or prepare and review a supported installation while the game is closed.
 
 Use **Open existing project** to continue. Ctrl+O opens a project; Ctrl+F searches Review;
@@ -51,3 +53,7 @@ Portuguese. The source must exist in the game and the model must support the pai
 Existing project settings and styles are preserved. Check fonts, RTL layout and
 plural forms before distributing a patch. Shareable ZIPs include Install.cmd and
 Uninstall.cmd; the recipient does not need this application or a model.
+
+In Review, **Bulk actions** works across all pages matching the current filters.
+Preview and confirm exact-source approval or return empty translations to Pending;
+the latter preserves history and leaves starting a translation job to you.

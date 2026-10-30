@@ -114,6 +114,36 @@ class JobStore:
             )
         )
 
+    def create_review_job(
+        self, records: list[dict[str, Any]], profile: GenerationProfile,
+    ) -> str:
+        """Queue an exact review page without resetting records or their attempt history."""
+        if not 1 <= len(records) <= 200 or len({r["unit_id"] for r in records}) != len(records):
+            raise ValueError("Select 1–200 distinct records from the current page.")
+        with self.repository.transaction() as db:
+            for record in records:
+                current = db.execute(
+                    "SELECT u.source_revision,u.active,w.version,w.translation_revision,w.status "
+                    "FROM text_units u JOIN work_items w USING(unit_id) WHERE unit_id=?",
+                    (record["unit_id"],),
+                ).fetchone()
+                if (
+                    current is None or not current["active"] or current["status"] == "processing"
+                    or type(record["version"]) is not int
+                    or any(current[key] != record[key] for key in (
+                        "source_revision", "version", "translation_revision",
+                    ))
+                    or db.execute("SELECT 1 FROM editor_drafts WHERE unit_id=?",
+                                  (record["unit_id"],)).fetchone()
+                ):
+                    raise ValueError(
+                        "Page records changed or have drafts. Refresh the page and try again."
+                    )
+            return self.create(
+                [record["unit_id"] for record in records], profile, "bulk",
+                retranslate=True, approved_candidates=True,
+            )
+
     def reviewed_pilot(self) -> dict[str, Any] | None:
         row = self.repository.db.execute(
             "SELECT * FROM jobs WHERE kind='pilot' AND report_seen=1 "

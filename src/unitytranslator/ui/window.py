@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -674,6 +675,7 @@ class MainWindow(QMainWindow):
         self.installation_kit_available = False
         self.approve_selection_token = None
         self.approve_all_token = None
+        self.matching_review_token = None
         self.bulk_readiness_token = None
         self.reviewed_pilot_id = None
         self.pilot_profile_token = None
@@ -919,7 +921,7 @@ class MainWindow(QMainWindow):
         listing = QPushButton(tr("List models"))
         listing.clicked.connect(lambda: self.bridge.submit("models", self.model_data()))
         testing = QPushButton(tr("Synthetic connection / format test"))
-        testing.clicked.connect(lambda: self.bridge.submit("connection_test", self.model_data()))
+        testing.clicked.connect(lambda: self.bridge.submit("connection_test", self.profile()))
         controls.addWidget(listing)
         controls.addWidget(testing)
         layout.addLayout(controls)
@@ -1157,6 +1159,21 @@ class MainWindow(QMainWindow):
         self.affected_filter = QCheckBox(tr("Affected by glossary / style"))
         self.affected_filter.toggled.connect(self.filter_changed)
         row.addWidget(self.affected_filter)
+        self.bulk_review_button = QPushButton(tr("Bulk actions"))
+        self.bulk_review_menu = QMenu(self.bulk_review_button)
+        self.bulk_review_menu.addAction(
+            tr("Approve translations identical to source…"),
+            lambda: self.preview_matching_review("approve_identical"),
+        )
+        self.bulk_review_menu.addAction(
+            tr("Return empty translations to pending…"),
+            lambda: self.preview_matching_review("reset_empty"),
+        )
+        self.bulk_review_button.setMenu(self.bulk_review_menu)
+        self.bulk_review_button.setToolTip(tr(
+            "Applies to all pages matching the current filters. Preview before applying."
+        ))
+        row.addWidget(self.bulk_review_button)
         layout.addLayout(row)
         self.review_model = ReviewModel()
         self.table = QTableView()
@@ -1220,6 +1237,15 @@ class MainWindow(QMainWindow):
         )
         editing.addWidget(history)
         layout.addLayout(editing)
+        self.retranslate_page_button = QPushButton(tr("Retranslate records on this page"))
+        self.retranslate_page_button.setEnabled(False)
+        self.retranslate_page_button.setToolTip(tr(
+            "Send this filtered page (up to 200 records) through the translation queue. "
+            "Drafts and active records are excluded; approved translations keep their current "
+            "text and receive history candidates. A matching reviewed pilot is required."
+        ))
+        self.retranslate_page_button.clicked.connect(self.retranslate_page)
+        layout.addWidget(self.retranslate_page_button)
         batch = QPushButton(tr("Approve reviewed translations on this page…"))
         batch.clicked.connect(self.approve_page)
         layout.addWidget(batch)
@@ -1696,6 +1722,30 @@ class MainWindow(QMainWindow):
     def start_pilot(self):
         self.bridge.submit("create_job", {"kind": "pilot", "profile": self.profile()})
 
+    def retranslate_page(self):
+        if not self.project_open or self.drafts.action or self.draft_refresh_pending:
+            return
+        records = []
+        for row in self.review_model.rows:
+            draft = self.drafts.entries.get(row["unit_id"])
+            if (
+                row["status"] == "processing" or row.get("editor_draft")
+                or (draft and (draft["revision"] or self.drafts.dirty(draft)))
+            ):
+                continue
+            records.append({key: row[key] for key in (
+                "unit_id", "source_revision", "version", "translation_revision",
+            )})
+        if not records:
+            QMessageBox.information(self, tr("Retranslate records on this page"), tr(
+                "No eligible records on this page. Save or remove drafts first."
+            ))
+            return
+        self.retranslate_page_button.setEnabled(False)
+        self.bridge.submit("create_page_job", {
+            "project_id": self.current_project_id, "records": records, "profile": self.profile(),
+        })
+
     def show_affected(self):
         self.search.clear()
         self.status_filter.setCurrentIndex(0)
@@ -1924,6 +1974,79 @@ class MainWindow(QMainWindow):
                 {"unit_id": self.current_item["unit_id"], "version": self.current_item["version"]},
             )
 
+    def matching_review_filters(self):
+        return {
+            "search": self.search.text(), "status": self.status_filter.currentData(),
+            "category": self.category_filter.currentData(),
+            "affected": self.affected_filter.isChecked(),
+        }
+
+    def preview_matching_review(self, action):
+        if not self.project_open or self.drafts.action or self.draft_refresh_pending:
+            return
+        if any(self.drafts.dirty(entry) for entry in self.drafts.entries.values()):
+            QMessageBox.information(
+                self, tr("Unsaved edits"), tr("Wait for edits to be saved first.")
+            )
+            return
+        self.matching_review_token = uuid4().hex
+        self.bulk_review_button.setEnabled(False)
+        self.bridge.submit("matching_review_preview", {
+            "project_id": self.current_project_id, "request_token": self.matching_review_token,
+            "action": action, "filters": self.matching_review_filters(),
+        })
+
+    def confirm_matching_review(self, result):
+        self.bulk_review_button.setEnabled(True)
+        if result["filters"] != self.matching_review_filters():
+            self.matching_review_token = None
+            return
+        if not result["count"]:
+            QMessageBox.information(self, tr("Bulk actions"), tr("No eligible matching records."))
+            self.matching_review_token = None
+            return
+        text = tr(
+            "All pages matching the current filters: {p0} records. Excluded: {p1}.",
+            p0=str(result["count"]), p1=str(result["excluded"]),
+        )
+        if result["action"] == "approve_identical":
+            text += "\n\n" + tr(
+                "Approve these exact source copies as intentional unchanged text? "
+                "Untranslated sentences will also be approved. "
+                "Check the examples before confirming."
+            )
+        else:
+            text += "\n\n" + tr(
+                "Return these empty translations to Pending? History is preserved. "
+                "Then use Translate to start a bulk job; this action sends no model requests."
+            )
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(tr("Bulk actions"))
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText(text)
+        dialog.setInformativeText("\n".join([
+            self.search.text(), self.status_filter.currentText(),
+            self.category_filter.currentText(),
+            tr("Affected by glossary / style") if self.affected_filter.isChecked() else "",
+        ]).strip())
+        dialog.setDetailedText("\n\n".join(
+            f"{item['key']}\n{item['source']}" for item in result["samples"]
+        ))
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        if dialog.exec() == QMessageBox.StandardButton.Yes and (
+            result["project_id"] == self.current_project_id
+            and result["filters"] == self.matching_review_filters()
+            and not any(self.drafts.dirty(entry) for entry in self.drafts.entries.values())
+        ):
+            self.bulk_review_button.setEnabled(False)
+            self.bridge.submit("matching_review_apply", {
+                "project_id": self.current_project_id, "request_token": self.matching_review_token,
+                "token": result["token"], "user_action": True,
+            })
+        else:
+            self.matching_review_token = None
+
     def approve_page(self):
         if not self.project_open or self.drafts.action or self.draft_refresh_pending:
             return
@@ -2101,6 +2224,8 @@ class MainWindow(QMainWindow):
             self.approve_all_token = None
             self.approve_all_button.setEnabled(True)
             self.bulk_readiness_token = None
+            self.matching_review_token = None
+            self.bulk_review_button.setEnabled(True)
             self.game_process_status.setText(tr("Game process state has not been checked."))
             self.project_open = True
             self.current_job = None
@@ -2139,6 +2264,20 @@ class MainWindow(QMainWindow):
             self.bridge.submit("jobs")
             self.refresh_installation()
             self.schedule_bulk_readiness()
+        elif command in ("matching_review_preview", "matching_review_apply"):
+            if result["project_id"] != self.current_project_id or (
+                result["request_token"] != self.matching_review_token
+            ):
+                return
+            if command == "matching_review_preview":
+                self.confirm_matching_review(result)
+                return
+            self.bulk_review_button.setEnabled(True)
+            self.matching_review_token = None
+            self.refresh()
+            self.refresh_installation()
+            self.bridge.submit("policies")
+            self.review_details.setText(tr("Updated {p0} records.", p0=str(result["changed"])))
         elif command == "approve_all_preview":
             if (
                 result["project_id"] != self.current_project_id
@@ -2392,6 +2531,9 @@ class MainWindow(QMainWindow):
             self.draft_refresh_pending = False
             selected = self.current_item["unit_id"] if self.current_item else None
             self.review_model.set_rows(result["rows"])
+            self.retranslate_page_button.setEnabled(
+                bool(result["rows"]) and self.job_combo.isEnabled()
+            )
             self.selection_changed()
             if selected is not None:
                 for index, row in enumerate(result["rows"]):
@@ -2537,13 +2679,15 @@ class MainWindow(QMainWindow):
         elif command == "set_policies":
             self.bridge.submit("policies")
             self.schedule_bulk_readiness()
-        elif command in ("create_job", "create_affected_job"):
+        elif command in ("create_job", "create_affected_job", "create_page_job"):
             if result.get("reason") == "no_eligible_records":
                 self.job_status.setText(tr(
                     "No untranslated records remain. Review or export existing translations."
                 ))
                 return
             self.current_job = result["job_id"]
+            if command == "create_page_job":
+                self.tabs.setCurrentIndex(4)
             self.job_status.setText(tr("Job prepared for {p0} records.", p0=f"{result['count']}"))
             self.job_progress.setRange(0, 0)
             self.job_progress.setFormat(tr("Waiting for the first response…"))
@@ -2772,6 +2916,9 @@ class MainWindow(QMainWindow):
             return
         counts = result["counts"]
         self.job_combo.setEnabled(result["status"] not in ("running", "pausing"))
+        self.retranslate_page_button.setEnabled(
+            bool(self.review_model.rows) and self.job_combo.isEnabled()
+        )
         self.parallel_requests.setEnabled(result["status"] not in ("running", "pausing"))
         self.pause_button.setEnabled(result["status"] == "running")
         self.resume_button.setEnabled(result["status"] in ("queued", "paused"))
@@ -2843,6 +2990,11 @@ class MainWindow(QMainWindow):
             )
 
     def failed(self, command, message):
+        if command in ("matching_review_preview", "matching_review_apply"):
+            self.bulk_review_button.setEnabled(True)
+            self.matching_review_token = None
+        if command == "create_page_job":
+            self.retranslate_page_button.setEnabled(bool(self.review_model.rows))
         if command == "use_pilot_profile":
             self.pilot_profile_token = None
             self.schedule_bulk_readiness()
@@ -2856,6 +3008,7 @@ class MainWindow(QMainWindow):
             self.page_pending = False
         if command == "run_job":
             self.job_combo.setEnabled(True)
+            self.retranslate_page_button.setEnabled(bool(self.review_model.rows))
             self.parallel_requests.setEnabled(True)
             self.job_progress.setRange(0, 1)
             self.job_progress.setValue(0)

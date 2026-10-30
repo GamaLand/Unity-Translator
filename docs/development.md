@@ -1,6 +1,6 @@
 # Development
 
-Updated: 29 October 2026. This is the single architecture, implementation plan and
+Updated: 31 October 2026. This is the single architecture, implementation plan and
 roadmap reference. [Compatibility](compatibility.md) records actual support;
 requirements marked **planned** do not enable a capability.
 
@@ -139,6 +139,26 @@ unfinished drafts block affected export/installation selections. Page approval u
 eligible reviewed records; whole-project approval retains its two confirmations and
 atomic preview revalidation. Legacy confirmation payloads are protocol data.
 
+Review pages can explicitly regenerate up to 200 visible filtered records through
+the existing bulk queue and matching reviewed-pilot gate. Drafts and processing
+records are excluded in the desktop; the backend atomically rechecks project,
+source/translation revisions, work versions and drafts before creating the job.
+New jobs retain earlier attempts and translations in history; approved records
+receive candidate-only revisions. No filter-wide expansion or inventory reset occurs.
+
+Review also has a compact Bulk actions menu with two explicit operations across
+all pages matching the current search/status/category/policy-impact filters: approve
+nonempty translations exactly equal to the source, or return empty translations to
+Pending. A count, exclusions and bounded examples precede confirmation. Identical
+text is never approved automatically; the dialog states that untranslated sentences
+also match. Drafts, processing/queued records, existing approvals and invalid or
+stale translation mappings are excluded. Returning empty records changes only their
+work state/current empty pointer and increments the work version; revisions, drafts,
+policy impacts and job history remain. It sends no model requests. A later bulk job
+uses the existing reviewed-pilot gate. Project-bound single-use previews are fully
+revalidated in one transaction, including policy versions, before either operation.
+Existing page and whole-project approval flows retain their confirmation contracts.
+
 Jobs allow 1-36 concurrent requests, with a default of one. The UI and backend share
 the same bound; concurrency is an execution setting and does not alter the reviewed
 generation profile. Existing jobs retain their saved model/generation settings. Desktop
@@ -152,6 +172,10 @@ Request timeout or queue delay differs from window focus. The optional LM Studio
 `reasoning_effort="none"` is request-scoped; other providers reject it. Default
 profile serialization omits the field for compatibility. Requested settings do not
 prove server behavior; no model/server starts or downloads automatically.
+The synthetic connection test uses the selected context, output and temperature
+settings. llama.cpp model discovery reads the running per-slot `meta.n_ctx`, never
+the model's training context. Client context settings do not resize server slots;
+server context and parallel-slot configuration must provide the requested budget.
 
 ## Ren'Py native-template integration
 

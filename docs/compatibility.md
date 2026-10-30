@@ -51,6 +51,12 @@ Krypta trial used the external project runtime.
 
 ## Language limits
 
+Synthetic review checks cover filtered bulk approval of exact source copies across
+page boundaries and returning empty translations to Pending without deleting
+history or starting generation. Draft/queued/processing exclusions, explicit
+confirmation, stale preview rejection and the compact localized menu are checked.
+These actions do not establish translation quality or approve records automatically.
+
 The Krypta FM profile requires English as its source language. Locale mappings are
 bound to reviewed serialized references and managed metadata fingerprints, not filename
 suffixes. It covers menu, forum/message, key-post and subtitle payloads in three

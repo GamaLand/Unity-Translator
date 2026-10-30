@@ -24,7 +24,13 @@ from unitytranslator.providers import LocalProvider, local_endpoint
 from unitytranslator.reader_adapters import deployment_adapter_for, result_from_report
 from unitytranslator.reports import job_report, save_current_quality_audit, save_job_report
 from unitytranslator.repository import ProjectRepository, now
-from unitytranslator.review_selection import all_approval_preview, approve_all, approve_selection
+from unitytranslator.review_selection import (
+    all_approval_preview,
+    apply_matching_review,
+    approve_all,
+    approve_selection,
+    matching_review_preview,
+)
 from unitytranslator.runtime_export import export_selected_runtime
 from unitytranslator.shareable import export_shareable_patch, supports_shareable_patch
 
@@ -39,6 +45,7 @@ class ApplicationSession:
         self.extraction_task: asyncio.Task[Any] | None = None
         self.installation: InstallationSession | None = None
         self.all_approval: dict[str, Any] | None = None
+        self.matching_review: dict[str, Any] | None = None
 
     @property
     def repo(self) -> ProjectRepository:
@@ -61,6 +68,7 @@ class ApplicationSession:
         self.jobs = None
         self.installation = None
         self.all_approval = None
+        self.matching_review = None
 
     async def dispatch(self, command: str, data: dict[str, Any]) -> Any:
         if command == "cancel_extract":
@@ -299,6 +307,9 @@ class ApplicationSession:
                 "<b>Welcome {0}</b>\nYou have 3 points.",
                 source_language="en",
                 target_language=self.repo.target_language,
+                context_tokens=data.get("context_tokens", 8192),
+                output_tokens=data.get("output_tokens", 4096),
+                temperature=data.get("temperature", 0.2),
                 **(
                     {"reasoning_effort": data["reasoning_effort"]}
                     if data.get("reasoning_effort", "default") != "default"
@@ -335,6 +346,34 @@ class ApplicationSession:
         if command == "approve":
             self.repo.approve(data["unit_id"], data["version"])
             return True
+        if command in ("matching_review_preview", "matching_review_apply"):
+            if data.get("project_id") != self.repo.project_id:
+                raise ValueError("Bulk review project identity does not match.")
+            if self.extracting or (self.jobs and self.jobs.active_job):
+                raise ValueError("Wait for extraction or translation to finish before bulk review.")
+            if command == "matching_review_preview":
+                preview = matching_review_preview(self.repo, data["action"], data["filters"])
+                token = uuid4().hex
+                self.matching_review = {
+                    "project_id": self.repo.project_id, "token": token, "preview": preview,
+                }
+                return {key: value for key, value in preview.items()
+                        if key not in ("records", "policies")} | {
+                    "project_id": self.repo.project_id, "token": token,
+                    "request_token": data.get("request_token"),
+                }
+            pending, self.matching_review = self.matching_review, None
+            if pending is None or pending["project_id"] != self.repo.project_id or (
+                pending["token"] != data.get("token")
+            ):
+                raise ValueError("Bulk review preview expired. Open it again.")
+            return {
+                "project_id": self.repo.project_id, "request_token": data.get("request_token"),
+                "action": pending["preview"]["action"],
+                "changed": apply_matching_review(
+                    self.repo, pending["preview"], user_action=data.get("user_action", False),
+                ),
+            }
         if command in ("approve_all_preview", "approve_all"):
             if data.get("project_id") != self.repo.project_id:
                 raise ValueError("Bütün çeviriler onayının proje kimliği eşleşmiyor.")
@@ -470,7 +509,7 @@ class ApplicationSession:
             if command == "import_restore":
                 return service.restore(value)
             return service.preview(value) if command == "import_preview" else service.apply(value)
-        if command in ("create_job", "create_affected_job"):
+        if command in ("create_job", "create_affected_job", "create_page_job"):
             if self.extracting or self.jobs is None or self.jobs.active_job is not None:
                 raise ValueError("Çıkarma bitmeden çeviri başlatılamaz.")
             policy = PolicyStore(self.repo)
@@ -479,6 +518,12 @@ class ApplicationSession:
                 glossary_version=policy.active_version("glossary"),
                 style_version=policy.active_version("style"),
             )
+            if command == "create_page_job":
+                if data.get("project_id") != self.repo.project_id:
+                    raise ValueError("The page selection belongs to a different project.")
+                identifier = JobStore(self.repo).create_review_job(data["records"], profile)
+                return {"job_id": identifier, "count": len(data["records"]),
+                        "profile": profile.to_dict()}
             if command == "create_affected_job":
                 data = {
                     **data,
