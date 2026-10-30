@@ -108,11 +108,25 @@ def matching_review_preview(
     records = []
     samples: list[dict[str, str]] = []
     excluded = 0
-    queued = {row[0] for row in repo.db.execute(
-        "SELECT DISTINCT i.unit_id FROM job_items i JOIN jobs j ON j.id=i.job_id "
+    queued: set[str] = set()
+    paused: dict[str, list[tuple[str, str, int]]] = {}
+    for item in repo.db.execute(
+        "SELECT i.unit_id,i.job_id,i.source_revision,i.work_version,i.status,"
+        "j.status AS job_status "
+        "FROM job_items i JOIN jobs j ON j.id=i.job_id "
         "WHERE i.status IN ('queued','processing') "
-        "AND j.status IN ('queued','running','pausing','paused')",
-    )}
+        "AND j.status IN ('queued','running','pausing','paused') ORDER BY i.job_id,i.unit_id",
+    ):
+        if (
+            action == "reset_empty" and item["job_status"] == "paused"
+            and item["status"] == "queued"
+        ):
+            paused.setdefault(item["unit_id"], []).append((
+                item["job_id"], item["source_revision"], item["work_version"],
+            ))
+        else:
+            queued.add(item["unit_id"])
+    paused_queued = 0
     for row in repo.db.execute(
         "SELECT u.unit_id,u.source_revision,u.original_key,w.version,w.translation_revision,"
         "w.status,w.approved_source,w.approved_translation,s.source_text,t.text,"
@@ -142,14 +156,19 @@ def matching_review_preview(
         if not eligible:
             excluded += 1
             continue
-        records.append({key: row[key] for key in (
+        record = {key: row[key] for key in (
             "unit_id", "source_revision", "translation_revision", "version",
-        )})
+        )}
+        if row["unit_id"] in paused:
+            record["paused_jobs"] = paused[row["unit_id"]]
+            paused_queued += 1
+        records.append(record)
         if len(samples) < 20:
             samples.append({"key": row["original_key"][:200], "source": row["source_text"][:200]})
     return {
         "action": action, "filters": scope, "records": records,
         "count": len(records), "excluded": excluded, "samples": samples,
+        "paused_queued": paused_queued,
         "policies": list(map(tuple, repo.db.execute(
             "SELECT key,value FROM project_settings ORDER BY key",
         ))),

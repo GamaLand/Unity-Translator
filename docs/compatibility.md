@@ -56,6 +56,9 @@ page boundaries and returning empty translations to Pending without deleting
 history or starting generation. Draft/queued/processing exclusions, explicit
 confirmation, stale preview rejection and the compact localized menu are checked.
 These actions do not establish translation quality or approve records automatically.
+Additional synthetic checks cover empty records shared by multiple paused queues,
+version-based skipping on resume, preserved job/attempt history and atomic rejection
+when those queues or drafts change after preview.
 
 The Krypta FM profile requires English as its source language. Locale mappings are
 bound to reviewed serialized references and managed metadata fingerprints, not filename

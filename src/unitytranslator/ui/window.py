@@ -2002,7 +2002,13 @@ class MainWindow(QMainWindow):
             self.matching_review_token = None
             return
         if not result["count"]:
-            QMessageBox.information(self, tr("Bulk actions"), tr("No eligible matching records."))
+            message = tr("No eligible matching records.")
+            if result["excluded"]:
+                message += "\n\n" + tr(
+                    "Excluded matching records: {p0}. Their status, draft, approval or queue "
+                    "prevents this action.", p0=str(result["excluded"]),
+                )
+            QMessageBox.information(self, tr("Bulk actions"), message)
             self.matching_review_token = None
             return
         text = tr(
@@ -2020,6 +2026,12 @@ class MainWindow(QMainWindow):
                 "Return these empty translations to Pending? History is preserved. "
                 "Then use Translate to start a bulk job; this action sends no model requests."
             )
+            if result.get("paused_queued", 0):
+                text += "\n\n" + tr(
+                    "{p0} records also await translation in paused jobs. Their old queue entries "
+                    "will be skipped when those jobs resume. Job and attempt history is preserved.",
+                    p0=str(result["paused_queued"]),
+                )
         dialog = QMessageBox(self)
         dialog.setWindowTitle(tr("Bulk actions"))
         dialog.setTextFormat(Qt.TextFormat.PlainText)

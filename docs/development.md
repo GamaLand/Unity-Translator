@@ -158,6 +158,12 @@ policy impacts and job history remain. It sends no model requests. A later bulk 
 uses the existing reviewed-pilot gate. Project-bound single-use previews are fully
 revalidated in one transaction, including policy versions, before either operation.
 Existing page and whole-project approval flows retain their confirmation contracts.
+For returning empty records only, queued entries in paused jobs do not block the
+operation. The preview reports their affected record count and freezes their queue
+identities. Resetting increments the work version, so the existing claim guard skips
+those stale entries if the old jobs resume. Jobs and attempt history are not reset.
+Other queue entries still block the action. Empty selections distinguish no matches
+from matching records excluded by status, draft, approval or queue protections.
 
 Jobs allow 1-36 concurrent requests, with a default of one. The UI and backend share
 the same bound; concurrency is an execution setting and does not alter the reviewed

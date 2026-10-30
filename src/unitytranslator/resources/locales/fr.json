@@ -399,5 +399,7 @@
   "Bulk review preview expired. Open it again.": "Aperçu de révision groupée expiré. Rouvrez-le.",
   "Bulk review selection changed. Open the preview again.": "La sélection a changé. Rouvrez l’aperçu.",
   "Explicit confirmation is required for bulk review.": "Une confirmation explicite est requise pour la révision groupée.",
-  "Unknown bulk review action.": "Action de révision groupée inconnue."
+  "Unknown bulk review action.": "Action de révision groupée inconnue.",
+  "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.": "Enregistrements correspondants exclus : {p0}. Leur état, brouillon, approbation ou file empêche cette action.",
+  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} enregistrements attendent aussi dans des travaux en pause. Leurs anciennes entrées de file seront ignorées à la reprise. L’historique des travaux et tentatives est conservé."
 }

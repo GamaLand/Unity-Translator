@@ -399,5 +399,7 @@
   "Bulk review preview expired. Open it again.": "批量审核预览已失效，请重新打开。",
   "Bulk review selection changed. Open the preview again.": "批量审核的记录已改变，请重新打开预览。",
   "Explicit confirmation is required for bulk review.": "批量审核需要明确确认。",
-  "Unknown bulk review action.": "未知的批量审核操作。"
+  "Unknown bulk review action.": "未知的批量审核操作。",
+  "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.": "已排除的匹配记录：{p0} 条。其状态、草稿、批准或队列阻止了此操作。",
+  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} 条记录也在已暂停的任务中等待翻译。恢复这些任务时将跳过旧队列条目，并保留任务和尝试历史。"
 }

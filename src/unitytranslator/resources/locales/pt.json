@@ -399,5 +399,7 @@
   "Bulk review preview expired. Open it again.": "A prévia expirou. Abra novamente.",
   "Bulk review selection changed. Open the preview again.": "A seleção mudou. Abra a prévia novamente.",
   "Explicit confirmation is required for bulk review.": "A revisão em lote exige confirmação explícita.",
-  "Unknown bulk review action.": "Ação de revisão em lote desconhecida."
+  "Unknown bulk review action.": "Ação de revisão em lote desconhecida.",
+  "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.": "Registros correspondentes excluídos: {p0}. O estado, rascunho, aprovação ou fila impede esta ação.",
+  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} registros também aguardam tradução em trabalhos pausados. As entradas antigas serão ignoradas ao retomar. O histórico de trabalhos e tentativas é preservado."
 }

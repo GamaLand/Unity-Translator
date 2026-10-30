@@ -399,5 +399,7 @@
   "Bulk review preview expired. Open it again.": "Toplu inceleme önizlemesi geçersiz. Yeniden açın.",
   "Bulk review selection changed. Open the preview again.": "Toplu inceleme seçimi değişti. Önizlemeyi yeniden açın.",
   "Explicit confirmation is required for bulk review.": "Toplu inceleme için açık onay gerekli.",
-  "Unknown bulk review action.": "Bilinmeyen toplu inceleme işlemi."
+  "Unknown bulk review action.": "Bilinmeyen toplu inceleme işlemi.",
+  "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.": "Eşleşen ancak kapsam dışında kalan kayıt: {p0}. Kayıt durumu, taslak, onay veya kuyruk koruması bu işlemi engelliyor.",
+  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} kayıt duraklatılmış işlerde de çeviri bekliyor. Bu işler devam ettirildiğinde eski kuyruk girdileri atlanacak. İş ve deneme geçmişi korunur."
 }

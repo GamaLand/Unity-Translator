@@ -79,6 +79,60 @@ def test_empty_reset_preserves_history_approvals_drafts_and_jobs(matching_repo):
     assert JobStore(repo).job(job)["status"] == "queued"
 
 
+def test_empty_records_in_multiple_paused_jobs_can_return_to_pending(matching_repo):
+    repo = matching_repo
+    row = repo.page()[0]
+    repo.db.execute("UPDATE work_items SET status='needs_review' WHERE unit_id=?",
+                    (row["unit_id"],))
+    store = JobStore(repo)
+    jobs = [store.create([row["unit_id"]], profile()) for _ in range(2)]
+    for job in jobs:
+        store.pause(job)
+    original_jobs = [dict(store.job(job)) for job in jobs]
+    original_items = [tuple(item) for item in repo.db.execute(
+        "SELECT * FROM job_items ORDER BY job_id,unit_id",
+    )]
+    preview = matching_review_preview(repo, "reset_empty", {"status": "needs_review"})
+    assert preview["count"] == 1 and preview["paused_queued"] == 1
+    assert len(preview["records"][0]["paused_jobs"]) == 2
+    assert apply_matching_review(repo, preview, user_action=True) == 1
+    current = repo.page()[0]
+    assert current["status"] == "pending" and current["version"] == row["version"] + 1
+    assert [dict(store.job(job)) for job in jobs] == original_jobs
+    assert [tuple(item) for item in repo.db.execute(
+        "SELECT * FROM job_items ORDER BY job_id,unit_id",
+    )] == original_items
+    store.start(jobs[0])
+    assert store.claim(jobs[0]) is None
+    assert store.progress(jobs[0])["counts"] == {"skipped": 1}
+    assert repo.page()[0] == current
+    assert repo.db.execute("SELECT count(*) FROM translation_runs").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("change", ["resume", "new_paused_job", "draft"])
+def test_paused_queue_preview_is_revalidated(matching_repo, change):
+    repo = matching_repo
+    row = repo.page()[0]
+    repo.db.execute("UPDATE work_items SET status='needs_review' WHERE unit_id=?",
+                    (row["unit_id"],))
+    store = JobStore(repo)
+    job = store.create([row["unit_id"]], profile())
+    store.pause(job)
+    preview = matching_review_preview(repo, "reset_empty", {"status": "needs_review"})
+    if change == "resume":
+        store.start(job)
+    elif change == "new_paused_job":
+        store.pause(store.create([row["unit_id"]], profile()))
+    else:
+        EditorDraftStore(repo).put(
+            row["unit_id"], row["source_revision"], row["version"], "Draft", 0,
+        )
+    before = list(repo.db.iterdump())
+    with pytest.raises(ValueError, match="changed"):
+        apply_matching_review(repo, preview, user_action=True)
+    assert list(repo.db.iterdump()) == before
+
+
 @pytest.mark.parametrize("change", ["revision", "draft", "membership", "policy", "queue"])
 def test_preview_changes_fail_atomically(matching_repo, change):
     repo = matching_repo
@@ -184,11 +238,24 @@ def test_compact_menu_previews_current_filters_and_requires_confirmation(monkeyp
             submitted.clear()
             window.completed("matching_review_preview", result)
             assert submitted == [] and window.matching_review_token is None
+            window.bulk_review_menu.actions()[0].trigger()
+            _, empty_data = submitted[-1]
+            messages = []
+            patch.setattr(QMessageBox, "information", lambda *args: messages.append(args[2]))
+            window.completed("matching_review_preview", {**result, **empty_data, "count": 0})
+            assert "2" in messages[-1] and len(messages[-1].split("\n\n")) == 2
             window.bulk_review_menu.actions()[1].trigger()
             command, data = submitted[-1]
             assert data["action"] == "reset_empty"
-            patch.setattr(QMessageBox, "exec", lambda self: QMessageBox.StandardButton.Yes)
-            window.completed("matching_review_preview", {**result, **data})
+            dialogs = []
+
+            def confirm(dialog):
+                dialogs.append(dialog.text())
+                return QMessageBox.StandardButton.Yes
+
+            patch.setattr(QMessageBox, "exec", confirm)
+            window.completed("matching_review_preview", {**result, **data, "paused_queued": 123})
+            assert "123" in dialogs[-1]
             assert submitted[-1] == ("matching_review_apply", {
                 "project_id": "synthetic-project", "request_token": data["request_token"],
                 "token": "server", "user_action": True,
