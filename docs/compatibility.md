@@ -25,7 +25,8 @@ not replace published RC7 artifacts. Krypta installation evidence is scoped belo
 | General AssetBundle/Addressables traversal | Planned; not implemented |
 | IL2CPP runtime application | Not implemented |
 | Ren'Py | Native templates and an audited static `.rpy`/`_ren.py`/RPA-3.0 behavior family, bounded large sets, disjoint containers, shared LLM/review and sharded native staging; translated-copy ZIP remains limited to 8.1.2.23090503 with limited preferences-label copy pilots; original-folder deployment remains unsupported |
-| Unreal Engine | Deferred feasibility investigation after Ren'Py and further Unity work; no current support |
+| Unreal Engine | Planned testing and implementation after broader Unity/Ren'Py support; no current support |
+| Godot | Planned testing and implementation after broader Unity/Ren'Py support; no current support |
 
 Mono/IL2CPP describe code execution backends. Asset containers and localization
 systems are separate concerns. A Mono directory, a `.json` extension or an `.assets`

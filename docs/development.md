@@ -657,9 +657,10 @@ locale mappings, ordering, non-text fields and encoding under reviewed schemas;
 project JSON interchange is not a game-file reader. IL2CPP deployment needs its own
 ABI/loader/lifecycle design. Never infer it from Mono extraction.
 
-Unreal is a later feasibility investigation of engine versions, localization
-resources, packaging, encryption and additive loading constraints. It is not part
-of Ren'Py implementation and has no promised installer. OCR, voices, model training,
+Unreal Engine and Godot testing and implementation are planned after broader Unity
+and Ren'Py support. Establish supported engine versions, localization resources,
+packaging and safe export/installation behavior before enabling each capability;
+neither engine is currently supported. OCR, voices, model training,
 automatic downloads, mandatory cloud accounts and arbitrary external plugins remain
 outside this plan. Keep engine additions data-driven without executable profiles.
 
