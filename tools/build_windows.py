@@ -29,6 +29,10 @@ def main() -> int:
     config["app"]["exec_directory"] = str(output)
     output.mkdir(parents=True, exist_ok=True)
     config["app"]["icon"] = ""
+    # Builds use reviewed local caches. A missing helper must fail, never download.
+    config["nuitka"]["extra_args"] = config["nuitka"]["extra_args"].replace(
+        "--assume-yes-for-downloads", "",
+    )
     private = root / ".cache" / "pysidedeploy.local.spec"
     private.parent.mkdir(exist_ok=True)
     with private.open("w", encoding="utf-8") as stream:
@@ -49,7 +53,9 @@ def main() -> int:
         "--force",
         "--keep-deployment-files",
     ]
-    result = subprocess.run(command, cwd=root, env=environment, check=False)
+    result = subprocess.run(
+        command, cwd=root, env=environment, check=False, stdin=subprocess.DEVNULL,
+    )
     if result.returncode:
         return result.returncode
     # The automatically included Qt PDF image plugin is unused.

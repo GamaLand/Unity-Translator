@@ -9,6 +9,7 @@ from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
+from unitytranslator.dialogue_context import DialogueContextStore
 from unitytranslator.domain import GenerationProfile
 from unitytranslator.policy import GlossaryRule, PolicyStore
 from unitytranslator.providers import LocalProvider, ProviderError, local_endpoint
@@ -21,12 +22,15 @@ class JobStore:
     def __init__(self, repository: ProjectRepository):
         self.repository = repository
 
-    def fingerprint(self) -> str:
+    def fingerprint(self, profile: GenerationProfile | None = None) -> str:
         digest = sha256()
         for row in self.repository.db.execute(
             "SELECT unit_id,source_revision FROM text_units WHERE active=1 ORDER BY unit_id"
         ):
             digest.update(canonical(list(row)).encode("utf-8"))
+        if profile is not None and profile.dialogue_context != "none":
+            digest.update(profile.dialogue_context.encode())
+            digest.update(DialogueContextStore(self.repository).fingerprint().encode())
         return digest.hexdigest()
 
     def create(
@@ -55,11 +59,13 @@ class JobStore:
         if not 0 <= profile.temperature <= 2 or profile.prompt_version != "translate-v1":
             raise ValueError("Üretim profili geçersiz.")
         local_endpoint(profile.address)
+        if profile.dialogue_context not in ("none", "source-window-v1"):
+            raise ValueError("Unknown dialogue context policy.")
         policy = PolicyStore(self.repository)
         policy.rules(profile.glossary_version)
         policy.style(profile.style_version, "unknown")
         encoded = canonical(profile.to_dict())
-        fingerprint = self.fingerprint()
+        fingerprint = self.fingerprint(profile)
         if kind == "bulk" and not self.pilot_reviewed(profile, fingerprint):
             raise ValueError(
                 "Bu profil/kaynak için pilot raporu kullanıcıya gösterilmeden toplu iş açılamaz."
@@ -93,6 +99,13 @@ class JobStore:
                 "VALUES(?,?,'queued',?,?,?,?)",
                 (identifier, kind, encoded, fingerprint, now(), now()),
             )
+            if profile.dialogue_context != "none":
+                contexts = DialogueContextStore(self.repository)
+                contexts.bind(identifier)
+                order = {unit: index for index, unit in enumerate(contexts.order(
+                    [row[0] for row in selected],
+                ))}
+                selected.sort(key=lambda row: order[row[0]])
             db.executemany(
                 "INSERT INTO job_items(job_id,unit_id,source_revision,work_version,"
                 "candidate_only,status) "
@@ -110,7 +123,7 @@ class JobStore:
                 "SELECT profile_json FROM jobs WHERE kind='pilot' "
                 "AND status IN ('completed','completed_with_errors','cancelled') "
                 "AND report_seen=1 AND source_fingerprint=?",
-                (fingerprint or self.fingerprint(),),
+                (fingerprint or self.fingerprint(profile),),
             )
         )
 
@@ -145,13 +158,19 @@ class JobStore:
             )
 
     def reviewed_pilot(self) -> dict[str, Any] | None:
-        row = self.repository.db.execute(
+        fingerprints = {}
+        rows = self.repository.db.execute(
             "SELECT * FROM jobs WHERE kind='pilot' AND report_seen=1 "
             "AND status IN ('completed','completed_with_errors','cancelled') "
-            "AND source_fingerprint=? ORDER BY created_at DESC,rowid DESC LIMIT 1",
-            (self.fingerprint(),),
-        ).fetchone()
-        return dict(row) if row is not None else None
+            "ORDER BY created_at DESC,rowid DESC",
+        )
+        for row in rows:
+            saved = GenerationProfile(**json.loads(row["profile_json"]))
+            if saved.dialogue_context not in fingerprints:
+                fingerprints[saved.dialogue_context] = self.fingerprint(saved)
+            if row["source_fingerprint"] == fingerprints[saved.dialogue_context]:
+                return dict(row)
+        return None
 
     def bulk_readiness(self, profile: GenerationProfile) -> dict[str, Any]:
         if self.pilot_reviewed(profile):
@@ -241,7 +260,9 @@ class JobStore:
             "completed", "completed_with_errors", "cancelled",
         ):
             return "unfinished"
-        if job["source_fingerprint"] != self.fingerprint():
+        if job["source_fingerprint"] != self.fingerprint(
+            GenerationProfile(**json.loads(job["profile_json"])),
+        ):
             return "source_changed"
         count = self.repository.db.execute(
             "SELECT count(*) FROM job_items WHERE job_id=?", (job_id,)
@@ -282,6 +303,8 @@ class JobStore:
 
     def start(self, job_id: str) -> GenerationProfile:
         job = self.job(job_id)
+        if not DialogueContextStore(self.repository).current(job_id):
+            raise ValueError("Dialogue context sources changed; prepare a new job and pilot.")
         if job["status"] not in ("queued", "paused") or job["cancel_requested"]:
             raise ValueError("Bu iş başlatılamaz; durumunu kontrol edin.")
         with self.repository.transaction() as db:
@@ -336,6 +359,9 @@ class JobStore:
 
     def claim(self, job_id: str) -> dict[str, Any] | None:
         with self.repository.transaction() as db:
+            if not DialogueContextStore(self.repository).current(job_id):
+                self.pause(job_id, "context_sources_changed")
+                return None
             job = self.job(job_id)
             if job["pause_requested"] or job["cancel_requested"]:
                 return None
@@ -421,6 +447,10 @@ class JobStore:
 
     def finish(self, item: dict[str, Any], result: dict[str, Any], run_id: str) -> bool:
         with self.repository.transaction() as db:
+            if not DialogueContextStore(self.repository).current(item["job_id"]):
+                self.fail(item, "context_sources_changed")
+                self.pause(item["job_id"], "context_sources_changed")
+                return False
             valid = db.execute(
                 "SELECT 1 FROM job_items j JOIN jobs b ON b.id=j.job_id "
                 "WHERE j.job_id=? AND j.unit_id=? AND j.claim_id=? "
@@ -628,6 +658,26 @@ class TranslationJobService:
                 run_id = self.store.attempt(item, metadata)
                 started = perf_counter()
                 try:
+                    dialogue = (
+                        DialogueContextStore(self.repository).window(
+                            job_id, item["unit_id"], item["source_text"],
+                        ) if profile.dialogue_context != "none" else None
+                    )
+                    if dialogue is not None:
+                        metadata["dialogue_context"] = {
+                            "digest": sha256(canonical(dialogue).encode()).hexdigest(),
+                            **{key: value for key, value in dialogue.items()
+                               if key != "references"},
+                            "reference_ids": [r["unit_id"] for r in dialogue["references"]],
+                        }
+                    options: dict[str, Any] = {}
+                    if dialogue is not None:
+                        options["dialogue_context"] = dialogue
+                    if profile.reasoning_effort != "default":
+                        options["reasoning_effort"] = profile.reasoning_effort
+                    rules = self.repository.format_rules(item["unit_id"])
+                    if rules != "protected-i2-v4":
+                        options["format_rules"] = rules
                     result = await provider.translate_record(
                         profile.model,
                         item["source_text"],
@@ -641,16 +691,7 @@ class TranslationJobService:
                         style=policy.style(effective.style_version, item["category"]),
                         glossary=[r.model_dump() for r in relevant],
                         prompt_version=profile.prompt_version,
-                        **(
-                            {"reasoning_effort": profile.reasoning_effort}
-                            if profile.reasoning_effort != "default"
-                            else {}
-                        ),
-                        **(
-                            {"format_rules": self.repository.format_rules(item["unit_id"])}
-                            if self.repository.format_rules(item["unit_id"]) != "protected-i2-v4"
-                            else {}
-                        ),
+                        **options,
                     )
                     result["glossary_version"] = effective.glossary_version
                     result["style_version"] = effective.style_version

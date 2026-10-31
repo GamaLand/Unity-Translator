@@ -1,5 +1,9 @@
 # Guide d’utilisation de UnityTranslator
 
+## Contexte de dialogue vérifié
+
+Dans les réglages avancés du modèle, **Utiliser les répliques voisines vérifiées** est facultatif et désactivé par défaut. Les segments Ren’Py pris en charge affichent l’ordre source et fournissent jusqu’à deux répliques sources avant et après la cible. Choix, conditions, sauts, appels, syntaxe inconnue et limites de fichiers coupent la fenêtre ; les modèles ne relient que les répliques d’un même bloc. Les tables de termes Unity et les sources sans ordre prouvé restent isolées. La révision montre les références, parfois réduites selon le budget. Changer de mode exige un pilote correspondant examiné. Tâches, traductions, brouillons et approbations existants sont conservés ; un style plus naturel n’est pas garanti.
+
 ## Installation et langue
 
 Sous Windows x64, extrayez **toute** l’archive ZIP dans un dossier séparé et lancez

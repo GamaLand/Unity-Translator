@@ -117,6 +117,8 @@ def test_schema4_backup_preserves_approvals_drafts_history_and_receipt(repo):
     receipt = repo.paths.write_json("deployment/receipts/synthetic.json", {"owned": "unchanged"})
     receipt_hash = hash_file(receipt)
     # Reconstruct the exact schema-4 shape with realistic existing state.
+    repo.db.execute("DROP TABLE job_context_sources")
+    repo.db.execute("DELETE FROM schema_migrations WHERE version=6")
     repo.db.execute("DROP TABLE snapshot_sources")
     repo.db.execute("DROP INDEX units_logical_source")
     repo.db.execute("ALTER TABLE text_units DROP COLUMN logical_source_id")
@@ -126,7 +128,7 @@ def test_schema4_backup_preserves_approvals_drafts_history_and_receipt(repo):
     paths = repo.paths
     repo.close()
     with ProjectRepository(paths) as reopened:
-        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == 6
         assert reopened.page() == rows
         assert EditorDraftStore(reopened).get("draft") == saved_draft
         assert hash_file(receipt) == receipt_hash
@@ -153,6 +155,8 @@ def test_schema5_failed_migration_rolls_back(repo, monkeypatch):
     import unitytranslator.repository as module
 
     repo.ingest([draft()], {})
+    repo.db.execute("DROP TABLE job_context_sources")
+    repo.db.execute("DELETE FROM schema_migrations WHERE version=6")
     repo.db.execute("DROP TABLE snapshot_sources")
     repo.db.execute("DROP INDEX units_logical_source")
     repo.db.execute("ALTER TABLE text_units DROP COLUMN logical_source_id")

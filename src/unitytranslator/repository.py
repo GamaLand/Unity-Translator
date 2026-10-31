@@ -74,7 +74,7 @@ class ProjectRepository:
         try:
             with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as reader:
                 version = reader.execute("PRAGMA user_version").fetchone()[0]
-                if version not in (1, 2, 3, 4, 5):
+                if version not in (1, 2, 3, 4, 5, 6):
                     raise ValueError(
                         "Bu proje sürümü desteklenmiyor; daha güncel uygulamayı kullanın."
                     )
@@ -102,7 +102,7 @@ class ProjectRepository:
             if database.exists():
                 with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as preflight:
                     version = preflight.execute("PRAGMA user_version").fetchone()[0]
-                    if version not in (1, 2, 3, 4, 5):
+                    if version not in (1, 2, 3, 4, 5, 6):
                         raise ValueError(
                             "Bilinmeyen veya daha yeni proje şeması; yazma reddedildi."
                         )
@@ -133,6 +133,8 @@ class ProjectRepository:
                 self.migrate(3, 4)
             if self.connection.execute("PRAGMA user_version").fetchone()[0] == 4:
                 self.migrate(4, 5)
+            if self.connection.execute("PRAGMA user_version").fetchone()[0] == 5:
+                self.migrate(5, 6)
             project = self.db.execute("SELECT * FROM project").fetchone()
             if project is None or project["game_path"] != str(paths.game):
                 raise ValueError("Projenin bağlı olduğu oyun klasörü eşleşmiyor.")
@@ -167,7 +169,7 @@ class ProjectRepository:
         }
 
     def migrate(self, old_version: int, new_version: int) -> None:
-        if (old_version, new_version) not in ((1, 2), (2, 3), (3, 4), (4, 5)):
+        if (old_version, new_version) not in ((1, 2), (2, 3), (3, 4), (4, 5), (5, 6)):
             raise ValueError("Migration yolu desteklenmiyor.")
         if self.db.execute("PRAGMA user_version").fetchone()[0] != old_version:
             raise ValueError("Migration source schema version changed; no writes performed.")
@@ -477,16 +479,25 @@ class ProjectRepository:
         status: str | None = None,
         category: str | None = None,
         affected: bool = False,
+        source_order: bool = False,
     ) -> list[dict[str, Any]]:
         if offset < 0 or not 1 <= limit <= 200:
             raise ValueError("Sayfa sınırı geçersiz.")
         where, parameters = self.filters(search, status, category, affected)
+        ordering = "u.original_key,u.unit_id"
+        order_join = ""
+        if source_order:
+            from unitytranslator.dialogue_context import DialogueContextStore
+
+            DialogueContextStore(self).prepare_review_order()
+            order_join = "LEFT JOIN temp.dialogue_order o USING(unit_id) "
+            ordering = "o.position IS NULL,o.position,u.original_key,u.unit_id"
         rows = self.db.execute(
             "SELECT u.*,s.source_text,s.source_hash,s.category,s.context,w.status,w.version,"
             "w.translation_revision,t.text AS translation,t.issues_json FROM text_units u "
             "JOIN source_revisions s ON s.id=u.source_revision JOIN work_items w USING(unit_id) "
             "LEFT JOIN translation_revisions t ON t.id=w.translation_revision "
-            f"WHERE {where} ORDER BY u.original_key,u.unit_id LIMIT ? OFFSET ?",
+            f"{order_join}WHERE {where} ORDER BY {ordering} LIMIT ? OFFSET ?",
             (*parameters, limit, offset),
         )
         return [{**dict(row), "format_rules": self.format_rules(row["unit_id"])} for row in rows]

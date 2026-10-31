@@ -1,6 +1,6 @@
 # Compatibility
 
-Current version: UnityTranslator 0.5.0. The previous published validation baseline
+Current version: UnityTranslator 0.6.0. The previous published validation baseline
 is 0.1.0 RC7, validated on 16 October 2026. Current Krypta evidence is scoped below.
 Source additions described below were validated locally on 23 October 2026; they do
 not replace published RC7 artifacts. Krypta installation evidence is scoped below.
@@ -51,6 +51,32 @@ do not establish in-game validation of this portable combination. The observed
 Krypta trial used the external project runtime.
 
 ## Language limits
+
+Version 0.6.0 offers optional, source-only neighbouring dialogue context. Synthetic
+checks establish consecutive Ren'Py source-segment and within-template-block
+ordering, branch/flow/exclusion barriers, filtered/paged review, bounded reference
+requests and unchanged output validation. Unity/I2, current TextAsset layouts and
+imported-only sources retain isolated translation because narrative order is not
+proven. This is not a full playthrough order or a verified naturalness improvement.
+The evaluation and continuation rules are in
+[Development](development.md#source-order-and-neighbouring-dialogue-context).
+
+On 31 October, the shared queue compared eight synthetic English-to-Turkish targets
+in isolated/context modes on the user's already-loaded llama.cpp
+`Hauhaucs/Gemma4_26B_A4B_Uncensored_HauhauCS_Balanced_IQ3_M` model, with an 8,704-token
+server slot, temperature zero and JSON schema. At 2,048 output tokens, isolated mode
+completed six targets and context mode seven; remaining failures were truncations.
+Repeating both modes at 4,096 output tokens completed all eight without retries,
+schema/token errors, tool calls or truncation. Each contextual request retained both
+neighbours. Total measured times were 66.6/68.6 seconds; concurrent development work
+and this tiny sample prevent performance or error-rate generalization.
+Context resolved a metal-versus-leadership ambiguity and clarified phone/injury
+references, but a figurative coldness case remained literal in the second comparison
+and awkward target grammar remained. This supports optional use, not a quality
+guarantee. Source-only malicious-instruction dialogue did not add output records;
+interpolation, rich-text markers, numbers and negation survived the completed stress
+target. No game text, existing project, server startup, model loading, download,
+installation, game launch or translation approval was involved.
 
 Synthetic review checks cover filtered bulk approval of exact source copies across
 page boundaries and returning empty translations to Pending without deleting
@@ -110,6 +136,7 @@ code. Published artifacts and matching source/license archives remain immutable.
 
 | Version / event | Recorded evidence and limits |
 | --- | --- |
+| 0.6.0 local candidate | Optional Ren'Py source windows, safe source ordering and backed-up schema-6 job evidence. Ruff/mypy passed; the full Python run passed 1,010 tests with one skipped, and the final context/cache suite passed 38 targeted checks. Relevant synthetic C# suites passed. The new Windows package passed the isolated-PATH Qt/edit/draft/approval/export/worker smoke check on the development machine. Source/wheel privacy and guide audits passed. The small llama.cpp comparison above is not universal quality, performance, gameplay or clean-Windows evidence. No release publication is implied. |
 | 0.5.0 | Shareable I2 and pinned Krypta en-to-tr packages. Synthetic recipient install/remove, relocation, links, changed files, wrong builds, tampering, plan approval and Qt export checks. Both kits' sources/licenses and shared core hash agreement are required. Portable Krypta gameplay and clean Windows remain deferred. |
 | 0.4.2 | Reviewed experimental Krypta UI install/remove, readiness bound to the observed plugin hash. A user-approved 449-translation trial showed startup/menu, options, transition into gameplay, pause and subtitles; original hashes matched after exit. Remaining consumers/quality/lifecycle checks were retained by the user. Its then-I2-only ZIP limitation was superseded by 0.5.0. |
 | 0.4.1 | Completed projects no longer queue empty pilot jobs; stale requests preserve approvals. Adapter-aware small/runtime-data exports remain distinct from installable ZIPs. Shareable ZIPs were I2-only at that version. |
@@ -221,7 +248,7 @@ prefixes, 377 says without a usable label, eight private-name forms and unsuppor
 call/label mappings. These counts describe excluded syntax occurrences, not unique
 missing translations or a full-game coverage percentage.
 
-The current local regression run passed Ruff, mypy, 880 Python tests (one skipped)
+An earlier Ren'Py expansion regression run passed Ruff, mypy, 880 Python tests (one skipped)
 and the relevant synthetic C# suites. The eight guides and public document links
 were checked. This is development-checkout evidence, not a newly published binary.
 

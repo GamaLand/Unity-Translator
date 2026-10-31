@@ -1,8 +1,8 @@
 # Windows packaging
 
-Current application version: 0.5.0. The previous published baseline is 0.1.0 RC7;
+Current application version: 0.6.0. The previous published baseline is 0.1.0 RC7;
 historical release archives retain their original version and validation evidence.
-Build new 0.5.0 candidates from this checkout; runtime compatibility gates remain separate.
+Build new 0.6.0 candidates from this checkout; runtime compatibility gates remain separate.
 
 ## Prerequisites
 
@@ -27,6 +27,7 @@ separate. The build refuses an existing application output directory.
 ```powershell
 uv run --extra ui --group build python tools/build_windows.py --output-root dist/windows-next
 uv run --extra ui python tools/package_notices.py --output-root dist/windows-next
+uv run python tools/package_dependency_sources.py --output-root dist/windows-next
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/standalone_smoke.ps1 -PackageRoot dist/windows-next/UnityTranslator.dist -OutputRoot .cache
 uv run python tools/package_windows.py --output-root dist/windows-next --label rc.next
 ```
@@ -35,6 +36,7 @@ The notice tool bundles the eight `guide/` documents, current documentation,
 license texts, corresponding-source notices and the applicable validated runtime kits.
 The ZIP tool checks the complete file/hash manifest and refuses an existing archive.
 Never copy only the EXE, omit a runtime source archive or bypass an invalid catalog.
+The build uses local compiler/helper caches and refuses missing-helper downloads.
 Do not delete an output directory used by a running application.
 
 The synthetic smoke script checks Qt review/edit/approval, Unicode, drafts, paging,

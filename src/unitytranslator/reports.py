@@ -247,6 +247,14 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         else:
             row["review_status"] = "translated"
     review_blocker = store.pilot_review_blocker(job_id)
+    context_attempts = []
+    for attempt in attempts:
+        metadata = json.loads(attempt["metadata_json"])
+        details = metadata.get("result", {}).get("dialogue_context") or metadata.get(
+            "error_diagnostics", {},
+        ).get("dialogue_context")
+        if details is not None:
+            context_attempts.append(details)
     return {
         "format_version": 1,
         "job_id": job_id,
@@ -274,6 +282,13 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
             "note": "Eski validation_error kayıtları JSON ve korumalı içerik olarak "
             "geriye dönük ayrılamaz; sıfır yeni hata eski sonuçların hatasız olduğu "
             "anlamına gelmez.",
+        },
+        "dialogue_context_metrics": {
+            "mode": json.loads(job["profile_json"]).get("dialogue_context", "none"),
+            "reported_attempts": len(context_attempts),
+            "with_references": sum(c["reference_count"] > 0 for c in context_attempts),
+            "isolated_fallback": sum(c["reference_count"] == 0 for c in context_attempts),
+            "budget_reduced": sum(c["omitted_for_budget"] > 0 for c in context_attempts),
         },
         "median_request_seconds": median(measured) if measured else None,
         "p95_request_seconds": measured[math.ceil(len(measured) * 0.95) - 1] if measured else None,

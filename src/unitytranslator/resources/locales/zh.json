@@ -1,4 +1,9 @@
 {
+  "Use verified neighbouring dialogue": "使用已验证的相邻对白",
+  "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "在已验证的 Ren'Py 片段内，使用前后各最多两句原文对白。顺序不确定的文本和 Unity 术语表仍单独翻译。更改此设置需要匹配且已审核的试译。",
+  "Source references only; the request budget may reduce this window.": "仅供参考的原文；请求预算可能缩小此窗口。",
+  "No verified neighbouring dialogue for this record.": "此记录没有已验证的相邻对白。",
+  "Dialogue context sources changed; prepare a new job and pilot.": "对白上下文来源已更改；请创建新任务并重新试译。",
   "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}": "Ren'Py 来源：{file}:{line} · 区块 {block} · 说话者 {speaker}",
   "Unreviewed template text: {language} · {file}:{line}. Its target language and approval are not verified.": "未经审核的模板文本：{language} · {file}:{line}。其目标语言和批准状态尚未验证。",
   "Ren'Py native-file export": "Ren'Py 文件导出",

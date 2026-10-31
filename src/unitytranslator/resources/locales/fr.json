@@ -1,4 +1,9 @@
 {
+  "Use verified neighbouring dialogue": "Utiliser les répliques voisines vérifiées",
+  "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Utilise jusqu'à deux répliques sources avant et après dans un segment Ren'Py vérifié. Les textes d'ordre incertain et les tables de termes Unity sont traduits isolément. Modifier ce réglage exige un pilote correspondant déjà examiné.",
+  "Source references only; the request budget may reduce this window.": "Références sources uniquement ; le budget de la requête peut réduire cette fenêtre.",
+  "No verified neighbouring dialogue for this record.": "Aucune réplique voisine vérifiée pour cette entrée.",
+  "Dialogue context sources changed; prepare a new job and pilot.": "Les sources du contexte du dialogue ont changé ; préparez une nouvelle tâche et un nouveau pilote.",
   "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}": "Source Ren'Py : {file}:{line} · bloc {block} · personnage {speaker}",
   "Unreviewed template text: {language} · {file}:{line}. Its target language and approval are not verified.": "Texte de modèle non vérifié : {language} · {file}:{line}. Sa langue cible et son approbation ne sont pas vérifiées.",
   "Ren'Py native-file export": "Export de fichiers Ren'Py",

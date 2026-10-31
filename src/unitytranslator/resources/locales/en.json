@@ -1,4 +1,9 @@
 {
+  "Use verified neighbouring dialogue": "Use verified neighbouring dialogue",
+  "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.",
+  "Source references only; the request budget may reduce this window.": "Source references only; the request budget may reduce this window.",
+  "No verified neighbouring dialogue for this record.": "No verified neighbouring dialogue for this record.",
+  "Dialogue context sources changed; prepare a new job and pilot.": "Dialogue context sources changed; prepare a new job and pilot.",
   "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}": "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}",
   "Unreviewed template text: {language} · {file}:{line}. Its target language and approval are not verified.": "Unreviewed template text: {language} · {file}:{line}. Its target language and approval are not verified.",
   "Ren'Py native-file export": "Ren'Py native-file export",

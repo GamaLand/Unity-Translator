@@ -1,5 +1,9 @@
 # UnityTranslator kullanım rehberi
 
+## Doğrulanmış diyalog bağlamı
+
+Gelişmiş model ayarlarındaki **Doğrulanmış komşu replikleri kullan** seçeneği varsayılan olarak kapalıdır. Desteklenen Ren’Py bölümlerinde kaynak sırasını gösterir; hedefin önceki ve sonraki en fazla ikişer kaynak repliğini modele referans verir. Seçimler, koşullar, atlamalar, çağrılar, bilinmeyen sözdizimi ve dosya sınırları pencereyi keser; şablonlarda yalnızca aynı bloktaki replikler bağlanır. Unity terim tabloları ve sırası kanıtlanmayan kaynaklar ayrı çevrilir. İncelemede gösterilen referanslar istek bütçesine göre azalabilir. Mod değişikliği eşleşen incelenmiş bir pilot gerektirir. Mevcut işler, çeviriler, taslaklar ve onaylar korunur; doğallık artışı garanti edilmez.
+
 ## Krypta FM metinleri
 
 Eşleşen Krypta FM sürümünde kaynak `en`, hedef `tr` seçin. Profil 2; 34 TextAsset ve bir günlük dizisinden 449 alanı kapsar. İki kaynak ile profil dışı arayüz/görsel metinleri kapsanmaz. Önceki kimlikler ve onaylar korunur.

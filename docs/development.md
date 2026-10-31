@@ -6,7 +6,7 @@ requirements marked **planned** do not enable a capability.
 
 ## Current architecture
 
-The checkout is UnityTranslator 0.5.0. Python 3.12 owns project state, translation,
+The checkout is UnityTranslator 0.6.0. Python 3.12 owns project state, translation,
 validation and deployment. PySide6 Widgets calls `ApplicationSession` through the
 Qt bridge. An independent asyncio thread owns SQLite and job state; model HTTP
 requests do not hold transactions open. Minimizing the window does not pause work.
@@ -18,6 +18,7 @@ Extraction never executes game assemblies.
 | `application.py`, `__main__.py` | Shared session commands and CLI entry point |
 | `domain.py`, `repository.py`, `resources/schema-v*.sql` | Records, revisions, source ownership and migrations |
 | `jobs.py`, `providers.py`, `policy.py`, `validation.py` | Durable queue, local HTTP, glossary/style and format checks |
+| `dialogue_context.py` | Verified source segments, bounded reference windows and frozen job evidence |
 | `discovery.py`, `profiles.py`, `i2*.py`, `managed_schema.py` | Current Unity discovery and I2 reading |
 | `source_contracts.py`, `reader_adapters.py`, `capabilities.py` | Bundled readers, snapshots and independent capability reports |
 | `engines.py`, `renpy_dialects.py` | Bounded engine/input evidence and audited static source behavior; no engine execution |
@@ -59,7 +60,8 @@ a reader or exporter does not grant deployment.
 
 ### Persistence and identity
 
-Schema 5 records logical sources and immutable snapshot descriptors. Schema-4 inputs,
+Schema 6 adds frozen source bindings for optional dialogue-context jobs; schema 5
+records logical sources and immutable snapshot descriptors. Schema-4 inputs,
 portable project formats, legacy I2 IDs and runtime v1/v2 payloads remain supported
 compatibility inputs. I2 IDs derive from the existing `i2-v1`/source-set/term-key
 contract; do not regenerate them. Current TextAsset positional IDs include the full
@@ -182,6 +184,75 @@ The synthetic connection test uses the selected context, output and temperature
 settings. llama.cpp model discovery reads the running per-slot `meta.n_ctx`, never
 the model's training context. Client context settings do not resize server slots;
 server context and parallel-slot configuration must provide the requested budget.
+
+### Source order and neighbouring dialogue context
+
+Version 0.6.0 adds the optional `source-window-v1` generation setting. It is off by
+default, and absent from legacy profile JSON. All engines still use one queue,
+provider, validation and review pipeline. Enable **Use verified neighbouring
+dialogue** in advanced model settings to order review pages/new jobs by evidenced
+source segments and provide at most two preceding/two following source utterances.
+Pilots remain representative category/length samples; only their execution order
+changes. Independent requests may finish out of order.
+
+**Evidence boundary.** `dialogue_context.py` reconstructs accepted Ren'Py records
+from complete local snapshot bytes and compares their identities/text/block/slots.
+Original-source neighbours must be consecutive accepted say statements at the same
+indentation in the same member. Every other logical statement is a barrier:
+labels, conditions, menu headers/choices, jumps, calls, returns, loops, Python,
+presentation commands, unknown syntax and excluded/empty dialogue. Indent changes
+and `_ren.py` conversion markers also cut segments. Blank lines and comments do not.
+This deliberately supplies local source context, never a claimed playthrough or
+guessed cross-file control-flow graph. Template-only input proves adjacency only
+between slots in the same native translation block; location comments cannot link
+blocks or authorize reads. Global string keys retain multiple-occurrence semantics
+and receive no arbitrarily chosen dialogue window.
+
+Unity/I2 term keys, categories, asset/table order and TextAsset line positions do
+not establish a conversation. These currently retain isolated translation, as do
+missing, imported-only or incompatible snapshot mappings. A future bundled reader
+must separately prove conversation/subtitle relationships before enabling windows.
+No executable game inspection or per-game ordering heuristic is introduced.
+
+**Request and state contracts.** References contain source text, speaker and relative
+position as reference-only JSON data. They never become additional output targets,
+translations, drafts or instructions. Existing exact-ID, token, format and fixed
+native-output checks apply unchanged. Each window has a four-utterance/8-KiB cap;
+the provider removes whole, farthest references deterministically until the existing
+conservative message/schema/output budget fits. If none fit, the original isolated
+prompt is used; target text and output allowance are never shortened. Review shows
+the candidate window and warns that request budgeting may reduce it. Attempt and
+translation metadata record policy version, frozen snapshot, reference identities,
+actual request digest, reference count and budget omissions. Pilot reports include
+reference/fallback/budget metrics alongside format failures, retries and latency.
+
+Schema 6 transactionally adds `job_context_sources` after a consistent schema-5
+backup. Jobs freeze local source bindings; retries/resume/concurrency use the same
+source-only evidence, independent of previous translation completion. Changed
+neighbourhoods prevent resumed jobs and in-flight acceptance; a matching new pilot
+is required for bulk work. Identical re-extraction retains the context fingerprint.
+Context policy/evidence participate in pilot identity; request digests distinguish
+effective windows. Derived indexes and review order are connection-local caches,
+not source revisions. Stable IDs, historical context, drafts, translations,
+approvals, old job profiles, portable formats and installation receipts are not
+rewritten. Context changes never regenerate or approve existing work automatically.
+
+**Evaluation and expansion gate.** Run `tests/test_dialogue_context.py` first, then
+shared Ruff/mypy/pytest, relevant C# checks and package/help audits. Fixtures cover
+branch/menu/loop separation, flow and excluded-syntax barriers, comments, file and
+conversion boundaries, template slots, repeated keys, source-order pagination and
+filtered reference independence, injection, budgets, snapshot changes, identical
+re-extraction, concurrent completion, retry/reopen, portable fallback and backed-up
+legacy migration. Review an isolated-versus-context pilot on synthetic ambiguity,
+pronouns, speaker voice and terminology before claiming naturalness improvements;
+compare schema/token failures, retries, truncation and latency as well as human
+judgment. Synthetic transport checks prove routing and invariants, not model quality.
+Keep isolated mode available and do not enable uncertain source capabilities.
+
+The scope follows official [Ren'Py translation units](https://www.renpy.org/doc/html/translation.html#translation-units),
+[control flow](https://www.renpy.org/doc/html/label.html) and the
+[I2 language-source model](https://www.inter-illusion.com/assets/I2LocalizationManual/LanguageSources.html).
+This feature adds no extraction, runtime or installation capability.
 
 ## Ren'Py native-template integration
 

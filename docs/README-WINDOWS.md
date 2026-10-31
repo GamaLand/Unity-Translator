@@ -25,6 +25,13 @@ Ctrl+S saves the current edit. Minimized translation continues. Select 1–36 pa
 requests according to your server's capacity. Pause waits for active requests; cancellation
 stops client tasks. A generation request may wait up to 30 minutes including the server queue.
 
+Advanced model settings offer **Use verified neighbouring dialogue**, off by default.
+It orders supported Ren'Py segments and provides up to two source utterances on each
+side. Flow/unknown-syntax boundaries stop the window. Unity term tables and unproven
+order stay isolated. Review shows references; request budgets may reduce them.
+Changing the mode requires a matching reviewed pilot and does not change old jobs,
+translations or approvals. Naturalness improvements still need human evaluation.
+
 Whole-project approval requires acknowledging scope/warnings and then typing the displayed
 phrase before pressing the final confirmation button. Drafts and format failures are excluded.
 The operation aborts without partial approval if the reviewed candidate set changes.

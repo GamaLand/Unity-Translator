@@ -777,8 +777,10 @@ class MainWindow(QMainWindow):
             self.temperature.valueChanged,
             self.structured.toggled,
             self.disable_reasoning.toggled,
+            self.dialogue_context.toggled,
         ):
             signal.connect(self.schedule_bulk_readiness)
+        self.dialogue_context.toggled.connect(self.refresh)
         for key, action in (
             (QKeySequence.StandardKey.Open, self.open_existing_project),
             (QKeySequence.StandardKey.Save, self.save_edit),
@@ -959,11 +961,18 @@ class MainWindow(QMainWindow):
         self.structured = QCheckBox(tr("Constrain output with JSON Schema"))
         self.structured.setChecked(True)
         self.disable_reasoning = QCheckBox(tr("Disable model reasoning (LM Studio)"))
+        self.dialogue_context = QCheckBox(tr("Use verified neighbouring dialogue"))
+        self.dialogue_context.setToolTip(tr(
+            "Use up to two source utterances on each side within a verified Ren'Py segment. "
+            "Uncertain order and Unity term tables use isolated translation. "
+            "Changing this setting requires a matching reviewed pilot."
+        ))
         settings.addRow(tr("Context token limit"), self.context_tokens)
         settings.addRow(tr("Output token budget"), self.output_tokens)
         settings.addRow(tr("Generation diversity"), self.temperature)
         settings.addRow(self.structured)
         settings.addRow(self.disable_reasoning)
+        settings.addRow(self.dialogue_context)
         layout.addWidget(advanced)
         layout.addStretch()
         self.model.currentIndexChanged.connect(self.model_selected)
@@ -1205,6 +1214,11 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.source_editor)
         splitter.addWidget(self.translation_editor)
         layout.addWidget(splitter, 1)
+        self.dialogue_references = QTextEdit()
+        self.dialogue_references.setReadOnly(True)
+        self.dialogue_references.setMaximumHeight(110)
+        self.dialogue_references.hide()
+        layout.addWidget(self.dialogue_references)
         self.review_details = QLabel(
             tr("Select a record. Automated checks do not guarantee meaning.")
         )
@@ -1587,6 +1601,8 @@ class MainWindow(QMainWindow):
             "context_tokens": self.context_tokens.value(),
             "output_tokens": self.output_tokens.value(),
             "temperature": self.temperature.value(),
+            **({"dialogue_context": "source-window-v1"}
+               if self.dialogue_context.isChecked() else {}),
         }
 
     def apply_profile(self, profile):
@@ -1598,6 +1614,7 @@ class MainWindow(QMainWindow):
         self.temperature.setValue(profile["temperature"])
         self.structured.setChecked(profile["structured_output"])
         self.disable_reasoning.setChecked(profile.get("reasoning_effort") == "none")
+        self.dialogue_context.setChecked(profile.get("dialogue_context") == "source-window-v1")
 
     def use_pilot_profile(self):
         if not self.reviewed_pilot_id or not self.current_project_id:
@@ -1775,6 +1792,9 @@ class MainWindow(QMainWindow):
                     "status": self.status_filter.currentData(),
                     "category": self.category_filter.currentData(),
                     "affected": self.affected_filter.isChecked(),
+                    "dialogue_context": (
+                        "source-window-v1" if self.dialogue_context.isChecked() else "none"
+                    ),
                 },
             )
 
@@ -1830,6 +1850,14 @@ class MainWindow(QMainWindow):
             self.review_details.setText(self.review_details.text() + "\n" + tr(
                 "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}", **context
             ))
+        self.dialogue_references.setVisible(self.dialogue_context.isChecked())
+        references = (self.current_item or {}).get("dialogue_context", {}).get("references", [])
+        self.dialogue_references.setPlainText(
+            tr("Source references only; the request budget may reduce this window.") + "\n"
+            + ("\n".join(
+                f"{ref['offset']:+d} · {ref['speaker']}: {ref['source']}" for ref in references
+            ) if references else tr("No verified neighbouring dialogue for this record."))
+        )
         self.draft_state_changed()
 
     def editor_changed(self):
@@ -2995,6 +3023,9 @@ class MainWindow(QMainWindow):
                 "not_found": tr("The selected model or endpoint was not found."),
                 "unauthorized": tr("The model server denied access."),
                 "unsupported_option": tr("The model server does not support a generation option."),
+                "context_sources_changed": tr(
+                    "Dialogue context sources changed; prepare a new job and pilot."
+                ),
             }
             self.job_status.setText(
                 self.job_status.text()

@@ -1,4 +1,9 @@
 {
+  "Use verified neighbouring dialogue": "Usar falas vizinhas verificadas",
+  "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Usa até duas falas de origem anteriores e posteriores dentro de um segmento Ren'Py verificado. Textos com ordem incerta e tabelas de termos Unity são traduzidos isoladamente. Alterar esta opção exige um piloto revisado correspondente.",
+  "Source references only; the request budget may reduce this window.": "Apenas referências de origem; o limite da solicitação pode reduzir esta janela.",
+  "No verified neighbouring dialogue for this record.": "Não há falas vizinhas verificadas para este registro.",
+  "Dialogue context sources changed; prepare a new job and pilot.": "As fontes do contexto do diálogo mudaram; prepare uma nova tarefa e um novo piloto.",
   "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}": "Fonte Ren'Py: {file}:{line} · bloco {block} · falante {speaker}",
   "Unreviewed template text: {language} · {file}:{line}. Its target language and approval are not verified.": "Texto de modelo não revisado: {language} · {file}:{line}. O idioma de destino e a aprovação não foram verificados.",
   "Ren'Py native-file export": "Exportação de arquivos Ren'Py",

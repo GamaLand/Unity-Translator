@@ -1,5 +1,9 @@
 # UnityTranslator – Benutzerhandbuch
 
+## Verifizierter Dialogkontext
+
+In den erweiterten Modelleinstellungen ist **Verifizierte benachbarte Dialogzeilen verwenden** optional und standardmäßig aus. Unterstützte Ren’Py-Abschnitte zeigen die Quellreihenfolge und liefern bis zu zwei Quellzeilen davor und danach. Auswahl, Bedingungen, Sprünge, Aufrufe, unbekannte Syntax und Dateigrenzen unterbrechen das Fenster; Vorlagen verknüpfen nur Zeilen desselben Blocks. Unity-Begriffstabellen und Quellen ohne belegte Reihenfolge bleiben einzeln. Die Prüfung zeigt Referenzen, die bei knappem Anfragebudget reduziert werden. Ein Moduswechsel erfordert einen passenden geprüften Pilotlauf. Bestehende Aufträge, Übersetzungen, Entwürfe und Freigaben bleiben erhalten; natürlichere Übersetzungen sind nicht garantiert.
+
 ## Installation und Sprache
 
 Entpacken Sie unter Windows x64 das **gesamte** Anwendungs-ZIP in einen eigenen Ordner

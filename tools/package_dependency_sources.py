@@ -14,14 +14,19 @@ from unitytranslator.json_boundary import strict_json
 
 
 def main() -> int:
+    root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-root", type=Path, default=root / "dist/windows")
     parser.add_argument(
         "--download",
         action="store_true",
         help="Download missing official sources; never uploads game or model data",
     )
     args = parser.parse_args()
-    root = Path(__file__).resolve().parents[1]
+    output = checked_path(args.output_root)
+    if not output.is_relative_to(root / "dist"):
+        raise ValueError("Source package output must be under the workspace dist folder.")
+    output.mkdir(parents=True, exist_ok=True)
     catalog = strict_json((root / "adapters/qt-source-catalog.json").read_bytes())
     cache = checked_path(root / ".cache/dependency-sources")
     cache.mkdir(parents=True, exist_ok=True)
@@ -57,7 +62,7 @@ def main() -> int:
         "version"
     ]
     destination = checked_path(
-        root / f"dist/windows/UnityTranslator-{version}-dependency-sources.zip"
+        output / f"UnityTranslator-{version}-dependency-sources.zip"
     )
     if destination.exists():
         raise ValueError("Mevcut kaynak teslimi üzerine yazılmaz.")

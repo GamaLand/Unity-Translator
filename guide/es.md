@@ -1,5 +1,9 @@
 # Guía de uso de UnityTranslator
 
+## Contexto de diálogo verificado
+
+En los ajustes avanzados del modelo, **Usar diálogos vecinos verificados** es opcional y está desactivado de forma predeterminada. Los segmentos Ren’Py compatibles muestran el orden de origen y aportan hasta dos réplicas anteriores y posteriores. Opciones, condiciones, saltos, llamadas, sintaxis desconocida y límites de archivos cortan la ventana; las plantillas solo enlazan réplicas de un mismo bloque. Las tablas de términos Unity y las fuentes sin orden demostrado siguen aisladas. La revisión muestra referencias que pueden reducirse según el presupuesto. Cambiar de modo exige un piloto revisado coincidente. Se conservan tareas, traducciones, borradores y aprobaciones existentes; no se garantiza mayor naturalidad.
+
 ## Instalación e idioma
 
 En Windows x64, extrae **todo** el ZIP de la aplicación en una carpeta independiente y

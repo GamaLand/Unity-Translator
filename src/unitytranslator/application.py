@@ -204,7 +204,13 @@ class ApplicationSession:
             count = self.repo.count(**filters)
             last_offset = ((max(1, count) - 1) // 200) * 200
             offset = min(max(0, int(data.get("offset", 0))), last_offset)
-            rows = self.repo.page(offset, **filters)
+            rows = self.repo.page(
+                offset, **filters, source_order=data.get("dialogue_context") == "source-window-v1",
+            )
+            if data.get("dialogue_context") == "source-window-v1":
+                from unitytranslator.dialogue_context import DialogueContextStore
+
+                DialogueContextStore(self.repo).preview(rows)
             if any(row["format_rules"] == "renpy-text-v1" for row in rows):
                 from unitytranslator.renpy_export import add_review_context
 

@@ -1,4 +1,9 @@
 {
+  "Use verified neighbouring dialogue": "Doğrulanmış komşu replikleri kullan",
+  "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Doğrulanmış bir Ren'Py bölümünde önceki ve sonraki en fazla ikişer kaynak repliği kullanır. Sırası belirsiz metinler ve Unity terim tabloları ayrı çevrilir. Bu ayarın değiştirilmesi, ayarla eşleşen incelenmiş bir pilot gerektirir.",
+  "Source references only; the request budget may reduce this window.": "Yalnızca kaynak referanslarıdır; istek bütçesi bu pencereyi daraltabilir.",
+  "No verified neighbouring dialogue for this record.": "Bu kayıt için doğrulanmış komşu replik yok.",
+  "Dialogue context sources changed; prepare a new job and pilot.": "Diyalog bağlamının kaynakları değişti; yeni bir iş ve pilot hazırlayın.",
   "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}": "Ren'Py kaynağı: {file}:{line} · blok {block} · konuşmacı {speaker}",
   "Unreviewed template text: {language} · {file}:{line}. Its target language and approval are not verified.": "İncelenmemiş şablon metni: {language} · {file}:{line}. Hedef dili ve onayı doğrulanmadı.",
   "Ren'Py native-file export": "Ren'Py dosyası dışa aktarma",

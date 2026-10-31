@@ -30,10 +30,13 @@ class GenerationProfile:
     style_version: str | None = None
     prompt_version: str = "translate-v1"
     reasoning_effort: Literal["default", "none"] = "default"
+    dialogue_context: Literal["none", "source-window-v1"] = "none"
 
     def to_dict(self) -> dict[str, Any]:
         """Keep the legacy default profile encoding byte-compatible."""
         value = asdict(self)
         if self.reasoning_effort == "default":
             value.pop("reasoning_effort")
+        if self.dialogue_context == "none":
+            value.pop("dialogue_context")
         return value

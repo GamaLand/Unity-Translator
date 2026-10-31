@@ -31,7 +31,7 @@ def test_migration_has_consistent_backup_and_preserves_identity(tmp_path: Path) 
     paths = old_project(tmp_path)
     with ProjectRepository(paths) as repo:
         assert repo.project_id == "original-id"
-        assert repo.db.execute("PRAGMA user_version").fetchone()[0] == 5
+        assert repo.db.execute("PRAGMA user_version").fetchone()[0] == 6
     backups = list((paths.project / "backups").glob("schema-1-*.sqlite3"))
     assert len(backups) == 1
     with sqlite3.connect(backups[0]) as backup:
