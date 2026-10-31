@@ -88,21 +88,13 @@ le code de langue n’est pas converti automatiquement. Terminez ou abandonnez l
 brouillons. L’export natif prépare les fichiers dans le projet ; des traductions
 approuvées contradictoires d’une même clé globale bloquent l’export.
 
-**Créer un ZIP d’installation Ren'Py** accepte la version correspondante avec un
-seul EXE de jeu à la racine. Le ZIP ne contient aucun contenu original du jeu.
-Extrayez-le hors du jeu d’origine puis lancez `Install.cmd`. Sélectionnez le jeu
-correspondant et un dossier de sortie distinct, puis examinez le plan exact.
-L’installation prépare une copie traduite complète et demande de l’espace disque
-supplémentaire. Elle ne remplace pas les originaux et ne démarre pas le jeu.
-`Play-Translated.cmd` dans la copie lance la langue du paquet. Les sauvegardes,
-journaux et caches d’origine ne sont pas copiés ; les nouvelles sauvegardes sont séparées.
-Le destinataire n’a besoin ni de Python, ni de modèle, ni de UnityTranslator.
+**Créer un ZIP d’installation Ren'Py** prépare les traductions approuvées pour la version correspondante avec un seul EXE à la racine. Extrayez le ZIP hors du jeu et lancez `Install.cmd`. Choisissez une seule fois le dossier original, vérifiez le plan puis saisissez `INSTALL`. Le jeu n’est pas copié ; aucun fichier existant n’est remplacé. Les conflits arrêtent l’installation. Seuls traductions, `Play-Translated.cmd` et petits reçus sont ajoutés ; aucune sauvegarde des originaux n’est nécessaire.
 
-Gardez le ZIP pour `Remove.cmd`. Seuls les fichiers propres inchangés de la copie
-sont retirés ; les fichiers modifiés ou créés à l’exécution et les reçus sont préservés.
-Le dossier n’est pas nécessairement vidé.
-CLI : `export-renpy-zip --game ... --project ... --language turkish`.
-L’installation directe dans le dossier d’origine reste indisponible.
+`Play-Translated.cmd` dans le jeu sélectionne la langue traduite. Les sauvegardes normales restent utilisées. Jouer peut modifier sauvegardes, caches, journaux et bytecode ; le retrait ne restaure pas une ancienne progression.
+
+Gardez le ZIP pour `Remove.cmd`. Fermez le jeu et choisissez le même dossier. Seuls les ajouts propres inchangés sont retirés ; fichiers modifiés/liés/inconnus et reçus restent. Si des `.rpyc` de traduction ont été générés, le retrait s’arrête avant toute suppression : examinez/retirez manuellement uniquement les fichiers signalés puis réessayez. Ne supprimez pas les autres `.rpyc` du jeu. Les anciens ZIP gardent leur méthode de copie complète.
+
+CLI : `export-renpy-zip --game ... --project ... --language turkish`. Polices, disposition et autres scènes restent à vérifier.
 
 Si le rapport du pilote indique une tâche en cours, actualisez-le après son arrêt. Un pilote annulé peut être évalué si tout l’échantillon requis a été tenté et contient des résultats terminés. Cela autorise le travail complet avec les mêmes réglages et sources, sans valider les traductions.
 

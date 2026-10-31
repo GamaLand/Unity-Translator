@@ -1,8 +1,9 @@
-"""Package reviewed native output for create-new translated-copy installation.
+"""Package reviewed native output for additive or legacy translated-copy installation.
 
 No proprietary game assets, save files, local projects or executable game code are
 included. The recipient supplies the matching local build. The bundled fixed
-installer copies validated build files into a new independent directory.
+installer adds only approved text and fixed helpers by default; the legacy API
+retains its separate-copy behavior.
 """
 
 import json
@@ -55,7 +56,9 @@ def _skip_copy(relative: str) -> str | None:
     return None
 
 
-def copy_build(game: Path, language: str) -> tuple[str, list[dict[str, Any]], dict[str, int]]:
+def copy_build(
+    game: Path, language: str, *, additive: bool = False,
+) -> tuple[str, list[dict[str, Any]], dict[str, int]]:
     """Inventory the explicit new-copy scope; never change an original inventory."""
     game = checked_path(game)
     if engine_evidence(game)["engine"] != "renpy":
@@ -94,6 +97,9 @@ def copy_build(game: Path, language: str) -> tuple[str, list[dict[str, Any]], di
                 relative = path.relative_to(game).as_posix()
                 validate_relative_source(relative)
                 name = path.name.casefold()
+                if additive and relative.casefold() == ".unitytranslator" and path.is_dir():
+                    omitted["Installer receipts: not game inputs or distribution content"] = 1
+                    continue
                 if name in _PRIVATE_METADATA or name.startswith((".aider", ".env.")):
                     raise ValueError(
                         "A reviewed clean game build is required; private tooling or credential "
@@ -107,6 +113,13 @@ def copy_build(game: Path, language: str) -> tuple[str, list[dict[str, Any]], di
                 if not path.is_file():
                     raise ValueError("Translated-copy sources must be regular files.")
                 if reason := _skip_copy(relative):
+                    omitted[reason] = omitted.get(reason, 0) + 1
+                    continue
+                if (
+                    additive and path.suffix.casefold() == ".pyc"
+                    and path.with_suffix(".py").is_file()
+                ):
+                    reason = "Paired Python bytecode: runtime-generated; source remains verified"
                     omitted[reason] = omitted.get(reason, 0) + 1
                     continue
                 if (
@@ -136,7 +149,9 @@ def _cmd(action: str) -> bytes:
     ).encode("ascii")
 
 
-def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any]:
+def _export_package(
+    repo: ProjectRepository, language: str, *, additive: bool,
+) -> dict[str, Any]:
     """Stage native output, then freeze its approvals and a matching-copy build plan."""
     adapters = {row[0] for row in repo.db.execute(
         "SELECT DISTINCT d.adapter_id FROM text_units u "
@@ -149,7 +164,7 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
     staged = export_native(repo, language)
     native_root = checked_path(Path(staged["folder"]))
     native = json.loads(checked_path(Path(staged["manifest"])).read_bytes())
-    executable, build, omitted = copy_build(repo.paths.game, language)
+    executable, build, omitted = copy_build(repo.paths.game, language, additive=additive)
     rows, sources = _rows(repo), _sources(repo)
     selected = [{key: row[key] for key in (
         "unit_id", "source_revision", "translation_revision", "version",
@@ -162,10 +177,11 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
     }:
         raise ValueError("Native source ownership changed before package preparation.")
     identity = uuid4().hex
+    metadata = ".unitytranslator/renpy-additive/" + identity if additive else METADATA
     installer = files("unitytranslator.resources").joinpath(INSTALLER).read_bytes()
     launcher = (
         '@echo off\r\nsetlocal\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass '
-        f'-File "%~dp0{METADATA.replace('/', chr(92))}\\{INSTALLER}" -Action Launch\r\n'
+        f'-File "%~dp0{metadata.replace('/', chr(92))}\\{INSTALLER}" -Action Launch\r\n'
         'if errorlevel 1 pause\r\n'
     ).encode("ascii")
     payloads: dict[str, bytes] = {}
@@ -183,11 +199,12 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
     if not payloads:
         raise ValueError("No approved native payloads are available for packaging.")
     package = {
-        "format_version": native["format_version"],
-        "purpose": "unitytranslator-renpy-translated-copy",
+        "format_version": 3 if additive else native["format_version"],
+        "purpose": "unitytranslator-renpy-additive" if additive
+        else "unitytranslator-renpy-translated-copy",
         "package_id": identity, "language": language, "game_executable": executable,
         "copy_folder": "UnityTranslatorRenpy-" + identity,
-        "metadata_folder": METADATA, "launcher": LAUNCHER,
+        "metadata_folder": metadata, "launcher": LAUNCHER,
         "copy_files": build, "copy_omissions": omitted,
         "save_policy": "Separate saves; the installer never changes original saves or game files.",
         "payloads": [{"path": name, "sha256": sha256(raw).hexdigest(), "bytes": len(raw)}
@@ -202,6 +219,17 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
         "source_resolution": native.get("source_resolution", "template-language-folder-v1"),
         "runtime_write_scope": "The new translated copy, including its own local saves and caches.",
     }
+    addon = files("unitytranslator.resources").joinpath("renpy-additive.ps1").read_bytes()
+    if additive:
+        package.pop("copy_folder")
+        package.update({
+            "native_format_version": native["format_version"],
+            "addon_sha256": sha256(addon).hexdigest(),
+            "save_policy": "Use the game's normal saves; never restore or delete user progress.",
+            "runtime_write_scope": "Normal game saves, logs, caches and compiled sidecars "
+            "may change "
+            "when the user launches the game. Installation never overwrites an existing file.",
+        })
     encoded = (json.dumps(package, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
     if len(encoded) > 32 * 1024 * 1024:
         raise ValueError("Translated-copy manifest size limit exceeded.")
@@ -218,6 +246,33 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
         b"No original game file is distributed in this ZIP. Keep your original game.\n"
         b"Coverage and translation quality remain limited to the reviewed source subset.\n"
     )
+    if additive:
+        readme = (
+            b"UnityTranslator Ren'Py additive language patch\n\n"
+            b"1. Close the game. Extract this ZIP outside the game folder.\n"
+            b"2. Run Install.cmd and select the ORIGINAL game's folder once.\n"
+            b"3. Review the exact new-file plan and type INSTALL. No game is launched.\n"
+            b"4. Run Play-Translated.cmd in the game folder to select the translated language.\n\n"
+            b"The game is NOT copied. Only approved game/tl/<language>/*.rpy files, a launcher\n"
+            b"and small installer/ownership records are added. Original scripts and archives\n"
+            b"are not replaced. Existing paths or language namespaces cause refusal; no backup\n"
+            b"is needed because no original file is overwritten. The original language remains.\n"
+            b"Normal saves are used. Playing may update saves, caches, logs and Python bytecode\n"
+            b"as usual; the patch does not back up or roll back gameplay data.\n\n"
+            b"To uninstall: close the game, run Remove.cmd and select the same game folder.\n"
+            b"Review the removal plan and type REMOVE. Only unchanged receipt-owned additions\n"
+            b"are removed. Modified, linked and unknown files are preserved; "
+            b"audit receipts remain.\n"
+            b"Ren'Py may create compiled .rpyc files beside the translations. Those files are\n"
+            b"not automatically claimed as owned. If present, automatic removal stops BEFORE\n"
+            b"deleting translations, since orphaned .rpyc files can keep a translation active.\n"
+            b"Review/remove those generated sidecars manually, then rerun Remove.cmd.\n"
+            b"Do not delete unrelated game .rpyc files.\n\n"
+            b"Keep this ZIP for removal. Updates require removing the old patch and creating\n"
+            b"a new package; existing files are never silently adopted or overwritten.\n"
+            b"Recipients need Windows PowerShell, not Python, a model or UnityTranslator.\n"
+            b"Compatibility and coverage are limited to the matching reviewed build.\n"
+        )
     evidence = {key: native[key] for key in (
         "format_version", "parser_version", "syntax_version", "format_rules", "source_language",
         "target_language", "language_mapping", "fingerprints", "coverage", "outside_scope",
@@ -244,6 +299,8 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
         ).encode(),
         **{"payload/" + name: raw for name, raw in payloads.items()},
     }
+    if additive:
+        contents["renpy-additive.ps1"] = addon
     pending = repo.paths.output("exports/.pending-renpy-copy-" + identity + ".zip")
     pending.parent.mkdir(parents=True, exist_ok=True)
     with (
@@ -259,7 +316,7 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
             raise ValueError("Translated-copy ZIP content changed before publication.")
     if _rows(repo) != rows or _sources(repo) != sources:
         raise ValueError("Native source, approval or draft changed during packaging.")
-    if copy_build(repo.paths.game, language) != (executable, build, omitted):
+    if copy_build(repo.paths.game, language, additive=additive) != (executable, build, omitted):
         raise ValueError("Original build files changed during packaging.")
     for relative, digest in native["fingerprints"].items():
         if hash_file(checked_path(repo.paths.game / relative)) != digest:
@@ -270,8 +327,21 @@ def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any
     pending.rename(destination)
     return {
         "path": str(destination), "sha256": hash_file(destination), "records": len(selected),
-        "copy_files": len(build), "copy_bytes": sum(entry["bytes"] for entry in build),
+        "copy_files": 0 if additive else len(build),
+        "copy_bytes": 0 if additive else sum(entry["bytes"] for entry in build),
+        "verified_build_files": len(build),
         "copy_omissions": omitted, "requires_unitytranslator": False,
-        "installation_mode": "new-translated-copy", "original_game_modified": False,
+        "installation_mode": "original-additions" if additive else "new-translated-copy",
+        "original_game_modified": False, "adds_files_to_original": additive,
         "native_export": staged,
     }
+
+
+def export_copy_package(repo: ProjectRepository, language: str) -> dict[str, Any]:
+    """Legacy separate-copy API; existing callers and archived installers retain behavior."""
+    return _export_package(repo, language, additive=False)
+
+
+def export_install_package(repo: ProjectRepository, language: str) -> dict[str, Any]:
+    """Default ZIP route: add only reviewed translations and fixed helpers to the game."""
+    return _export_package(repo, language, additive=True)

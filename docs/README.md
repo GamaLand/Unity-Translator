@@ -3,8 +3,9 @@
 Current checkout: 0.5.0. Unity installation remains fingerprint-bound. Initial
 Ren'Py templates, audited original-source behavior, `_ren.py`, large disjoint source
 sets, shared review and sharded native staging are implemented in source. The
-experimental translated-copy ZIP retains its pinned runtime gate. See Compatibility
-for evidence and limits; original-folder Ren'Py installation remains unsupported.
+experimental installation ZIP adds approved text and helpers without copying the
+game, retaining its pinned runtime gate. See Compatibility for evidence and limits;
+legacy translated-copy packages remain supported.
 
 ## Start here
 

@@ -85,30 +85,13 @@ stages approved files and a coverage manifest in the project; it does not instal
 Unapproved keys are omitted and conflicting approved global string mappings block
 export.
 
-**Create a Ren'Py installation ZIP** supports the pinned build with a single root
-game executable. The ZIP contains reviewed translations and a fixed Windows
-installer, not game assets. Extract it outside the original game, run `Install.cmd`,
-select the matching original game and a separate output parent, and review the
-exact create-new file plan. Installation prepares a full separate translated copy
-and needs additional disk space. It never starts the game or replaces original files.
+**Create a Ren'Py installation ZIP** packages approved translations for the pinned build with one root game EXE. Extract the ZIP outside the game and run `Install.cmd`. Select the original game folder once, review the exact new-file plan and type `INSTALL`. No full game copy is made and no existing file is overwritten; conflicts stop installation. Only translation files, `Play-Translated.cmd` and small ownership records are added. No original-file backup is needed.
 
-Use `Play-Translated.cmd` in the new copy to select the package language and play.
-Original saves, logs and caches are not copied; the copy starts with separate saves.
-The recipient needs neither Python nor a model nor UnityTranslator.
-Keep the ZIP for `Remove.cmd`: it removes only unchanged owned copy files.
-Changed or runtime-created files, sidecars, saves and the removal receipt are
-preserved. Removal does not promise an empty copy directory.
+Use `Play-Translated.cmd` in the game folder to select the translated language. Normal game saves are retained. Playing can update saves, caches, logs and bytecode as usual; removal does not restore old gameplay data.
 
-The CLI uses the same checks:
+Keep the ZIP for `Remove.cmd`. Close the game and select the same folder. Only unchanged receipt-owned additions are removed; modified/linked/unknown files and audit metadata remain. If Ren'Py generated translation `.rpyc` sidecars, removal stops before deleting anything: review/remove only the reported translation sidecars manually, then retry. Never delete unrelated game `.rpyc` files. Old ZIPs still use their original full-copy method.
 
-```powershell
-unitytranslator extract --game C:\Game --project C:\Translations --source game/archive.rpa --engine renpy
-unitytranslator export-renpy --game C:\Game --project C:\Translations --language turkish
-unitytranslator export-renpy-zip --game C:\Game --project C:\Translations --language turkish
-```
-
-Installation into the original game folder remains unsupported. A staged file or
-successful model response does not prove font coverage, layout or every game scene.
+CLI: `export-renpy-zip --game ... --project ... --language turkish`. Font coverage, layout and wider gameplay still need review.
 
 If a pilot report still shows a running job, refresh the report after it stops. A cancelled pilot can be reviewed when the full required sample was attempted and completed results exist. Saving the evaluation unlocks bulk work for matching settings and sources; it does not approve translations.
 

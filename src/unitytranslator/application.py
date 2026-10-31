@@ -483,12 +483,12 @@ class ApplicationSession:
                 **export_native(self.repo, data["language"]), "project_id": self.repo.project_id
             }
         if command == "renpy_package":
-            from unitytranslator.renpy_package import export_copy_package
+            from unitytranslator.renpy_package import export_install_package
 
             if data.get("project_id") != self.repo.project_id or self.extracting:
                 raise ValueError("Project changed or extraction is active; retry when it finishes.")
             return {
-                **export_copy_package(self.repo, data["language"]),
+                **export_install_package(self.repo, data["language"]),
                 "project_id": self.repo.project_id,
             }
         if command == "export":

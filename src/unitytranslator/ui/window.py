@@ -1325,7 +1325,8 @@ class MainWindow(QMainWindow):
         self.renpy_package_button = QPushButton(tr("Create a Ren'Py installation ZIP"))
         self.renpy_package_button.setEnabled(False)
         self.renpy_package_button.setToolTip(tr(
-            "Installs a separate translated copy. Original saves and caches are not copied."
+            "Adds approved translations to the selected game; no full game copy "
+            "or original-file replacement."
         ))
         self.renpy_package_button.clicked.connect(lambda: self.prepare_renpy_export(package=True))
         native_layout.addWidget(self.renpy_package_button)
@@ -2821,7 +2822,7 @@ class MainWindow(QMainWindow):
                 return
             self.export_status.setPlainText(tr(
                 "Created a Ren'Py ZIP with {records} approved translations. "
-                "Install.cmd prepares a new translated copy. ZIP: {path}",
+                "Install.cmd adds the patch to the selected game without copying it. ZIP: {path}",
                 records=str(result["records"]), path=result["path"],
             ))
         elif command == "textasset_export":

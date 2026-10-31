@@ -83,24 +83,13 @@ Mevcut model, pilot, taslak ve insan incelemesi akışını kullanın. Şablonda
 ve kapsam manifestini proje içinde hazırlar. Onaysız anahtarlar atlanır; aynı global
 anahtarın çelişen onaylı çevirileri dışa aktarmayı durdurur.
 
-**Ren'Py kurulum ZIP'i oluştur**, tek kök oyun EXE'si bulunan eşleşen sürümü destekler.
-ZIP oyun varlıkları içermez. Özgün oyunun dışında çıkarıp `Install.cmd` çalıştırın;
-eşleşen özgün oyun ile ayrı bir çıktı üst klasörü seçin ve kesin yeni dosya planını
-inceleyin. Kurulum ek disk alanında tam bir çevrilmiş kopya hazırlar; özgün dosyaları
-değiştirmez ve oyunu başlatmaz.
+**Ren'Py kurulum ZIP'i oluştur**, tek kök oyun EXE'si olan eşleşen sürüm için onaylı çevirileri paketler. ZIP'i oyun klasörü dışında çıkarıp `Install.cmd` çalıştırın. Özgün oyun klasörünü bir kez seçin, yeni dosya planını inceleyip `INSTALL` yazın. Oyun bütünüyle kopyalanmaz; mevcut dosyalar değiştirilmez. Çakışma varsa işlem durur. Yalnızca çeviri dosyaları, `Play-Translated.cmd` ve küçük sahiplik kayıtları eklenir. Özgün dosya yedeği gerekmez.
 
-Yeni kopyadaki `Play-Translated.cmd` paketin dilini seçerek oyunu açar. Özgün kayıtlar,
-loglar ve önbellekler kopyalanmaz; yeni kopyanın kayıtları ayrıdır.
-Alıcıda Python, model veya UnityTranslator gerekmez. ZIP'i saklayın: `Remove.cmd`
-yalnızca değişmemiş sahipli kopya dosyalarını kaldırır. Değiştirilmiş ve çalışma
-sırasında oluşmuş dosyalar, derlenmiş yan dosyalar, kayıtlar ve makbuz korunur.
-Kaldırma, kopya klasörünün tamamen boşaltılması anlamına gelmez.
+Oyunun klasöründeki `Play-Translated.cmd` çevrilmiş dili seçer. Normal oyun kayıtları kullanılır. Oynarken kayıtlar, önbellekler, loglar ve derlenmiş dosyalar normal şekilde değişebilir; kaldırma eski oyun ilerlemesini geri yüklemez.
 
-CLI'da `extract --game ... --project ... --source game/archive.rpa --engine renpy`,
-`export-renpy --game ... --project ... --language turkish` ve
-`export-renpy-zip --game ... --project ... --language turkish` aynı denetimleri kullanır.
-Özgün oyun klasörüne doğrudan kurulum desteklenmez. Yazı tipi, taşmalar ve diğer
-sahneler oyun içinde ayrıca incelenmelidir.
+ZIP'i `Remove.cmd` için saklayın. Oyunu kapatıp aynı oyun klasörünü seçin. Yalnızca değişmemiş, makbuzla sahipliği doğrulanmış ekler kaldırılır; değiştirilmiş/bağlı/bilinmeyen dosyalar ve denetim kayıtları korunur. Ren'Py çeviriye ait `.rpyc` yan dosyaları oluşturmuşsa hiçbir yama dosyası silinmeden işlem durur: yalnızca gösterilen çeviri yan dosyalarını elle inceleyip kaldırın ve yeniden deneyin. Oyunun diğer `.rpyc` dosyalarını silmeyin. Eski ZIP'ler önceki tam kopya yöntemini kullanmaya devam eder.
+
+CLI: `export-renpy-zip --game ... --project ... --language turkish`. Yazı tipleri, taşmalar ve diğer sahneler ayrıca incelenmelidir.
 
 Pilot raporu işi hâlâ çalışıyor gösteriyorsa iş durduktan sonra raporu yenileyin. Gerekli örneklemin tamamı denenmiş ve tamamlanan sonuçlar varsa iptal edilmiş pilot da değerlendirilebilir. Değerlendirme aynı ayarlar ve kaynaklar için toplu işi açar; çevirileri onaylamaz.
 

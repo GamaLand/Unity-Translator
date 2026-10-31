@@ -401,5 +401,7 @@
   "Explicit confirmation is required for bulk review.": "La revisión en lote requiere confirmación explícita.",
   "Unknown bulk review action.": "Acción de revisión en lote desconocida.",
   "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.": "Registros coincidentes excluidos: {p0}. Su estado, borrador, aprobación o cola impide esta acción.",
-  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} registros también esperan traducción en trabajos pausados. Sus entradas antiguas se omitirán al reanudarlos. Se conserva el historial de trabajos e intentos."
+  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} registros también esperan traducción en trabajos pausados. Sus entradas antiguas se omitirán al reanudarlos. Se conserva el historial de trabajos e intentos.",
+  "Adds approved translations to the selected game; no full game copy or original-file replacement.": "Añade traducciones aprobadas al juego elegido, sin copiarlo completo ni reemplazar originales.",
+  "Created a Ren'Py ZIP with {records} approved translations. Install.cmd adds the patch to the selected game without copying it. ZIP: {path}": "ZIP Ren'Py creado con {records} traducciones aprobadas. Install.cmd añade el parche al juego elegido sin copiarlo. ZIP: {path}"
 }

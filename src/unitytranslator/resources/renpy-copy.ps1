@@ -12,7 +12,7 @@ $script:nativeBlocks = [Collections.Generic.Dictionary[string,bool]]::new([Strin
 $script:nativeKeys = [Collections.Generic.Dictionary[string,bool]]::new([StringComparer]::Ordinal)
 
 # Fixed bundled installer. Manifest values are data, never PowerShell expressions.
-# Source games are only opened for reading; installation creates an independent copy.
+# Shared path, identity and native-grammar checks for additive and legacy copy packages.
 Add-Type -TypeDefinition @'
 using System;
 using System.IO;
@@ -53,6 +53,13 @@ public static class RenpyCopyIdentity {
   }
   public static void NewDirectory(string p) {
     if(!CreateDirectoryNative(p,IntPtr.Zero)) throw new IOException("A new independent output directory is required");
+  }
+  public static bool DeleteEmptyDirectory(string p,string identity) {
+    using(var h=CreateFile(p,0x10000,0,IntPtr.Zero,3,0x02200000,IntPtr.Zero)) {
+      if(ReadHandle(h)!=identity) return false;
+      var disposition=new Disposition { DeleteFile=true };
+      return SetFileInformationByHandle(h,4,ref disposition,1);
+    }
   }
   public static void CopyWriteTime(SafeFileHandle source,SafeFileHandle target) {
     Info i;
@@ -210,7 +217,7 @@ function GameClosed([string]$Root) {
     $name = [IO.Path]::GetFileNameWithoutExtension($package.game_executable)
     foreach ($process in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {
         try { $image = $process.Path } catch { throw 'Game process identity unavailable; close the game.' }
-        if (-not $image -or [string]::Equals([IO.Path]::GetFullPath($image),$expected,[StringComparison]::OrdinalIgnoreCase)) { throw 'Close the game before changing its copy.' }
+        if (-not $image -or [string]::Equals([IO.Path]::GetFullPath($image),$expected,[StringComparison]::OrdinalIgnoreCase)) { throw 'Close the game before changing translation files.' }
     }
 }
 function SelectFolder([string]$Description) {
@@ -347,6 +354,12 @@ if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or (Get-Item -Li
 $manifestBytes = [IO.File]::ReadAllBytes($manifestPath)
 $manifestHash = BytesDigest $manifestBytes
 $package = [Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+if ($package.format_version -eq 3 -and $package.purpose -ceq 'unitytranslator-renpy-additive') {
+    $addonPath = Confined $packageRoot 'renpy-additive.ps1'
+    if ((Digest $PSCommandPath) -cne $package.installer_sha256 -or (Digest $addonPath) -cne $package.addon_sha256) { throw 'Bundled installer hash mismatch.' }
+    . $addonPath
+    exit $LASTEXITCODE
+}
 if ($package.format_version -notin @(1,2) -or $package.purpose -cne 'unitytranslator-renpy-translated-copy' -or $package.package_id -isnot [string] -or $package.package_id -cnotmatch '^[a-f0-9]{32}$' -or $package.copy_folder -cne ('UnityTranslatorRenpy-'+$package.package_id) -or $package.metadata_folder -cne '.unitytranslator/renpy-copy' -or $package.launcher -cne 'Play-Translated.cmd' -or $package.language -isnot [string] -or $package.language -cnotmatch '^[A-Za-z_][A-Za-z_0-9]{0,127}$' -or $package.language -cin @('None','python','style','default','strings')) { throw 'Invalid translated-copy manifest.' }
 if ($package.game_executable -match '[\\/]' -or [IO.Path]::GetExtension($package.game_executable) -ine '.exe') { throw 'Invalid game executable selection.' }
 if (@($package.copy_files).Count -lt 1 -or @($package.copy_files).Count -gt 20000 -or @($package.payloads).Count -lt 1 -or @($package.payloads).Count -gt 512) { throw 'Invalid copy or payload count.' }

@@ -57,3 +57,8 @@ Uninstall.cmd; the recipient does not need this application or a model.
 In Review, **Bulk actions** works across all pages matching the current filters.
 Preview and confirm exact-source approval or return empty translations to Pending;
 the latter preserves history and leaves starting a translation job to you.
+
+New Ren'Py installation ZIPs select the original game folder once and add only
+approved text, a launcher and ownership records; the game is not copied. Normal
+saves are used. See the ZIP's README and [installation guide](installation.md)
+for collision checks, removal and generated `.rpyc` sidecar limits.

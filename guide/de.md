@@ -88,21 +88,13 @@ freigegeben. Geben Sie nach menschlicher Freigabe eine Ren'Py-Zielkennung wie
 abschließen oder verwerfen. Native Dateien werden nur im Projekt vorbereitet;
 widersprüchliche freigegebene globale Schlüssel verhindern den Export.
 
-**Ren'Py-Installations-ZIP erstellen** unterstützt den passenden Build mit genau
-einer Spiel-EXE im Hauptordner. Das ZIP enthält keine Spielinhalte. Entpacken Sie
-es außerhalb des Originals und starten Sie `Install.cmd`. Wählen Sie das passende
-Original und einen separaten Ausgabeordner, dann prüfen Sie den genauen Dateiplan.
-Die Installation erstellt eine vollständige übersetzte Kopie und benötigt zusätzlichen
-Speicher. Originaldateien werden nicht ersetzt und das Spiel wird nicht gestartet.
-`Play-Translated.cmd` in der Kopie startet die gewählte Sprache. Originalspielstände,
-Logs und Caches werden nicht kopiert; neue Spielstände bleiben getrennt.
-Empfänger benötigen weder Python noch ein Modell noch UnityTranslator.
+**Ren'Py-Installations-ZIP erstellen** verpackt freigegebene Übersetzungen für den passenden Build mit einer Spiel-EXE im Hauptordner. ZIP außerhalb des Spiels entpacken, `Install.cmd` starten, den Originalspielordner einmal wählen, Dateiplan prüfen und `INSTALL` eingeben. Das Spiel wird nicht kopiert; vorhandene Dateien werden nicht überschrieben. Konflikte stoppen die Installation. Nur Übersetzungen, `Play-Translated.cmd` und kleine Eigentumsbelege werden hinzugefügt; Originaldateien brauchen kein Backup.
 
-Bewahren Sie das ZIP für `Remove.cmd` auf. Nur unveränderte eigene Kopiedateien
-werden entfernt; geänderte oder neu erzeugte Laufzeitdateien und Belege bleiben
-erhalten. Der Ordner wird nicht vollständig geleert.
-CLI: `export-renpy-zip --game ... --project ... --language turkish`.
-Direkte Installation in den Originalordner bleibt nicht unterstützt.
+`Play-Translated.cmd` im Spielordner wählt die Übersetzung. Normale Spielstände bleiben nutzbar; Spielen kann Spielstände, Caches, Logs und Bytecode verändern. Entfernen stellt keinen früheren Spielstand wieder her.
+
+ZIP für `Remove.cmd` behalten. Spiel schließen und denselben Ordner wählen. Nur unveränderte belegte Zusätze werden entfernt; geänderte, verknüpfte oder unbekannte Dateien und Belege bleiben. Bei erzeugten Übersetzungs-`.rpyc` stoppt die Entfernung vor jedem Löschen: nur die gemeldeten Übersetzungsdateien manuell prüfen/entfernen, dann erneut versuchen. Keine anderen Spiel-`.rpyc` löschen. Alte ZIPs behalten ihr vollständiges Kopierverfahren.
+
+CLI: `export-renpy-zip --game ... --project ... --language turkish`. Schrift, Layout und weitere Spielszenen separat prüfen.
 
 Zeigt der Pilotbericht einen laufenden Auftrag, aktualisieren Sie ihn nach dessen Ende. Ein abgebrochener Pilot kann bewertet werden, wenn die gesamte erforderliche Stichprobe versucht wurde und Ergebnisse vorliegen. Dies ermöglicht den Gesamtauftrag bei gleichen Einstellungen und Quellen, gibt aber keine Übersetzungen frei.
 

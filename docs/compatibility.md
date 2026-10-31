@@ -24,7 +24,7 @@ not replace published RC7 artifacts. Krypta installation evidence is scoped belo
 | Unity Localization String Tables | Planned; not implemented |
 | General AssetBundle/Addressables traversal | Planned; not implemented |
 | IL2CPP runtime application | Not implemented |
-| Ren'Py | Native templates and an audited static `.rpy`/`_ren.py`/RPA-3.0 behavior family, bounded large sets, disjoint containers, shared LLM/review and sharded native staging; translated-copy ZIP remains limited to 8.1.2.23090503 with limited preferences-label copy pilots; original-folder deployment remains unsupported |
+| Ren'Py | Native templates and audited static `.rpy`/`_ren.py`/RPA-3.0 sources, shared review and sharded staging. New ZIPs add approved text/helpers to the matching 8.1.2.23090503 game without copying it. Windows recipient checks are synthetic; real original-folder launch/removal remains unverified. Legacy full-copy ZIPs and their limited copy pilots retain their earlier scope. |
 | Unreal Engine | Planned testing and implementation after broader Unity/Ren'Py support; no current support |
 | Godot | Planned testing and implementation after broader Unity/Ren'Py support; no current support |
 
@@ -263,3 +263,15 @@ save and 124 engine Python bytecode caches. Explicit `--savedir` and log routing
 created separate saves/logs but did not prevent the local persistent mirror.
 These observations block an original-root no-original-writes claim; no removal was
 attempted. Other text, glyphs, scenes and image-menu localization remain unverified.
+
+
+## Additive Ren'Py ZIP checks
+
+New installation ZIPs use one original-game selection and add only reviewed text,
+a fixed launcher and per-package receipt/support records. Synthetic Windows checks
+cover unchanged original bytes, exact new-file plans, normal-save launch review
+without starting a game, build/input conflicts, ownership-safe removal and refusal
+when unowned compiled translation sidecars could keep a removed translation active.
+Legacy copy-package checks remain. Original-folder gameplay and automatic ownership
+of engine-generated sidecars remain unverified; copy-pilot observations above do
+not establish these capabilities.

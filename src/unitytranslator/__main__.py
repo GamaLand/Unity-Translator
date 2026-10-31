@@ -24,7 +24,8 @@ def main() -> int:
         ("project", "Create or open a translation project"),
         ("export-textassets", "Export current approved game-text payloads to the project only"),
         ("export-renpy", "Stage approved native Ren'Py files in a new project export directory"),
-        ("export-renpy-zip", "Package approved Ren'Py text for a new translated-copy installation"),
+        ("export-renpy-zip", "Package approved Ren'Py text for additive installation "
+         "without a game copy"),
     ):
         item = sub.add_parser(command, help=description)
         item.add_argument("--game", required=True, type=Path, help="Game installation directory")
@@ -89,9 +90,9 @@ def main() -> int:
                 raise ValueError("Project is bound to another game directory.")
             with ProjectRepository(existing) as repository:
                 if args.command == "export-renpy-zip":
-                    from unitytranslator.renpy_package import export_copy_package
+                    from unitytranslator.renpy_package import export_install_package
 
-                    exported = export_copy_package(repository, args.language)
+                    exported = export_install_package(repository, args.language)
                 elif args.command == "export-renpy":
                     from unitytranslator.renpy_export import export_native
 

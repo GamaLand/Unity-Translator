@@ -401,5 +401,7 @@
   "Explicit confirmation is required for bulk review.": "Explicit confirmation is required for bulk review.",
   "Unknown bulk review action.": "Unknown bulk review action.",
   "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.": "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.",
-  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved."
+  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.",
+  "Adds approved translations to the selected game; no full game copy or original-file replacement.": "Adds approved translations to the selected game; no full game copy or original-file replacement.",
+  "Created a Ren'Py ZIP with {records} approved translations. Install.cmd adds the patch to the selected game without copying it. ZIP: {path}": "Created a Ren'Py ZIP with {records} approved translations. Install.cmd adds the patch to the selected game without copying it. ZIP: {path}"
 }

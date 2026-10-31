@@ -401,5 +401,7 @@
   "Explicit confirmation is required for bulk review.": "Toplu inceleme için açık onay gerekli.",
   "Unknown bulk review action.": "Bilinmeyen toplu inceleme işlemi.",
   "Excluded matching records: {p0}. Their status, draft, approval or queue prevents this action.": "Eşleşen ancak kapsam dışında kalan kayıt: {p0}. Kayıt durumu, taslak, onay veya kuyruk koruması bu işlemi engelliyor.",
-  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} kayıt duraklatılmış işlerde de çeviri bekliyor. Bu işler devam ettirildiğinde eski kuyruk girdileri atlanacak. İş ve deneme geçmişi korunur."
+  "{p0} records also await translation in paused jobs. Their old queue entries will be skipped when those jobs resume. Job and attempt history is preserved.": "{p0} kayıt duraklatılmış işlerde de çeviri bekliyor. Bu işler devam ettirildiğinde eski kuyruk girdileri atlanacak. İş ve deneme geçmişi korunur.",
+  "Adds approved translations to the selected game; no full game copy or original-file replacement.": "Onaylı çevirileri seçilen oyuna ekler; oyun bütünüyle kopyalanmaz ve özgün dosyalar değiştirilmez.",
+  "Created a Ren'Py ZIP with {records} approved translations. Install.cmd adds the patch to the selected game without copying it. ZIP: {path}": "{records} onaylı çeviri içeren Ren'Py ZIP'i oluşturuldu. Install.cmd oyunu kopyalamadan seçilen oyun klasörüne yamayı ekler. ZIP: {path}"
 }

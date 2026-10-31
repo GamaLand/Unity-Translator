@@ -65,6 +65,8 @@ def main() -> int:
             raise ValueError(f"{archive.name} contains private or binary data: {forbidden[:5]}")
         if not any(name.endswith("/resources/renpy-source-NOTICE.txt") for name in names):
             raise ValueError("Missing Ren'Py source-behavior notice.")
+        if not any(name.endswith("/resources/renpy-additive.ps1") for name in names):
+            raise ValueError("Missing bundled Ren'Py additive installer.")
         for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
             if not any(name.endswith("/locales/" + code + ".json") for name in names):
                 raise ValueError("Missing interface language: " + code)

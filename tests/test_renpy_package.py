@@ -246,7 +246,7 @@ def test_shared_session_and_cli_package_use_current_project_binding(package, mon
     ])
     assert main() == 0
     result = json.loads(capsys.readouterr().out)
-    assert result["installation_mode"] == "new-translated-copy"
+    assert result["installation_mode"] == "original-additions"
     assert Path(result["path"]).is_file()
 
 

@@ -191,8 +191,9 @@ Ren'Py provides native dialogue translation blocks and string `old`/`new` tables
 This makes a bounded native-template adapter a practical first step. It does not
 make every installed Ren'Py game readable. The following scope is a design decision;
 the reader, versioned text rules and staged native export are implemented for the
-subset below. Original-folder installation is unsupported; the separate translated-copy
-ZIP requires a matching pinned build and a reviewed recipient plan.
+subset below. The default recipient ZIP adds text and helpers to the original folder
+without copying or overwriting existing files; it requires a matching pinned build
+and a reviewed create-new plan. Legacy translated-copy packages remain supported.
 
 Original-source reading now verifies the relevant lexer, parser, label/block,
 native-ID and source-order function contracts as bounded syntax trees. The audited
@@ -427,11 +428,13 @@ effects, process detection and rollback/removal semantics on a synthetic Ren'Py
 fixture and a selected real build. Define exact owned additions in the plan/receipt.
 A same-name generated file is not ownership proof; unknown or modified sidecars are
 preserved. Do not delete by extension or broadly exclude caches from inventories.
-If the no-original-writes/ownership contract cannot hold, original-root deployment
-remains blocked. The separate translated-copy recipient installer uses its own
-reviewed plan around the shared native export pipeline. Original-root deployment
-would require the shared reviewed-plan service once its gate is proved; do not
-reuse Unity loaders or the current Unity shareable ZIP installer for Ren'Py.
+The additive installer guarantees no original-file overwrite during installation
+or removal. User-launched gameplay can update normal saves, caches and bytecode;
+there is no promise of a write-free game session or rollback of gameplay data.
+The recipient's reviewed-plan/identity service surrounds the shared native exporter;
+it does not reuse Unity loaders. If unowned compiled translation sidecars exist,
+removal stops before deleting any patch files, since orphaned `.rpyc` files could
+keep translations active. Users must separately review those exact sidecars.
 
 The implemented exporter rereads the complete source set through the bounded native
 reader and compares local snapshot bytes, source identities and structural revisions.
@@ -467,15 +470,15 @@ load order, language activation, fonts or installation support in a game.
 | Project | Independent source/target tags; Texts chooses an inspection engine and Export requires an explicit native target identifier |
 | Texts / discovery | Desktop engine/template candidates; reports retain input/container evidence and coverage/exclusions with independent capability results |
 | Review | File/block/speaker context, source keys and format diagnostics; existing drafts/history/pilot/approval; template text is read-only provenance |
-| Export | Separate project JSON, Unity payload/runtime, native Ren'Py and translated-copy ZIP actions; native actions flush drafts and require current approvals |
-| Apply to game | Native Ren'Py installation remains unsupported; no Unity fallback or native file plan is offered |
+| Export | Project JSON, Unity payload/runtime, native Ren'Py and additive ZIP actions; native actions flush drafts and require current approvals |
+| Apply to game | Desktop session installation remains Unity-only; Ren'Py uses the ZIP's own reviewed recipient plan, with no Unity fallback |
 | CLI | Shared scan/probe/extract plus `export-renpy` and `export-renpy-zip` with explicit `--language <identifier>`; old commands/options/report keys remain supported |
 
 Keep advanced engine details out of the ordinary translation flow unless they explain
 a choice or blocker. Add all new UI messages to the eight catalogs and update guides
 when the feature exists; do not present planned controls as already available.
 
-### Translated-copy installation ZIP
+### Native installation ZIP
 
 `renpy_package.py` wraps the same authoritative native exporter. For the pinned
 8.1.2 build with one root game EXE, it inventories required immutable build files,
@@ -485,33 +488,41 @@ The ZIP ships approved text, fixed installer/launcher source and its MIT notice;
 no game assets, binaries, model, project, save data or absolute sender path is included.
 Unapproved source string text is omitted from package evidence.
 
-The bundled `renpy-copy.ps1` creates a new independent recipient copy. Its concrete
-plan binds original/output paths, manifest hash and every required build/payload/helper
-file. A changed plan hash, existing target, wrong build, running game, link/reparse
-path or native grammar/token mismatch refuses installation. Writes use create-new
-handles, identity checks, held parent directories and a flushed journal recording
-identity before each write. The immutable start marker, reviewed plan and final
-receipt are separate new files; incomplete copies remain for recovery. Installation
-never starts the game and never alters an existing original-file inventory.
+New UI/CLI exports call `export_install_package`. Format 3 declares
+`unitytranslator-renpy-additive`; the fixed `renpy-copy.ps1` dispatches only to the
+hash-checked bundled `renpy-additive.ps1`, sharing its path/identity/native-grammar
+checks. The recipient selects the original game once. A concrete plan lists only
+native payloads, `Play-Translated.cmd` and per-package records under
+`.unitytranslator/renpy-additive/<id>`. No game assets are copied and no existing
+file is backed up or replaced: collisions refuse installation. Root/directory
+identity, source hashes, script/archive membership, payload grammar, approval
+snapshots and the reviewed plan are rechecked. Create-new handles, held parent
+directories and a flushed identity journal protect additions. Incomplete installs
+retain their markers; they cannot be adopted as completed installs.
 
-The new-copy scope explicitly omits `game/saves`, `game/cache`, root runtime logs
-and PEP 3147 `__pycache__` bytecode, preserving flat source-less `.pyc` modules.
-These are omissions from a new copy, not broader exclusions for an existing game
-inventory. [PEP 3147](https://peps.python.org/pep-3147/#case-3-pycache-foo-magic-pyc-with-no-source)
-defines why orphaned cache entries are not source-less modules.
-`Play-Translated.cmd` is a separate explicit user action: it checks the installed
-copy, selects `RENPY_LANGUAGE`, redirects saves/logs inside the copy and requests
-`PYTHONDONTWRITEBYTECODE`. The observed embedded runtime still created Python caches;
-these, the game-local persistent mirror and `.rpyc` generation
-stay inside the copy. No startup Python is injected.
+Build verification explicitly omits ordinary saves, caches, logs, receipt metadata
+and paired Python bytecode; source `.py` files and source-less `.pyc` modules stay
+verified. These are the new package's verification scope, not changes to an existing
+original-file inventory. `Play-Translated.cmd` selects `RENPY_LANGUAGE` only when
+explicitly invoked, using normal saves without startup Python injection. Gameplay
+may update runtime files as usual; the installer never starts the game.
 
-`Remove.cmd` has its own reviewed plan and deletes only unchanged receipt-bound copy
-files using identity/link/hash checks on the deletion handle. Modified or unknown
-runtime files and receipts remain; it reports retained runtime data rather than
-claiming a clean directory. This route requires space for a full copy. Original-root
-native installation remains unsupported; namespace/style/font and gameplay evidence
-must still be scoped to the observed game. A recipient ZIP does not grant approvals
-or enable any Unity deployment fallback.
+Removal validates the receipt, directory identities and immutable start/plan proof.
+Only unchanged receipt-owned text and the launcher are removed, with identity,
+single-link and hash checks on the deletion handle. Unknown compiled translation
+sidecars block removal before any deletion. Modified/linked additions are preserved
+with a partial-removal report; saves and runtime caches are never restored or
+deleted. An empty owned language directory may be removed by identity on its handle;
+unknown contents prevent that removal. Small audit/support records remain. A new
+package can be exported after the old namespace/launcher have been removed.
+
+Formats 1/2 and `export_copy_package` retain the legacy independent-copy route,
+including its separate saves/logs and ownership-checked removal. Existing ZIPs are
+not rewritten or reinterpreted as additive installations. Native export remains
+formats 1/2; the format-3 ZIP records that version in `native_format_version`.
+Synthetic Windows tests cover the additive route; actual original-root gameplay
+and generated-sidecar cleanup remain unverified. Copy pilot evidence does not prove
+those behaviors or broader engine compatibility.
 
 ## Ren'Py roadmap
 
@@ -522,8 +533,8 @@ fixtures. Dependency additions need pinned provenance and matching notices/sourc
 R0-R2 implement the initial template-based, export-only increment with synthetic
 verification. R4 includes the audited original-source behavior family, `_ren.py`,
 large sets and disjoint containers; overlapping load order and compiled-only input
-remain planned. R3 has an experimental
-translated-copy route; original-folder deployment remains open.
+remain planned. R3 has an experimental additive ZIP with synthetic recipient checks;
+original-folder gameplay evidence and automatic sidecar ownership remain open.
 Read-only inspection of the user-selected Invulnerable 1.10 build
 found static Ren'Py 8.1.2.23090503 version evidence and an RPA-3.0 archive, with no
 loose translation templates. A bounded RPA-3.0 primitive-index interpreter now
@@ -540,7 +551,7 @@ in Compatibility; it does not establish original-folder deployment support.
 | R0: engine boundary | Implemented versioned evidence, bounded input classification, CLI/session/desktop inspection selection and unsupported deployment dispatch. Synthetic ambiguous/unknown/mixed-engine cases and legacy Unity regressions verify isolation. |
 | R1: template reader and format | Implemented strict native-template subset, bounded/cancellable worker, source-scoped IDs and Ren'Py token rules. Synthetic fixtures cover comments, escapes, duplicates, malformed/unsupported syntax, missing/partial sources, shared pilot/review, portable ownership and approval invalidation. Real-game template extraction remains unverified. |
 | R2: shared workflow and export | Implemented shared pilot/queue/review/drafts/history, read-only template provenance and approved staging with language mapping/coverage. Synthetic round trips, syntax injection, token preservation, stale revisions, mid-staging tampering, restored ownership, multi-file conflicts and UI draft flushing are checked; source hashes remain unchanged. No installation is inferred. |
-| R3: additive installation | Experimental matching-build translated-copy ZIP uses reviewed create-new plans, recipient build checks, independent saves/logs and ownership-checked removal that preserves runtime data. Windows/Qt synthetic tests and one actual archived-source-to-ZIP preferences-label field test verify the copy route; real-copy removal was not performed. Original-folder deployment and broader gameplay remain deferred. Explicit install/launch actions stay separate. |
+| R3: additive installation | New matching-build ZIPs add only text and fixed helpers, with one folder selection, reviewed create-new plans, build/input checks and ownership-checked removal. Compiled sidecars block automatic removal. Additive Windows checks are synthetic; actual original-folder gameplay remains unverified. Legacy copy pilots retain their separate evidence. Explicit install/launch actions stay separate. |
 | R4: wider Ren'Py input | Implemented audited static source behavior, symbolic attributes, `_ren.py`, bounded large sets, disjoint loose/archive unions and sharded output. Unknown contracts, overlapping containers, multiline dialogue and compiled-only games remain unsupported. Never deserialize executable objects to read scripts. |
 
 R0-R2 define the first export-capable increment. R3 evidence must describe the
@@ -626,12 +637,13 @@ Human review, draft flushing and exact approval checks remain mandatory.
 
 **Installation.** Broader reading must not bypass native output validation, clean
 namespace checks, explicit language activation or current reviewed file plans.
-Extend the separate-copy ZIP by tested runtime behavior families. Include source
+Extend the native installation ZIP by tested runtime behavior families. Include source
 dialect/feature evidence in the manifest and verify it at export and recipient time.
 Inspect development/mod folders for private repository, tooling and user data before
 defining a copy scope; proposed omissions must be explicit in the new-copy plan,
-never silently broaden existing inventories. Original-root installation remains
-unsupported. Game launch and runtime pilots require applicable explicit user action.
+never silently broaden existing inventories. The additive ZIP has synthetic
+recipient checks; original-folder gameplay and automatic sidecar ownership remain
+unverified. Game launch and runtime pilots require applicable explicit user action.
 
 | Order | Acceptance before declaring broader support |
 | --- | --- |

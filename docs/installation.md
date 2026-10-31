@@ -146,67 +146,69 @@ of every in-game font, language, scene or callback behavior. Check a representat
 screen and dynamic text before distributing a patch. No model, project database,
 proprietary game DLL or original game asset belongs in the distribution.
 
-## Ren'Py native output and translated-copy ZIP
+## Ren'Py native output and installation ZIP
 
-The flows above describe Unity runtimes. Ren'Py uses native files and an explicit
-language identifier. **Export approved Ren'Py files** stages approved revisions and
-coverage in a new project folder; it performs no game installation.
-**Create a Ren'Py installation ZIP**, or `export-renpy-zip --game ... --project ...
---language turkish`, packages the same current approved revisions for a separate
-translated-copy installation. Both flush/check drafts and revalidate local sources.
-The ZIP is experimental and requires the pinned 8.1.2.23090503 build with one root
-game EXE and an unused language namespace. It contains no original game assets,
-binaries, model, project data or sender paths.
+**Export approved Ren'Py files** stages approved text and coverage in a new project
+folder. It does not install anything. **Create a Ren'Py installation ZIP**, or
+`export-renpy-zip --game ... --project ... --language turkish`, packages the same
+current approved revisions for additive installation. Finish or discard drafts
+first. The ZIP remains limited to the matching pinned 8.1.2.23090503 build with one
+root game EXE and an unused target language namespace. Readable sources alone do
+not establish installation support for other builds.
 
-Native output and the recipient validator preserve symbolic character attributes,
-temporary `@` attributes and `nointeract` as fixed source structure. A changed
-speaker, attribute or interaction mode rejects the payload. This syntax extension
-does not broaden the ZIP's engine/build gate or authorize a new installation.
+### Install without copying the game
 
-This exact-version gate describes ZIP runtime installation. The
-[broader Ren'Py plan](development.md#broader-renpy-support-planned) separates reader
-compatibility from runtime installation evidence. Audited source reading and
-native staging can cover other matching behavior contracts; they authorize no new
-runtime or installation. Future multi-version installation support must
-retain exact recipient build fingerprints, current approvals and reviewed plans.
+1. Close the game and extract the ZIP outside its folder.
+2. Run `Install.cmd` and select the original game folder once.
+3. Review the exact create-new file plan and type `INSTALL`.
+4. Explicitly launch `Play-Translated.cmd` in the game folder to select the package language.
 
-Large native output uses complete-block shards with fixed numbered names. The
-ZIP validates all payloads together, including cross-file ID/string conflicts,
-and retains its exact recipient build check. Private repository, AI-tooling or
-credential metadata in a development/mod build refuses copy packaging. A clean
-reviewed build is required; no new omission is silently added to an original inventory.
+Only approved `game/tl/<language>/*.rpy`, a small launcher and per-package ownership
+records are added. No game assets are copied or distributed. No existing file is
+replaced, so no original-file backup is needed; an occupied path or language
+namespace refuses installation. Package/source hashes, native grammar and token
+structure, build fingerprints and script/archive membership are checked again at
+installation. The plan binds the game directory identity, manifest and every new
+payload/helper/generated-record path. `-ReviewOnly -GameFolder ...` prints it;
+`-ReviewedPlanSha256 <sha256>` accepts only that unchanged plan.
 
-The recipient extracts outside the original game and runs `Install.cmd`, selects
-the matching original and a separate output parent, then reviews the exact new-file
-plan and types `INSTALL`. The plan binds both paths, package hash and every required
-build/payload/helper file. Noninteractive `-ReviewOnly -GameFolder ... -OutputParent ...`
-prints it; `-ReviewedPlanSha256 <sha256>` accepts only the unchanged plan. An existing
-target, changed build, live game, reparse path or malformed native payload blocks
-installation. No game is started. The new `UnityTranslatorRenpy-<package-id>` folder
-is independent; the original game and original-file inventory are never changed.
+Writes use create-new handles, held parent directories, an immutable start marker,
+a flushed identity journal and a final receipt. Incomplete additions are retained
+for recovery; neither installation nor removal starts the game. There is no second
+output-folder prompt and no full-game disk-space requirement.
 
-Required build files are copied locally with create-new handles, hash/identity/link
-checks and a durable write journal. The new-copy scope explicitly omits original
-`game/saves`, `game/cache`, root runtime logs and `__pycache__` bytecode. Flat
-source-less `.pyc` modules remain required inputs. These omissions do not broaden
-any existing original-file inventory exclusions. Allow space for a full game copy;
-the inspected Invulnerable build needs about 1.05 GB for 1,204 required build files.
+### Gameplay and removal
 
-The installed copy's `Play-Translated.cmd` is an explicit user launch action. It
-checks the copy, selects the package language through `RENPY_LANGUAGE` and places
-new saves/logs inside the copy. Original progress is preserved in the original and
-is not imported automatically. Native compilation and the game-local persistent
-mirror remain confined to the copy. The installer injects no startup Python.
+The launcher sets `RENPY_LANGUAGE` for that process and uses normal game saves.
+The original language remains available; no startup Python is injected. Playing
+may update saves, caches, logs, paired Python bytecode and compiled translation
+sidecars normally. These runtime changes are not backed up or rolled back by the
+patch. Do not restore old saves/caches as an uninstall operation.
 
-Keep the extracted package for `Remove.cmd`. Its separate reviewed plan removes
-only receipt-bound copy files whose current identity, single-link status and hash
-match, using checks on the deletion handle. Modified files, unknown runtime data,
-compiled sidecars and receipts are retained; the result reports that runtime data
-remains. It never promises an empty directory or deletes original game files.
-Interrupted installations retain a start marker and flushed journal for recovery;
-they cannot be relaunched or overwritten as completed installations. New package
-revisions create a new independent copy; existing-copy updates and save migration
-are not implemented. See the [Ren'Py design](development.md#renpy-native-template-integration).
+Keep the extracted ZIP. Close the game, run `Remove.cmd`, select that same game
+folder, review the removal plan and type `REMOVE`. Only unchanged receipt-owned
+translation files and the launcher are removed, with directory identity, single-link
+and file identity/hash checks. Modified, linked or unknown files are preserved;
+partial removal is reported as such. Small audit/support records remain under
+`.unitytranslator/renpy-additive/<package-id>`.
+
+**Compiled sidecars:** Ren'Py may create `.rpyc` files beside installed translations.
+A same-name file or matching source footer is not sufficient ownership evidence.
+If those unowned sidecars exist, automatic removal stops before deleting any patch
+files, because orphaned `.rpyc` files can keep translations active. The reviewed
+plan names the exact blockers. Review/remove only those generated translation
+sidecars manually, then rerun removal; never delete unrelated game `.rpyc` files.
+An empty owned language directory can be removed by identity; unknown contents
+are retained. Existing files are never adopted or overwritten during updates.
+
+New format-3 packages use this additive route. Existing format-1/2 ZIPs keep their
+original separate-copy behavior and must be removed with their own installer.
+The legacy Python `export_copy_package` API is retained. Additive recipient checks
+are synthetic Windows tests; actual original-folder gameplay and sidecar cleanup
+have not been verified on a real game. Fonts, layout and full-game text coverage
+remain separate compatibility limits.
+
+### Historical copy-pilot observations
 
 The selected Invulnerable reference uses image assets for its active main-menu
 labels; a string-table pilot must target a confirmed text consumer, such as the
