@@ -553,3 +553,18 @@ def test_repeated_extraction_does_not_accumulate_large_context_indexes(project_p
         DialogueContextStore(repo).preview(repo.page())
         assert len(parsed) == 2
         assert len(module._INDEX[repo]) == 1
+
+
+def test_cancelled_context_reconstruction_is_not_cached_as_unknown_order(project_paths):
+    from unitytranslator.domain import OperationCancelled
+
+    with ProjectRepository(project_paths) as repo:
+        snapshot = ingest(repo)
+        calls = []
+        repo.operation_cancelled = lambda: calls.append(True) or len(calls) > 4
+        with pytest.raises(OperationCancelled):
+            DialogueContextStore(repo).order([u.unit_id for u in snapshot.units])
+        repo.operation_cancelled = lambda: False
+        rows = repo.page()
+        DialogueContextStore(repo).preview(rows)
+        assert all(len(row["dialogue_context"]["references"]) == 2 for row in rows)

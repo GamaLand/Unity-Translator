@@ -4,10 +4,12 @@ import base64
 import json
 from bisect import bisect_right
 from collections import defaultdict
+from collections.abc import Callable
 from hashlib import sha256
 from typing import Any
 from weakref import WeakKeyDictionary
 
+from unitytranslator.domain import OperationCancelled
 from unitytranslator.renpy_python import python_source_view
 from unitytranslator.renpy_scripts import ScriptDocument, lex, parse_scripts
 from unitytranslator.renpy_templates import TemplateDocument, parse_template
@@ -19,7 +21,14 @@ WINDOW_SIZE = 2
 MAX_REFERENCE_BYTES = 8192
 
 
-def script_runs(document: ScriptDocument) -> list[list[int]]:
+def _check(cancelled: Callable[[], bool]) -> None:
+    if cancelled():
+        raise OperationCancelled("Local preparation was cancelled.")
+
+
+def script_runs(
+    document: ScriptDocument, *, cancelled: Callable[[], bool] = lambda: False,
+) -> list[list[int]]:
     """Group only consecutive accepted says at one indentation in one source member.
 
     Every other logical statement is a barrier, including excluded says, Python,
@@ -32,6 +41,7 @@ def script_runs(document: ScriptDocument) -> list[list[int]]:
             locations[location["member"]][location["line"]] = location["record"]
     runs: list[list[int]] = []
     for member in document.members:
+        _check(cancelled)
         original = base64.b64decode(member["raw_base64"], validate=True).decode("utf-8-sig")
         converted = member["name"].endswith("_ren.py")
         text = python_source_view(original).text if converted else original
@@ -43,7 +53,9 @@ def script_runs(document: ScriptDocument) -> list[list[int]]:
         statements, _ = lex(text)
         run: list[int] = []
         previous_line, previous_indent = 0, -1
-        for line in statements:
+        for statement_index, line in enumerate(statements):
+            if statement_index % 256 == 0:
+                _check(cancelled)
             index = locations[member["name"]].get(line)
             indent = len(physical[line - 1]) - len(physical[line - 1].lstrip(" "))
             crossed_marker = bisect_right(markers, line) > bisect_right(markers, previous_line)
@@ -72,12 +84,18 @@ def template_runs(document: TemplateDocument) -> list[list[int]]:
     return runs
 
 
-def windows(snapshot: SourceSnapshot, runs: list[list[int]]) -> dict[str, dict[str, Any]]:
+def windows(
+    snapshot: SourceSnapshot, runs: list[list[int]], *,
+    cancelled: Callable[[], bool] = lambda: False,
+) -> dict[str, dict[str, Any]]:
     """Keep whole utterances, with nearest neighbours first when applying the byte cap."""
     records = snapshot.metadata["records"]
     result: dict[str, dict[str, Any]] = {}
     for run_number, run in enumerate(runs):
+        _check(cancelled)
         for position, index in enumerate(run):
+            if position % 256 == 0:
+                _check(cancelled)
             target = records[index]
             references = []
             size = 0
@@ -127,8 +145,10 @@ def evidence_digest(metadata: dict[str, Any]) -> str:
 
 def snapshot_windows(
     source: SourceDescriptor, metadata: dict[str, Any],
+    *, cancelled: Callable[[], bool] = lambda: False,
 ) -> dict[str, dict[str, Any]]:
     """Rebuild accepted records from inert local bytes before trusting any adjacency."""
+    _check(cancelled)
     if metadata.get("complete_source_set") is not True or metadata.get("adapter_id") != (
         source.adapter_id
     ):
@@ -145,9 +165,10 @@ def snapshot_windows(
             source.fingerprint,
             python_dialect=dialect.get("python_source"),
             reserved_attributes=frozenset(dialect.get("reserved_attributes", ())),
+            cancelled=cancelled,
         )
         rebuilt = document.snapshot(source.source_file, source.source_language)
-        runs = script_runs(document)
+        runs = script_runs(document, cancelled=cancelled)
     elif source.adapter_id == "renpy-templates":
         raw = base64.b64decode(metadata["raw_base64"], validate=True)
         if sha256(raw).hexdigest() != source.fingerprint:
@@ -168,7 +189,7 @@ def snapshot_windows(
     actual = mapping(rebuilt.metadata["records"])
     if actual != expected:
         return {}  # A historical parser mapping must not silently gain guessed neighbours.
-    return windows(rebuilt, runs)
+    return windows(rebuilt, runs, cancelled=cancelled)
 
 
 class DialogueContextStore:
@@ -196,12 +217,14 @@ class DialogueContextStore:
         ]).encode()).hexdigest()
 
     def _digest(self, snapshot_id: str) -> str:
+        self.repo.check_cancelled()
         cache = _PROOFS.setdefault(self.repo, {})
         if snapshot_id not in cache:
             raw = self.repo.db.execute(
                 "SELECT metadata_json FROM source_snapshots WHERE id=?", (snapshot_id,),
             ).fetchone()[0]
             cache[snapshot_id] = evidence_digest(json.loads(raw))
+        self.repo.check_cancelled()
         return cache[snapshot_id]
 
     def bind(self, job_id: str) -> None:
@@ -226,9 +249,15 @@ class DialogueContextStore:
             ).fetchone()[0]
             metadata = json.loads(raw)
             try:
-                index = snapshot_windows(source, metadata)
+                index = snapshot_windows(
+                    source, metadata, cancelled=self.repo.operation_cancelled,
+                )
+            except OperationCancelled:
+                raise
             except (ValueError, KeyError, TypeError, IndexError):
+                self.repo.check_cancelled()
                 index = {}  # Missing or incompatible evidence means isolated translation.
+            self.repo.check_cancelled()
             cache[source.logical_id] = (proof, binding["descriptor_json"], index)
         return cache[source.logical_id][2]
 
@@ -254,11 +283,16 @@ class DialogueContextStore:
         }
 
     def order(self, units: list[str]) -> list[str]:
+        self.repo.check_cancelled()
         positions = {}
         for source_number, row in enumerate(self.bindings()):
             for unit_id, value in self._index(row).items():
                 positions[unit_id] = (source_number, *value["order"])
-        return sorted(units, key=lambda unit: (*positions.get(unit, (len(positions), 0, 0)), unit))
+        ordered = sorted(
+            units, key=lambda unit: (*positions.get(unit, (len(positions), 0, 0)), unit),
+        )
+        self.repo.check_cancelled()
+        return ordered
 
     def prepare_review_order(self) -> None:
         bindings = self.bindings()

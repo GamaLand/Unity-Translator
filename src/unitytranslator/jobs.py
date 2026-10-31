@@ -10,7 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.dialogue_context import DialogueContextStore
-from unitytranslator.domain import GenerationProfile
+from unitytranslator.domain import GenerationProfile, OperationCancelled
 from unitytranslator.policy import GlossaryRule, PolicyStore
 from unitytranslator.providers import LocalProvider, ProviderError, local_endpoint
 from unitytranslator.repository import ProjectRepository, canonical, now
@@ -24,9 +24,11 @@ class JobStore:
 
     def fingerprint(self, profile: GenerationProfile | None = None) -> str:
         digest = sha256()
-        for row in self.repository.db.execute(
+        for index, row in enumerate(self.repository.db.execute(
             "SELECT unit_id,source_revision FROM text_units WHERE active=1 ORDER BY unit_id"
-        ):
+        )):
+            if index % 1024 == 0:
+                self.repository.check_cancelled()
             digest.update(canonical(list(row)).encode("utf-8"))
         if profile is not None and profile.dialogue_context != "none":
             digest.update(profile.dialogue_context.encode())
@@ -71,9 +73,15 @@ class JobStore:
                 "Bu profil/kaynak için pilot raporu kullanıcıya gösterilmeden toplu iş açılamaz."
             )
         identifier = uuid4().hex
+        # Context reconstruction is read-only and may be expensive on a cold large
+        # snapshot. Finish it before opening the short atomic queue transaction.
+        if profile.dialogue_context != "none":
+            units = DialogueContextStore(self.repository).order(list(units))
+        self.repository.check_cancelled()
         with self.repository.transaction() as db:
             selected = []
             for unit in units:
+                self.repository.check_cancelled()
                 row = db.execute(
                     "SELECT u.source_revision,u.active,w.status,w.version,"
                     "w.translation_revision FROM text_units u JOIN work_items w USING(unit_id) "
@@ -102,16 +110,13 @@ class JobStore:
             if profile.dialogue_context != "none":
                 contexts = DialogueContextStore(self.repository)
                 contexts.bind(identifier)
-                order = {unit: index for index, unit in enumerate(contexts.order(
-                    [row[0] for row in selected],
-                ))}
-                selected.sort(key=lambda row: order[row[0]])
             db.executemany(
                 "INSERT INTO job_items(job_id,unit_id,source_revision,work_version,"
                 "candidate_only,status) "
                 "VALUES(?,?,?,?,?,'queued')",
                 [(identifier, *row) for row in selected],
             )
+            self.repository.check_cancelled()
         return identifier
 
     def pilot_reviewed(self, profile: GenerationProfile, fingerprint: str | None = None) -> bool:
@@ -719,6 +724,11 @@ class TranslationJobService:
                             },
                         },
                     )
+                except OperationCancelled:
+                    self.store.record_attempt(
+                        run_id, "cancelled", perf_counter() - started, metadata,
+                    )
+                    raise asyncio.CancelledError() from None
                 except (ProviderError, ValueError) as exc:
                     code = exc.code if isinstance(exc, ProviderError) else "unsupported_format"
                     failure_metadata = dict(metadata)
@@ -772,7 +782,7 @@ class TranslationJobService:
                 await asyncio.gather(*workers, return_exceptions=True)
                 raise
             return self.store.settle(job_id)
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, OperationCancelled):
             self.store.cancel(job_id)
             return self.store.settle(job_id)
         finally:

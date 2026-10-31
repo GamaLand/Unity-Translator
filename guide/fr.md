@@ -2,6 +2,8 @@
 
 ## Contexte de dialogue vérifié
 
+La préparation du pilote affiche la phase des entrées ou du contexte avant toute requête au modèle. Un grand projet peut nécessiter une première vérification du contexte. Annuler arrête la préparation en sécurité ; la fermeture attend le nettoyage. Reprenez le pilote enregistré avec Continuer sans recréer le projet.
+
 Dans les réglages avancés du modèle, **Utiliser les répliques voisines vérifiées** est facultatif et désactivé par défaut. Les segments Ren’Py pris en charge affichent l’ordre source et fournissent jusqu’à deux répliques sources avant et après la cible. Choix, conditions, sauts, appels, syntaxe inconnue et limites de fichiers coupent la fenêtre ; les modèles ne relient que les répliques d’un même bloc. Les tables de termes Unity et les sources sans ordre prouvé restent isolées. La révision montre les références, parfois réduites selon le budget. Changer de mode exige un pilote correspondant examiné. Tâches, traductions, brouillons et approbations existants sont conservés ; un style plus naturel n’est pas garanti.
 
 ## Installation et langue

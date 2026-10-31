@@ -1,4 +1,7 @@
 {
+  "Preparing representative records; no model request yet.": "Подготовка репрезентативных записей; запрос к модели ещё не отправлен.",
+  "Preparing source context and queue; no model request yet.": "Подготовка исходного контекста и очереди; запрос к модели ещё не отправлен.",
+  "Preparation cancelled. Existing translations are kept.": "Подготовка отменена. Существующие переводы сохранены.",
   "Use verified neighbouring dialogue": "Использовать проверенные соседние реплики",
   "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Использует до двух исходных реплик до и после текущей в проверенном фрагменте Ren'Py. Тексты с неопределённым порядком и таблицы терминов Unity переводятся отдельно. Изменение настройки требует соответствующего проверенного пилота.",
   "Source references only; the request budget may reduce this window.": "Только исходные реплики для справки; лимит запроса может уменьшить это окно.",

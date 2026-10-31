@@ -2,6 +2,8 @@
 
 ## Verified dialogue context
 
+Pilot preparation now shows its record/context stage before sending model requests. Large projects may need an initial context pass. Cancel stops preparation safely; closing waits for safe cleanup. Reopen an existing queued pilot with Continue rather than recreating the project.
+
 In advanced model settings, **Use verified neighbouring dialogue** is optional and off by default. In supported Ren’Py segments it shows source order and supplies up to two source utterances before and after the target. Choices, conditions, jumps, calls, unknown syntax and file boundaries cut the window; templates link only slots in one block. Unity term tables and sources without proven order stay isolated. Review shows references, which may shrink to fit the request budget. Changing the mode requires a matching reviewed pilot. Existing jobs, translations, drafts and approvals are kept; better naturalness is not guaranteed.
 
 ## Install and choose a language

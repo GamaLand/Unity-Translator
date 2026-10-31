@@ -1,6 +1,6 @@
 # Compatibility
 
-Current version: UnityTranslator 0.6.0. The previous published validation baseline
+Current version: UnityTranslator 0.6.1. The previous published validation baseline
 is 0.1.0 RC7, validated on 16 October 2026. Current Krypta evidence is scoped below.
 Source additions described below were validated locally on 23 October 2026; they do
 not replace published RC7 artifacts. Krypta installation evidence is scoped below.
@@ -51,6 +51,20 @@ do not establish in-game validation of this portable combination. The observed
 Krypta trial used the external project runtime.
 
 ## Language limits
+
+Version 0.6.1 fixes repeated full-inventory pilot sorts and preparation shutdown.
+Read-only inspection of the user-selected large Ren'Py project found 93,937 pending
+units, a queued 200-record pilot and no model attempts, translations or drafts. On
+a private consistent diagnostic copy, the old selector reached only 37 queries in
+30 seconds before the diagnostic stopped it; the single-pass selector prepared
+the same-size sample in 0.73 seconds. Full cold source-context/queue preparation
+completed in 17.7 seconds with zero model attempts. These are local preparation
+measurements; all 200 selected identities and their queue order matched the original
+saved pilot. They are not model throughput or a universal latency bound. The original
+project and game were not opened for writing or translated during diagnosis.
+Synthetic checks cover busy Python/SQL preparation, immediate cancellation before
+backend dispatch, safe shutdown, rollback, retained old jobs and resumed cold-context
+cancellation. Existing identities, approvals, drafts and schema 6 stay unchanged.
 
 Version 0.6.0 offers optional, source-only neighbouring dialogue context. Synthetic
 checks establish consecutive Ren'Py source-segment and within-template-block
@@ -136,6 +150,7 @@ code. Published artifacts and matching source/license archives remain immutable.
 
 | Version / event | Recorded evidence and limits |
 | --- | --- |
+| 0.6.1 local candidate | Single-pass representative pilot selection, visible preparation stages and cooperative cancel/close without starting a late model request. All 200 identities/order matched the original pilot in a private diagnostic copy. Ruff/mypy, 1,020 Python tests (one skipped), relevant synthetic C# checks, eight catalogs/guides and the new standalone isolated-PATH smoke check passed. The original 93,937-record project remained pending with its one queued pilot and zero model attempts, translations or drafts. No game launch/install or real-game translation ran. |
 | 0.6.0 local candidate | Optional Ren'Py source windows, safe source ordering and backed-up schema-6 job evidence. Ruff/mypy passed; the full Python run passed 1,010 tests with one skipped, and the final context/cache suite passed 38 targeted checks. Relevant synthetic C# suites passed. The new Windows package passed the isolated-PATH Qt/edit/draft/approval/export/worker smoke check on the development machine. Source/wheel privacy and guide audits passed. The small llama.cpp comparison above is not universal quality, performance, gameplay or clean-Windows evidence. No release publication is implied. |
 | 0.5.0 | Shareable I2 and pinned Krypta en-to-tr packages. Synthetic recipient install/remove, relocation, links, changed files, wrong builds, tampering, plan approval and Qt export checks. Both kits' sources/licenses and shared core hash agreement are required. Portable Krypta gameplay and clean Windows remain deferred. |
 | 0.4.2 | Reviewed experimental Krypta UI install/remove, readiness bound to the observed plugin hash. A user-approved 449-translation trial showed startup/menu, options, transition into gameplay, pause and subtitles; original hashes matched after exit. Remaining consumers/quality/lifecycle checks were retained by the user. Its then-I2-only ZIP limitation was superseded by 0.5.0. |

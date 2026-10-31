@@ -11,7 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.discovery import probe_source, save_report, scan, validate_source_selection
-from unitytranslator.domain import GenerationProfile
+from unitytranslator.domain import GenerationProfile, OperationCancelled
 from unitytranslator.editor_drafts import EditorDraftStore
 from unitytranslator.filesystem import ProjectPaths
 from unitytranslator.game_process import inspect_game_processes
@@ -43,6 +43,9 @@ class ApplicationSession:
         self.extracting = False
         self.extraction_cancelled = threading.Event()
         self.extraction_task: asyncio.Task[Any] | None = None
+        self.preparing = threading.Event()
+        self.preparation_cancelled = threading.Event()
+        self.shutdown_requested = threading.Event()
         self.installation: InstallationSession | None = None
         self.all_approval: dict[str, Any] | None = None
         self.matching_review: dict[str, Any] | None = None
@@ -61,7 +64,7 @@ class ApplicationSession:
             task = self.jobs.task
             self.jobs.cancel()
             if task is not None and task != asyncio.current_task():
-                await task
+                await asyncio.gather(task, return_exceptions=True)
         if self.repository is not None:
             self.repository.close()
             self.repository = None
@@ -70,7 +73,84 @@ class ApplicationSession:
         self.all_approval = None
         self.matching_review = None
 
+    def operation_cancelled(self) -> bool:
+        return self.shutdown_requested.is_set() or self.preparation_cancelled.is_set()
+
+    def request_preparation_cancel(self) -> bool:
+        """Called by the UI thread without waiting behind synchronous preparation."""
+        if not self.preparing.is_set():
+            return False
+        self.preparation_cancelled.set()
+        return True
+
+    def reserve_preparation(self) -> None:
+        """Reserve before queuing so an immediate UI cancellation cannot hit an old job."""
+        self.preparation_cancelled.clear()
+        self.preparing.set()
+
+    def request_shutdown(self) -> None:
+        """Only thread-safe events here; SQLite remains on the backend thread."""
+        self.shutdown_requested.set()
+        self.preparation_cancelled.set()
+        self.extraction_cancelled.set()
+
+    def prepare_job(self, command: str, data: dict[str, Any]) -> dict[str, Any]:
+        repo = self.repo
+        if not self.preparing.is_set():
+            self.reserve_preparation()
+        repo.db.set_progress_handler(lambda: int(self.operation_cancelled()), 10000)
+        try:
+            if self.extracting or self.jobs is None or self.jobs.active_job is not None:
+                raise ValueError("Çıkarma bitmeden çeviri başlatılamaz.")
+            repo.check_cancelled()
+            policy = PolicyStore(repo)
+            profile = GenerationProfile(
+                **data["profile"],
+                glossary_version=policy.active_version("glossary"),
+                style_version=policy.active_version("style"),
+            )
+            if self.progress:
+                self.progress({"kind": "preparation", "stage": "sample"})
+            if command == "create_page_job":
+                if data.get("project_id") != repo.project_id:
+                    raise ValueError("The page selection belongs to a different project.")
+                identifier = JobStore(repo).create_review_job(data["records"], profile)
+                return {"job_id": identifier, "count": len(data["records"]),
+                        "profile": profile.to_dict()}
+            if command == "create_affected_job":
+                data = {
+                    **data, "kind": "prototype", "retranslate": True,
+                    "approved_candidates": True,
+                    "units": [row["unit_id"] for row in policy.impacted()][:10],
+                }
+            units = (
+                select_pilot(repo) if data["kind"] == "pilot"
+                else JobStore(repo).bulk_units() if data["kind"] == "bulk"
+                else data["units"]
+            )
+            if not units and data["kind"] in ("prototype", "pilot", "bulk"):
+                return {"job_id": None, "count": 0, "reason": "no_eligible_records"}
+            if self.progress:
+                self.progress({"kind": "preparation", "stage": "context"})
+            identifier = JobStore(repo).create(
+                units, profile, data["kind"], retranslate=data.get("retranslate", False),
+                approved_candidates=data.get("approved_candidates", False),
+            )
+            return {"job_id": identifier, "count": len(units), "profile": profile.to_dict()}
+        except (OperationCancelled, sqlite3.OperationalError):
+            if not self.operation_cancelled():
+                raise
+            return {"job_id": None, "count": 0, "reason": "preparation_cancelled"}
+        finally:
+            repo.db.set_progress_handler(None, 0)
+            self.preparing.clear()
+            self.preparation_cancelled.clear()
+
     async def dispatch(self, command: str, data: dict[str, Any]) -> Any:
+        if self.shutdown_requested.is_set():
+            raise OperationCancelled("The application is closing.")
+        if command == "cancel_preparation":
+            return True
         if command == "cancel_extract":
             self.extraction_cancelled.set()
             return {"cancel_requested": True}
@@ -93,6 +173,8 @@ class ApplicationSession:
                     replacement.close()
                     raise
                 self.repository = replacement
+                self.preparation_cancelled.clear()
+                self.repository.operation_cancelled = self.operation_cancelled
                 self.jobs = TranslationJobService(self.repository)
             elif self.repository.paths.game != paths.game:
                 raise ValueError("Projenin bağlı olduğu oyun klasörü eşleşmiyor.")
@@ -516,45 +598,7 @@ class ApplicationSession:
                 return service.restore(value)
             return service.preview(value) if command == "import_preview" else service.apply(value)
         if command in ("create_job", "create_affected_job", "create_page_job"):
-            if self.extracting or self.jobs is None or self.jobs.active_job is not None:
-                raise ValueError("Çıkarma bitmeden çeviri başlatılamaz.")
-            policy = PolicyStore(self.repo)
-            profile = GenerationProfile(
-                **data["profile"],
-                glossary_version=policy.active_version("glossary"),
-                style_version=policy.active_version("style"),
-            )
-            if command == "create_page_job":
-                if data.get("project_id") != self.repo.project_id:
-                    raise ValueError("The page selection belongs to a different project.")
-                identifier = JobStore(self.repo).create_review_job(data["records"], profile)
-                return {"job_id": identifier, "count": len(data["records"]),
-                        "profile": profile.to_dict()}
-            if command == "create_affected_job":
-                data = {
-                    **data,
-                    "kind": "prototype",
-                    "retranslate": True,
-                    "approved_candidates": True,
-                    "units": [row["unit_id"] for row in policy.impacted()][:10],
-                }
-            units = (
-                select_pilot(self.repo)
-                if data["kind"] == "pilot"
-                else JobStore(self.repo).bulk_units()
-                if data["kind"] == "bulk"
-                else data["units"]
-            )
-            if not units and data["kind"] in ("prototype", "pilot", "bulk"):
-                return {"job_id": None, "count": 0, "reason": "no_eligible_records"}
-            identifier = JobStore(self.repo).create(
-                units,
-                profile,
-                data["kind"],
-                retranslate=data.get("retranslate", False),
-                approved_candidates=data.get("approved_candidates", False),
-            )
-            return {"job_id": identifier, "count": len(units), "profile": profile.to_dict()}
+            return self.prepare_job(command, data)
         if command == "run_job":
             if self.jobs is None or self.extracting:
                 raise ValueError("Proje/çıkarma durumu çeviriye uygun değil.")

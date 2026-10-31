@@ -42,11 +42,18 @@ class BackendBridge(QObject):
             self.failed.emit(command, str(exc))
 
     def submit(self, command: str, data: dict[str, Any] | None = None):
+        if command in ("create_job", "create_affected_job", "create_page_job"):
+            self.session.reserve_preparation()
+        if command == "cancel" and self.session.request_preparation_cancel():
+            command = "cancel_preparation"
         return asyncio.run_coroutine_threadsafe(self._perform(command, data or {}), self.loop)
 
     def shutdown(self):
+        self.session.request_shutdown()
         async def finish():
-            await self.session.close()
-            self.loop.stop()
+            try:
+                await self.session.close()
+            finally:
+                self.loop.stop()
 
         asyncio.run_coroutine_threadsafe(finish(), self.loop)

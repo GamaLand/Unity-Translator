@@ -4,6 +4,10 @@ from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
 
+class OperationCancelled(ValueError):
+    """A cooperative local operation stopped before publishing its result."""
+
+
 @dataclass(frozen=True)
 class TextUnitDraft:
     unit_id: str

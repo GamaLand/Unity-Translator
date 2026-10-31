@@ -6,7 +6,7 @@ requirements marked **planned** do not enable a capability.
 
 ## Current architecture
 
-The checkout is UnityTranslator 0.6.0. Python 3.12 owns project state, translation,
+The checkout is UnityTranslator 0.6.1. Python 3.12 owns project state, translation,
 validation and deployment. PySide6 Widgets calls `ApplicationSession` through the
 Qt bridge. An independent asyncio thread owns SQLite and job state; model HTTP
 requests do not hold transactions open. Minimizing the window does not pause work.
@@ -194,6 +194,19 @@ dialogue** in advanced model settings to order review pages/new jobs by evidence
 source segments and provide at most two preceding/two following source utterances.
 Pilots remain representative category/length samples; only their execution order
 changes. Independent requests may finish out of order.
+
+Pilot selection reads the eligible category/length-ordered inventory once, retaining
+the earlier deterministic sampling and exclusions. It does not repeat the full sort
+for every sampled offset. Cold context reconstruction finishes before the short
+atomic queue transaction. Preparation reports its sample/context stages before any
+HTTP request, prevents duplicate starts and supports immediate UI cancellation.
+The Qt bridge sets thread-safe cancellation/shutdown events before queuing backend
+commands; bounded Python checks and a preparation-only SQLite progress handler let
+the busy backend stop, roll back an unfinished queue and close safely. SQLite stays
+on its owning thread. A cancelled reconstruction cannot become a cached unknown-order
+fallback. Closing never starts a late prepared job, and cancellation of a new
+preparation cannot cancel the previously selected job. Resumed cold-context jobs
+settle cancellation through the existing queue; source/review history is preserved.
 
 **Evidence boundary.** `dialogue_context.py` reconstructs accepted Ren'Py records
 from complete local snapshot bytes and compares their identities/text/block/slots.

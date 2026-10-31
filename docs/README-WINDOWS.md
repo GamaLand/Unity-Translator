@@ -25,6 +25,10 @@ Ctrl+S saves the current edit. Minimized translation continues. Select 1–36 pa
 requests according to your server's capacity. Pause waits for active requests; cancellation
 stops client tasks. A generation request may wait up to 30 minutes including the server queue.
 
+Pilot preparation shows its record/context stage before model requests begin.
+Cancel also stops preparation; closing waits for safe cleanup. Resume a saved
+queued pilot with Continue rather than recreating the project or extracting again.
+
 Advanced model settings offer **Use verified neighbouring dialogue**, off by default.
 It orders supported Ren'Py segments and provides up to two source utterances on each
 side. Flow/unknown-syntax boundaries stop the window. Unity term tables and unproven

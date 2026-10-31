@@ -3,7 +3,7 @@
 import json
 import sqlite3
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from unitytranslator.domain import TextUnitDraft
+from unitytranslator.domain import OperationCancelled, TextUnitDraft
 from unitytranslator.filesystem import ProjectPaths, checked_path
 from unitytranslator.language import normalize_language, turkish_lower
 from unitytranslator.source_contracts import ReaderResult, SourceDescriptor
@@ -90,6 +90,7 @@ class ProjectRepository:
         self, paths: ProjectPaths, source_language: str = "en", target_language: str = "tr"
     ):
         self.paths = paths
+        self.operation_cancelled: Callable[[], bool] = lambda: False
         self.lock = ProjectLock(paths)
         self.connection: sqlite3.Connection | None = None
         try:
@@ -158,6 +159,10 @@ class ProjectRepository:
         if self.connection is None:
             raise ValueError("Proje deposu kapalı.")
         return self.connection
+
+    def check_cancelled(self) -> None:
+        if self.operation_cancelled():
+            raise OperationCancelled("Local preparation was cancelled.")
 
     def manifest(self) -> dict[str, Any]:
         return {

@@ -1,4 +1,7 @@
 {
+  "Preparing representative records; no model request yet.": "Preparing representative records; no model request yet.",
+  "Preparing source context and queue; no model request yet.": "Preparing source context and queue; no model request yet.",
+  "Preparation cancelled. Existing translations are kept.": "Preparation cancelled. Existing translations are kept.",
   "Use verified neighbouring dialogue": "Use verified neighbouring dialogue",
   "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.",
   "Source references only; the request budget may reduce this window.": "Source references only; the request budget may reduce this window.",

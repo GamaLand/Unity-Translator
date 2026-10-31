@@ -1,8 +1,8 @@
 # Windows packaging
 
-Current application version: 0.6.0. The previous published baseline is 0.1.0 RC7;
+Current application version: 0.6.1. The previous published baseline is 0.1.0 RC7;
 historical release archives retain their original version and validation evidence.
-Build new 0.6.0 candidates from this checkout; runtime compatibility gates remain separate.
+Build new 0.6.1 candidates from this checkout; runtime compatibility gates remain separate.
 
 ## Prerequisites
 

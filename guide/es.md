@@ -2,6 +2,8 @@
 
 ## Contexto de diálogo verificado
 
+La preparación del piloto muestra la fase de registros o contexto antes de enviar solicitudes al modelo. Un proyecto grande puede necesitar una primera revisión del contexto. Cancelar detiene la preparación de forma segura; el cierre espera la limpieza. Reanuda el piloto guardado con Continuar sin recrear el proyecto.
+
 En los ajustes avanzados del modelo, **Usar diálogos vecinos verificados** es opcional y está desactivado de forma predeterminada. Los segmentos Ren’Py compatibles muestran el orden de origen y aportan hasta dos réplicas anteriores y posteriores. Opciones, condiciones, saltos, llamadas, sintaxis desconocida y límites de archivos cortan la ventana; las plantillas solo enlazan réplicas de un mismo bloque. Las tablas de términos Unity y las fuentes sin orden demostrado siguen aisladas. La revisión muestra referencias que pueden reducirse según el presupuesto. Cambiar de modo exige un piloto revisado coincidente. Se conservan tareas, traducciones, borradores y aprobaciones existentes; no se garantiza mayor naturalidad.
 
 ## Instalación e idioma

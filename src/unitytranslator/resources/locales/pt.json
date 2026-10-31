@@ -1,4 +1,7 @@
 {
+  "Preparing representative records; no model request yet.": "Preparando registros representativos; nenhuma solicitação ao modelo foi enviada ainda.",
+  "Preparing source context and queue; no model request yet.": "Preparando contexto de origem e fila; nenhuma solicitação ao modelo foi enviada ainda.",
+  "Preparation cancelled. Existing translations are kept.": "Preparação cancelada. As traduções existentes foram preservadas.",
   "Use verified neighbouring dialogue": "Usar falas vizinhas verificadas",
   "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Usa até duas falas de origem anteriores e posteriores dentro de um segmento Ren'Py verificado. Textos com ordem incerta e tabelas de termos Unity são traduzidos isoladamente. Alterar esta opção exige um piloto revisado correspondente.",
   "Source references only; the request budget may reduce this window.": "Apenas referências de origem; o limite da solicitação pode reduzir esta janela.",

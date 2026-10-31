@@ -1,4 +1,7 @@
 {
+  "Preparing representative records; no model request yet.": "Temsili kayıtlar hazırlanıyor; henüz model isteği yok.",
+  "Preparing source context and queue; no model request yet.": "Kaynak bağlamı ve kuyruk hazırlanıyor; henüz model isteği yok.",
+  "Preparation cancelled. Existing translations are kept.": "Hazırlık iptal edildi. Mevcut çeviriler korundu.",
   "Use verified neighbouring dialogue": "Doğrulanmış komşu replikleri kullan",
   "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "Doğrulanmış bir Ren'Py bölümünde önceki ve sonraki en fazla ikişer kaynak repliği kullanır. Sırası belirsiz metinler ve Unity terim tabloları ayrı çevrilir. Bu ayarın değiştirilmesi, ayarla eşleşen incelenmiş bir pilot gerektirir.",
   "Source references only; the request budget may reduce this window.": "Yalnızca kaynak referanslarıdır; istek bütçesi bu pencereyi daraltabilir.",

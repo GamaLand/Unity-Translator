@@ -1,4 +1,7 @@
 {
+  "Preparing representative records; no model request yet.": "正在准备代表性记录；尚未向模型发送请求。",
+  "Preparing source context and queue; no model request yet.": "正在准备原文上下文和队列；尚未向模型发送请求。",
+  "Preparation cancelled. Existing translations are kept.": "准备已取消。已有译文已保留。",
   "Use verified neighbouring dialogue": "使用已验证的相邻对白",
   "Use up to two source utterances on each side within a verified Ren'Py segment. Uncertain order and Unity term tables use isolated translation. Changing this setting requires a matching reviewed pilot.": "在已验证的 Ren'Py 片段内，使用前后各最多两句原文对白。顺序不确定的文本和 Unity 术语表仍单独翻译。更改此设置需要匹配且已审核的试译。",
   "Source references only; the request budget may reduce this window.": "仅供参考的原文；请求预算可能缩小此窗口。",

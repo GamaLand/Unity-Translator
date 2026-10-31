@@ -688,6 +688,7 @@ class MainWindow(QMainWindow):
         self.drafts.action_finished.connect(self.draft_action_finished)
         self.drafts.failure.connect(self.draft_failed)
         self.current_job = None
+        self.job_preparing = False
         self.job_summaries = {}
         self.project_open = False
         self.closing = False
@@ -1052,7 +1053,7 @@ class MainWindow(QMainWindow):
             )
         )
         self.affected_job_button.clicked.connect(
-            lambda: self.bridge.submit("create_affected_job", {"profile": self.profile()})
+            lambda: self.submit_translation("create_affected_job", {"profile": self.profile()})
         )
         layout.addWidget(self.affected_job_button)
 
@@ -1143,7 +1144,9 @@ class MainWindow(QMainWindow):
         self.bulk_button = QPushButton(tr("Start bulk translation of pending records"))
         self.bulk_button.setEnabled(False)
         self.bulk_button.clicked.connect(
-            lambda: self.bridge.submit("create_job", {"kind": "bulk", "profile": self.profile()})
+            lambda: self.submit_translation(
+                "create_job", {"kind": "bulk", "profile": self.profile()},
+            )
         )
         layout.addWidget(self.bulk_button)
         layout.addStretch()
@@ -1726,7 +1729,7 @@ class MainWindow(QMainWindow):
 
     def retranslate_selected(self):
         if self.current_item:
-            self.bridge.submit(
+            self.submit_translation(
                 "create_job",
                 {
                     "kind": "prototype",
@@ -1738,7 +1741,32 @@ class MainWindow(QMainWindow):
             )
 
     def start_pilot(self):
-        self.bridge.submit("create_job", {"kind": "pilot", "profile": self.profile()})
+        self.submit_translation("create_job", {"kind": "pilot", "profile": self.profile()})
+
+    def set_job_preparing(self, active):
+        self.job_preparing = active
+        self.pilot_button.setEnabled(
+            not active and (self.project_totals or {}).get("pilot_eligible", 0) > 0
+        )
+        self.job_combo.setEnabled(not active)
+        self.parallel_requests.setEnabled(not active)
+        self.pause_button.setEnabled(False)
+        self.resume_button.setEnabled(False)
+        self.cancel_button.setEnabled(active)
+        self.retranslate_page_button.setEnabled(not active and bool(self.review_model.rows))
+        if active:
+            self.bulk_button.setEnabled(False)
+            self.job_progress.setRange(0, 0)
+            self.job_progress.setFormat(tr(
+                "Preparing representative records; no model request yet."
+            ))
+            self.job_status.setText(tr("Preparing representative records; no model request yet."))
+
+    def submit_translation(self, command, data):
+        if self.job_preparing or self.closing:
+            return
+        self.set_job_preparing(True)
+        self.bridge.submit(command, data)
 
     def retranslate_page(self):
         if not self.project_open or self.drafts.action or self.draft_refresh_pending:
@@ -1760,7 +1788,7 @@ class MainWindow(QMainWindow):
             ))
             return
         self.retranslate_page_button.setEnabled(False)
-        self.bridge.submit("create_page_job", {
+        self.submit_translation("create_page_job", {
             "project_id": self.current_project_id, "records": records, "profile": self.profile(),
         })
 
@@ -2371,7 +2399,7 @@ class MainWindow(QMainWindow):
                 or result["request_token"] != self.bulk_readiness_token
             ):
                 return
-            self.bulk_button.setEnabled(result["allowed"])
+            self.bulk_button.setEnabled(result["allowed"] and not self.job_preparing)
             self.reviewed_pilot_id = result.get("pilot_job_id")
             self.pilot_profile_button.setVisible(bool(self.reviewed_pilot_id))
             self.pilot_profile_button.setEnabled(bool(self.reviewed_pilot_id))
@@ -2547,7 +2575,7 @@ class MainWindow(QMainWindow):
                 adapters in ({"i2"}, {"krypta-textassets"})
             )
             eligible = (self.project_totals or {}).get("pilot_eligible", 0)
-            self.pilot_button.setEnabled(eligible > 0)
+            self.pilot_button.setEnabled(eligible > 0 and not self.job_preparing)
             self.pilot_button.setToolTip(
                 "" if eligible else tr(
                     "No untranslated records remain. Review or export existing translations."
@@ -2564,7 +2592,7 @@ class MainWindow(QMainWindow):
                     "Use approved game-text export; it is not an installation package."
                 )
             )
-            if not eligible and not self.current_job:
+            if not eligible and not self.current_job and not self.job_preparing:
                 self.job_status.setText(tr(
                     "No untranslated records remain. Review or export existing translations."
                 ))
@@ -2721,6 +2749,18 @@ class MainWindow(QMainWindow):
             self.bridge.submit("policies")
             self.schedule_bulk_readiness()
         elif command in ("create_job", "create_affected_job", "create_page_job"):
+            self.set_job_preparing(False)
+            if self.closing:
+                return
+            if result.get("reason") == "preparation_cancelled":
+                self.job_status.setText(tr(
+                    "Preparation cancelled. Existing translations are kept."
+                ))
+                self.job_progress.setRange(0, 1)
+                self.job_progress.setValue(0)
+                self.bridge.submit("jobs")
+                self.schedule_bulk_readiness()
+                return
             if result.get("reason") == "no_eligible_records":
                 self.job_status.setText(tr(
                     "No untranslated records remain. Review or export existing translations."
@@ -2951,6 +2991,16 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(actions.get(command, tr("Operation completed.")), 8000)
 
     def on_progress(self, result):
+        if result.get("kind") == "preparation":
+            if not self.closing:
+                self.set_job_preparing(True)
+                if result["stage"] == "context":
+                    note = tr("Preparing source context and queue; no model request yet.")
+                    self.job_status.setText(note)
+                    self.job_progress.setFormat(note)
+            return
+        if self.job_preparing:
+            return
         if result.get("kind") == "deployment":
             if result["project_id"] == self.current_project_id:
                 self.installation_state.setText(diagnostic(result["message"]))
@@ -3034,6 +3084,10 @@ class MainWindow(QMainWindow):
             )
 
     def failed(self, command, message):
+        if command in ("create_job", "create_affected_job", "create_page_job"):
+            self.set_job_preparing(False)
+            self.job_progress.setRange(0, 1)
+            self.schedule_bulk_readiness()
         if command in ("matching_review_preview", "matching_review_apply"):
             self.bulk_review_button.setEnabled(True)
             self.matching_review_token = None
@@ -3083,6 +3137,8 @@ class MainWindow(QMainWindow):
         else:
             event.ignore()
             if not self.closing and not self.draft_deferred:
+                if self.job_preparing:
+                    self.bridge.submit("cancel", {"job_id": None})
                 self.setEnabled(False)
                 self.draft_deferred = ("close", None)
                 self.drafts.flush()

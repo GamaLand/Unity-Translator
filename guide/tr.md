@@ -2,6 +2,8 @@
 
 ## Doğrulanmış diyalog bağlamı
 
+Pilot hazırlanırken model isteğinden önce kayıt/bağlam hazırlığı gösterilir. Büyük projelerde ilk bağlam doğrulaması biraz sürebilir. İptal hazırlığı güvenle durdurur; kapatma güvenli temizliği bekler. Projeyi yeniden oluşturmak yerine kayıtlı pilotu Devam et ile sürdürün.
+
 Gelişmiş model ayarlarındaki **Doğrulanmış komşu replikleri kullan** seçeneği varsayılan olarak kapalıdır. Desteklenen Ren’Py bölümlerinde kaynak sırasını gösterir; hedefin önceki ve sonraki en fazla ikişer kaynak repliğini modele referans verir. Seçimler, koşullar, atlamalar, çağrılar, bilinmeyen sözdizimi ve dosya sınırları pencereyi keser; şablonlarda yalnızca aynı bloktaki replikler bağlanır. Unity terim tabloları ve sırası kanıtlanmayan kaynaklar ayrı çevrilir. İncelemede gösterilen referanslar istek bütçesine göre azalabilir. Mod değişikliği eşleşen incelenmiş bir pilot gerektirir. Mevcut işler, çeviriler, taslaklar ve onaylar korunur; doğallık artışı garanti edilmez.
 
 ## Krypta FM metinleri
