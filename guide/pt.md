@@ -1,5 +1,9 @@
 # Guia de uso do UnityTranslator
 
+## Área de trabalho
+
+A barra lateral agrupa preparação, tradução/revisão e entrega. Arraste os divisores para ajustar a lista e os editores identificados de origem/tradução. Embaixo, alterne entre **Comparação de textos** e **Referências e verificações**; os avisos continuam visíveis. **Ferramentas do registro** contém histórico, novos candidatos, plurais e remoção do rascunho. **Ações em lote** contém operações de página/filtro/projeto com suas prévias e confirmações. Salvar e aprovar continuam sendo etapas separadas. Os formulários rolam em janelas menores (mínimo 900 × 740).
+
 ## Contexto de diálogo verificado
 
 A preparação do piloto mostra a etapa de registros ou contexto antes das solicitações ao modelo. Projetos grandes podem precisar de uma verificação inicial do contexto. Cancelar interrompe a preparação com segurança; o fechamento aguarda a limpeza. Retome o piloto salvo com Continuar, sem recriar o projeto.

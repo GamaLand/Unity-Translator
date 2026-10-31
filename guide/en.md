@@ -1,5 +1,9 @@
 # UnityTranslator user guide
 
+## Workbench layout
+
+The sidebar groups preparation, translation/review and delivery. Drag the dividers to resize the record list and labelled source/translation editors. Switch between **Text comparison** and **Reference and checks** in the lower workspace; check notices remain visible. **Record tools** contains history, new candidates, plural editing and draft removal. **Bulk actions** contains page/filter/project operations with their existing previews and confirmations. Saving and human approval remain separate. Forms scroll in smaller windows (minimum 900 × 740).
+
 ## Verified dialogue context
 
 Pilot preparation now shows its record/context stage before sending model requests. Large projects may need an initial context pass. Cancel stops preparation safely; closing waits for safe cleanup. Reopen an existing queued pilot with Continue rather than recreating the project.

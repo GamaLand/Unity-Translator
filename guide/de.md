@@ -1,5 +1,9 @@
 # UnityTranslator – Benutzerhandbuch
 
+## Arbeitsbereich
+
+Die Seitenleiste gruppiert Vorbereitung, Übersetzung/Prüfung und Ausgabe. Ziehen Sie die Trennlinien, um Liste und beschriftete Quell-/Zieltexteditoren anzupassen. Unten wechseln Sie zwischen **Textvergleich** und **Referenzen und Prüfungen**; Prüfhinweise bleiben sichtbar. **Datensatzaktionen** enthält Verlauf, neue Kandidaten, Pluralbearbeitung und Entwurfsentfernung. **Massenaktionen** enthält Seiten-/Filter-/Projektaktionen mit den bisherigen Vorschauen und Bestätigungen. Speichern und menschliche Freigabe bleiben getrennt. Formulare sind in kleinen Fenstern scrollbar (mindestens 900 × 740).
+
 ## Verifizierter Dialogkontext
 
 Die Pilotvorbereitung zeigt die Eintrags-/Kontextphase vor Modellanfragen. Große Projekte benötigen anfangs einen Kontextdurchlauf. Abbrechen beendet die Vorbereitung sicher; Schließen wartet auf sichere Bereinigung. Setzen Sie einen gespeicherten Pilotauftrag mit Fortsetzen fort, statt das Projekt neu anzulegen.

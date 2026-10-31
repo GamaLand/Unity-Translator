@@ -22,16 +22,15 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QMainWindow,
-    QMenu,
     QMessageBox,
     QProgressBar,
-    QPushButton,
     QSpinBox,
     QSplitter,
     QStyle,
@@ -49,6 +48,23 @@ from unitytranslator.jobs import MAX_PARALLEL_REQUESTS
 from unitytranslator.language import DEFAULT_STYLE, LANGUAGE_NAMES
 from unitytranslator.review_selection import canonical_all_confirmation
 from unitytranslator.ui.bridge import BackendBridge
+from unitytranslator.ui.components import (
+    ActionMenu,
+    Disclosure,
+    ElidingButton,
+    ReviewNotice,
+    ReviewTable,
+    Section,
+    WorkflowTabs,
+    editor_panel,
+    scroll_page,
+)
+from unitytranslator.ui.components import (
+    WrappingButton as QPushButton,
+)
+from unitytranslator.ui.components import (
+    label as ui_label,
+)
 from unitytranslator.ui.drafts import DraftController
 from unitytranslator.ui.i18n import (
     LANGUAGES,
@@ -62,6 +78,7 @@ from unitytranslator.ui.i18n import (
     localized_issue_label as issue_label,
 )
 from unitytranslator.ui.text_editor import DataTextEdit
+from unitytranslator.ui.theme import apply_theme
 from unitytranslator.validation import (
     format_issues,
     join_plural_branches,
@@ -653,7 +670,9 @@ class MainWindow(QMainWindow):
                 if font.is_file():
                     QFontDatabase.addApplicationFont(str(font))
         QApplication.instance().setFont(QFont("Segoe UI", 10))
-        self.resize(1280, 850)
+        apply_theme(QApplication.instance())
+        self.resize(1360, 900)
+        self.setMinimumSize(900, 740)
         self.bridge = bridge or BackendBridge()
         self.bridge.completed.connect(self.completed)
         self.bridge.failed.connect(self.failed)
@@ -697,21 +716,40 @@ class MainWindow(QMainWindow):
         self.styles = {}
         self.style_key = "default"
         body = QWidget()
-        layout = QVBoxLayout(body)
-        title = QLabel("UnityTranslator")
-        title.setStyleSheet("font-size: 25px; font-weight: 600; padding: 8px;")
-        layout.addWidget(title)
-        self.summary = QLabel(
+        shell = QHBoxLayout(body)
+        shell.setContentsMargins(0, 0, 0, 0)
+        shell.setSpacing(0)
+        self.tabs = WorkflowTabs({
+            0: tr("Preparation"), 4: tr("Translation workspace"), 6: tr("Delivery"),
+        })
+        shell.addWidget(self.tabs.sidebar)
+        workspace = QWidget()
+        layout = QVBoxLayout(workspace)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        header = QFrame()
+        header.setObjectName("workspaceHeader")
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(24, 18, 24, 18)
+        header_layout.setSpacing(10)
+        self.summary = ui_label(
             tr("Select a game folder and a separate project folder. Game files are read-only.")
         )
-        self.summary.setWordWrap(True)
-        layout.addWidget(self.summary)
-        self.next_step = QPushButton(tr("Create or open a project first"))
+        header_layout.addWidget(self.summary)
+        heading_row = QHBoxLayout()
+        self.page_heading = ui_label(tr("Project"), "heading")
+        heading_row.addWidget(self.page_heading, 1)
+        self.next_step = ElidingButton()
+        self.next_step.setFixedWidth(270)
+        self.next_step.setText(tr("Create or open a project first"))
         self.next_step.setEnabled(False)
         self.next_step.clicked.connect(self.go_next_step)
-        layout.addWidget(self.next_step)
-        self.tabs = QTabWidget()
-        layout.addWidget(self.tabs)
+        heading_row.addWidget(self.next_step)
+        header_layout.addLayout(heading_row)
+        layout.addWidget(header)
+        layout.addWidget(self.tabs, 1)
+        shell.addWidget(workspace, 1)
+        self.tabs.currentChanged.connect(self.page_changed)
         self.project_tab()
         self.sources_tab()
         self.model_tab()
@@ -720,8 +758,11 @@ class MainWindow(QMainWindow):
         self.review_tab()
         self.export_tab()
         self.installation_tab()
-        for label in self.findChildren(QLabel):
-            label.setTextFormat(Qt.TextFormat.PlainText)
+        self.tabs.finish(tr("Local processing • Telemetry off"))
+        self.page_changed(0)
+        for text_label in body.findChildren(QLabel):
+            text_label.setTextFormat(Qt.TextFormat.PlainText)
+            text_label.setWordWrap(True)
         for index in range(1, self.tabs.count()):
             self.tabs.setTabEnabled(index, False)
         self.setCentralWidget(body)
@@ -790,14 +831,27 @@ class MainWindow(QMainWindow):
             shortcut = QShortcut(QKeySequence(key), self)
             shortcut.activated.connect(action)
 
-    def tab(self, name):
+    def page_changed(self, index):
+        self.page_heading.setText(self.tabs.tabText(index).split(" · ", 1)[-1])
+
+    def tab(self, name, *, scroll=True):
         widget = QWidget()
         layout = QVBoxLayout(widget)
-        self.tabs.addTab(widget, name)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
+        self.tabs.addTab(scroll_page(widget) if scroll else widget, name)
         return layout
+
+    @staticmethod
+    def section(layout, title):
+        section = Section(title)
+        layout.addWidget(section)
+        return section.content
 
     def project_tab(self):
         layout = self.tab(tr("1 · Project"))
+        page_layout = layout
+        layout = self.section(layout, tr("Project folders and languages"))
         form = QFormLayout()
         self.game_path = QLineEdit()
         self.project_path = QLineEdit()
@@ -836,6 +890,7 @@ class MainWindow(QMainWindow):
         language_note.setWordWrap(True)
         layout.addWidget(language_note)
         open_button = QPushButton(tr("Create / open project"))
+        open_button.setProperty("role", "primary")
         open_button.clicked.connect(self.open_project)
         layout.addWidget(open_button)
         existing = QPushButton(tr("Open existing project…"))
@@ -859,10 +914,11 @@ class MainWindow(QMainWindow):
         self.project_folder_button.setEnabled(False)
         self.project_folder_button.clicked.connect(self.show_project_folder)
         layout.addWidget(self.project_folder_button)
-        layout.addStretch()
+        page_layout.addStretch()
 
     def sources_tab(self):
         layout = self.tab(tr("2 · Texts"))
+        layout = self.section(layout, tr("Source inspection"))
         self.inspection_engine = QComboBox()
         self.inspection_engine.addItem(tr("Automatic detection"), "auto")
         self.inspection_engine.addItem("Unity", "unity")
@@ -909,6 +965,7 @@ class MainWindow(QMainWindow):
 
     def model_tab(self):
         layout = self.tab(tr("3 · Model"))
+        connection = self.section(layout, tr("Local model connection"))
         form = QFormLayout()
         self.provider = QComboBox()
         self.provider.addItem("LM Studio", "lm-studio")
@@ -919,7 +976,7 @@ class MainWindow(QMainWindow):
         form.addRow(tr("Provider"), self.provider)
         form.addRow(tr("Local server"), self.address)
         form.addRow(tr("Model"), self.model)
-        layout.addLayout(form)
+        connection.addLayout(form)
         controls = QHBoxLayout()
         listing = QPushButton(tr("List models"))
         listing.clicked.connect(lambda: self.bridge.submit("models", self.model_data()))
@@ -927,7 +984,7 @@ class MainWindow(QMainWindow):
         testing.clicked.connect(lambda: self.bridge.submit("connection_test", self.profile()))
         controls.addWidget(listing)
         controls.addWidget(testing)
-        layout.addLayout(controls)
+        connection.addLayout(controls)
         self.model_status = QLabel(
             tr(
                 "The server/model is not started automatically. A generation "
@@ -936,7 +993,7 @@ class MainWindow(QMainWindow):
             )
         )
         self.model_status.setWordWrap(True)
-        layout.addWidget(self.model_status)
+        connection.addWidget(self.model_status)
         advanced = QGroupBox(tr("Advanced generation settings"))
         advanced.setCheckable(True)
         advanced.setChecked(False)
@@ -990,6 +1047,7 @@ class MainWindow(QMainWindow):
                 )
             )
         )
+        terms = self.section(layout, tr("Terminology"))
         self.glossary = QTableWidget(0, 4)
         self.glossary.setHorizontalHeaderLabels(
             [
@@ -1000,7 +1058,8 @@ class MainWindow(QMainWindow):
             ]
         )
         self.glossary.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        layout.addWidget(self.glossary)
+        self.glossary.setMinimumHeight(180)
+        terms.addWidget(self.glossary)
         add = QPushButton(tr("Add term"))
         add.clicked.connect(lambda: self.add_rule())
         remove = QPushButton(tr("Remove selected term"))
@@ -1014,7 +1073,8 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout()
         row.addWidget(add)
         row.addWidget(remove)
-        layout.addLayout(row)
+        terms.addLayout(row)
+        layout = self.section(layout, tr("Style and policy"))
         layout.addWidget(
             QLabel(tr("Category style (the default rule applies to other categories)"))
         )
@@ -1059,6 +1119,8 @@ class MainWindow(QMainWindow):
 
     def translation_tab(self):
         layout = self.tab(tr("5 · Translate"))
+        page_layout = layout
+        layout = self.section(page_layout, tr("Representative pilot"))
         parallel_row = QFormLayout()
         self.parallel_requests = QSpinBox()
         self.parallel_requests.setRange(1, MAX_PARALLEL_REQUESTS)
@@ -1083,9 +1145,11 @@ class MainWindow(QMainWindow):
             )
         )
         self.pilot_button = QPushButton(tr("Prepare and start representative pilot"))
+        self.pilot_button.setProperty("role", "primary")
         self.pilot_button.setEnabled(False)
         self.pilot_button.clicked.connect(self.start_pilot)
         layout.addWidget(self.pilot_button)
+        layout = self.section(page_layout, tr("Job activity"))
         row = QHBoxLayout()
         self.pause_button = QPushButton(tr("Pause"))
         self.pause_button.clicked.connect(lambda: self.bridge.submit("pause"))
@@ -1123,6 +1187,7 @@ class MainWindow(QMainWindow):
         self.job_progress.setValue(0)
         self.job_progress.setFormat(tr("No jobs yet"))
         layout.addWidget(self.job_progress)
+        layout = self.section(page_layout, tr("Full translation"))
         self.bulk_note = QLabel(
             tr("Bulk job unavailable: representative pilot and human review are incomplete.")
         )
@@ -1152,7 +1217,9 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
     def review_tab(self):
-        layout = self.tab(tr("6 · Review"))
+        layout = self.tab(tr("6 · Review"), scroll=False)
+        layout.setSpacing(10)
+        layout.setContentsMargins(24, 16, 24, 16)
         row = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText(tr("Search source, translation or record key…"))
@@ -1165,14 +1232,17 @@ class MainWindow(QMainWindow):
         self.category_filter = QComboBox()
         self.category_filter.addItem(tr("All categories"), None)
         self.category_filter.currentIndexChanged.connect(self.filter_changed)
-        row.addWidget(self.search)
+        row.addWidget(self.search, 1)
         row.addWidget(self.status_filter)
         row.addWidget(self.category_filter)
+        layout.addLayout(row)
+        filters = QHBoxLayout()
         self.affected_filter = QCheckBox(tr("Affected by glossary / style"))
         self.affected_filter.toggled.connect(self.filter_changed)
-        row.addWidget(self.affected_filter)
-        self.bulk_review_button = QPushButton(tr("Bulk actions"))
-        self.bulk_review_menu = QMenu(self.bulk_review_button)
+        filters.addWidget(self.affected_filter)
+        filters.addStretch()
+        self.bulk_review_button = ActionMenu(tr("Bulk actions"))
+        self.bulk_review_menu = self.bulk_review_button.actions_menu
         self.bulk_review_menu.addAction(
             tr("Approve translations identical to source…"),
             lambda: self.preview_matching_review("approve_identical"),
@@ -1182,21 +1252,34 @@ class MainWindow(QMainWindow):
             lambda: self.preview_matching_review("reset_empty"),
         )
         self.bulk_review_button.setMenu(self.bulk_review_menu)
-        self.bulk_review_button.setToolTip(tr(
-            "Applies to all pages matching the current filters. Preview before applying."
-        ))
-        row.addWidget(self.bulk_review_button)
-        layout.addLayout(row)
+        for action in self.bulk_review_menu.actions():
+            action.setToolTip(tr(
+                "Applies to all pages matching the current filters. Preview before applying."
+            ))
+        self.bulk_review_menu.setToolTipsVisible(True)
+        filters.addWidget(self.bulk_review_button)
+        layout.addLayout(filters)
+        self.review_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.review_splitter.setChildrenCollapsible(False)
+        records = QWidget()
+        records.setMinimumHeight(150)
+        records_layout = QVBoxLayout(records)
+        records_layout.setContentsMargins(0, 0, 0, 0)
         self.review_model = ReviewModel()
-        self.table = QTableView()
+        self.table = ReviewTable()
         self.table.setModel(self.review_model)
         self.table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         self.table.setWordWrap(False)
+        self.table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().hide()
+        self.table.verticalHeader().setDefaultSectionSize(34)
+        self.table.setShowGrid(False)
+        self.table.setMinimumHeight(100)
         self.table.setAlternatingRowColors(True)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.selectionModel().selectionChanged.connect(self.selection_changed)
-        layout.addWidget(self.table, 2)
+        records_layout.addWidget(self.table, 1)
         pagination = QHBoxLayout()
         self.previous_page = QPushButton(tr("Previous 200"))
         self.previous_page.clicked.connect(lambda: self.change_page(-200))
@@ -1206,44 +1289,84 @@ class MainWindow(QMainWindow):
         self.next_page.setEnabled(False)
         self.page_label = QLabel(tr("0 records"))
         pagination.addWidget(self.previous_page)
+        pagination.addStretch()
         pagination.addWidget(self.page_label)
+        pagination.addStretch()
         pagination.addWidget(self.next_page)
-        layout.addLayout(pagination)
-        splitter = QSplitter()
+        records_layout.addLayout(pagination)
+        self.review_splitter.addWidget(records)
+        editor_workspace = QWidget()
+        editor_workspace.setMinimumHeight(200)
+        editor_layout = QVBoxLayout(editor_workspace)
+        editor_layout.setContentsMargins(0, 8, 0, 0)
+        editor_layout.setSpacing(10)
+        self.record_identity = ui_label(tr("Select a record to review"))
+        self.record_identity.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        editor_layout.addWidget(self.record_identity)
+        self.review_panels = QTabWidget()
+        editor_layout.addWidget(self.review_panels, 1)
+        comparison = QWidget()
+        comparison_layout = QVBoxLayout(comparison)
+        comparison_layout.setContentsMargins(0, 8, 0, 0)
+        self.review_panels.addTab(comparison, tr("Text comparison"))
+        self.editor_splitter = QSplitter()
+        self.editor_splitter.setChildrenCollapsible(False)
         self.source_editor = QTextEdit()
         self.source_editor.setReadOnly(True)
         self.translation_editor = DataTextEdit()
+        self.source_editor.setMinimumHeight(90)
+        self.translation_editor.setMinimumHeight(90)
         self.translation_editor.textChanged.connect(self.editor_changed)
-        splitter.addWidget(self.source_editor)
-        splitter.addWidget(self.translation_editor)
-        layout.addWidget(splitter, 1)
+        self.source_editor.setPlaceholderText(tr("Source text appears here"))
+        self.translation_editor.setPlaceholderText(tr("Select a record to edit its translation"))
+        self.editor_splitter.addWidget(editor_panel(tr("Source"), self.source_editor))
+        self.editor_splitter.addWidget(editor_panel(tr("Translation"), self.translation_editor))
+        self.editor_splitter.setSizes([500, 500])
+        comparison_layout.addWidget(self.editor_splitter, 1)
+        self.review_splitter.addWidget(editor_workspace)
+        self.review_splitter.setSizes([290, 260])
+        self.review_splitter.setStretchFactor(0, 1)
+        self.review_splitter.setStretchFactor(1, 1)
+        layout.addWidget(self.review_splitter, 1)
+        self.review_inspector = QWidget()
+        inspector_layout = QVBoxLayout(self.review_inspector)
+        inspector_layout.setContentsMargins(0, 8, 0, 0)
+        self.review_panels.addTab(scroll_page(self.review_inspector), tr("Reference and checks"))
         self.dialogue_references = QTextEdit()
         self.dialogue_references.setReadOnly(True)
-        self.dialogue_references.setMaximumHeight(110)
         self.dialogue_references.hide()
-        layout.addWidget(self.dialogue_references)
-        self.review_details = QLabel(
-            tr("Select a record. Automated checks do not guarantee meaning.")
+        inspector_layout.addWidget(self.dialogue_references)
+        self.inspector_details = ui_label("")
+        self.inspector_details.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.review_details = ReviewNotice(
+            tr("Select a record. Automated checks do not guarantee meaning."),
+            self.inspector_details,
         )
         self.review_details.setTextFormat(Qt.TextFormat.PlainText)
         self.review_details.setWordWrap(True)
+        inspector_layout.addWidget(self.inspector_details)
+        inspector_layout.addStretch()
         layout.addWidget(self.review_details)
-        self.draft_status = QLabel(tr("No draft."))
-        self.draft_status.setWordWrap(True)
+        self.draft_status = ui_label(tr("No draft."))
         layout.addWidget(self.draft_status)
+        self.record_actions = ActionMenu(tr("Record tools"))
         self.discard_draft = QPushButton(tr("Remove draft and open current translation"))
         self.discard_draft.clicked.connect(self.discard_current_draft)
-        layout.addWidget(self.discard_draft)
+        self.discard_draft.setEnabled(False)
         editing = QHBoxLayout()
-        save = QPushButton(tr("Save edits"))
+        save = self.save_translation = QPushButton(tr("Save edits"))
+        save.setEnabled(False)
         save.clicked.connect(self.save_edit)
-        approve = QPushButton(tr("Approve this translation manually"))
+        approve = self.approve_translation = QPushButton(tr("Approve translation"))
+        approve.setEnabled(False)
+        approve.setToolTip(tr("Approve this translation manually"))
+        approve.setProperty("role", "primary")
         approve.clicked.connect(self.approve)
         editing.addWidget(save)
         editing.addWidget(approve)
         retranslate = QPushButton(tr("Generate a new candidate for the selected record"))
         retranslate.clicked.connect(self.retranslate_selected)
-        editing.addWidget(retranslate)
+        self.record_actions.add_control(retranslate)
         history = QPushButton(tr("History / new translation candidates"))
         history.clicked.connect(
             lambda: (
@@ -1252,7 +1375,9 @@ class MainWindow(QMainWindow):
                 else None
             )
         )
-        editing.addWidget(history)
+        self.record_actions.add_control(history)
+        editing.addStretch()
+        editing.addWidget(self.record_actions)
         layout.addLayout(editing)
         self.retranslate_page_button = QPushButton(tr("Retranslate records on this page"))
         self.retranslate_page_button.setEnabled(False)
@@ -1262,20 +1387,23 @@ class MainWindow(QMainWindow):
             "text and receive history candidates. A matching reviewed pilot is required."
         ))
         self.retranslate_page_button.clicked.connect(self.retranslate_page)
-        layout.addWidget(self.retranslate_page_button)
+        self.bulk_review_menu.addSeparator()
+        self.bulk_review_button.add_control(self.retranslate_page_button)
         batch = QPushButton(tr("Approve reviewed translations on this page…"))
         batch.clicked.connect(self.approve_page)
-        layout.addWidget(batch)
+        self.bulk_review_button.add_control(batch)
         self.plural_button = QPushButton(tr("Edit plural branches"))
         self.plural_button.setEnabled(False)
         self.plural_button.setToolTip(
             tr("Select a record with multiple supported plural branches.")
         )
         self.plural_button.clicked.connect(self.edit_plural_branches)
-        layout.addWidget(self.plural_button)
+        self.record_actions.add_control(self.plural_button)
+        self.record_actions.actions_menu.addSeparator()
+        self.record_actions.add_control(self.discard_draft)
         quality_audit = QPushButton(tr("Recheck quality of existing translations"))
         quality_audit.clicked.connect(lambda: self.bridge.submit("quality_audit"))
-        layout.addWidget(quality_audit)
+        self.bulk_review_button.add_control(quality_audit)
         self.approve_all_button = QPushButton(tr("Approve all translations…"))
         self.approve_all_button.setIcon(
             QApplication.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
@@ -1284,7 +1412,8 @@ class MainWindow(QMainWindow):
             tr("Pending translations across the whole project. Two-step verification is required.")
         )
         self.approve_all_button.clicked.connect(self.approve_all_translations)
-        layout.addWidget(self.approve_all_button)
+        self.bulk_review_menu.addSeparator()
+        self.bulk_review_button.add_control(self.approve_all_button)
 
     def export_tab(self):
         layout = self.tab(tr("7 · Export"))
@@ -1312,7 +1441,9 @@ class MainWindow(QMainWindow):
         self.restore_button.clicked.connect(
             lambda: self.bridge.submit("import_restore", {"path": self.import_path})
         )
-        layout.addWidget(export)
+        project_export = self.section(layout, tr("Project exchange and backup"))
+        project_export.addWidget(export)
+        delivery = self.section(layout, tr("Approved translation delivery"))
         self.textasset_export_button = QPushButton(tr("Export approved game-text payloads"))
         self.textasset_export_button.setToolTip(tr(
             "Creates staged text files in the project. This does not install a game translation."
@@ -1320,7 +1451,7 @@ class MainWindow(QMainWindow):
         self.textasset_export_button.clicked.connect(lambda: self.bridge.submit(
             "textasset_export", {"project_id": self.current_project_id}
         ))
-        layout.addWidget(self.textasset_export_button)
+        delivery.addWidget(self.textasset_export_button)
         self.renpy_available = False
         self.renpy_export_group = QGroupBox(tr("Ren'Py native-file export"))
         native_layout = QVBoxLayout(self.renpy_export_group)
@@ -1348,7 +1479,7 @@ class MainWindow(QMainWindow):
         self.renpy_package_button.clicked.connect(lambda: self.prepare_renpy_export(package=True))
         native_layout.addWidget(self.renpy_package_button)
         self.renpy_export_group.setVisible(False)
-        layout.addWidget(self.renpy_export_group)
+        delivery.addWidget(self.renpy_export_group)
         self.shareable_export_button = QPushButton(tr("Create a shareable translation ZIP"))
         self.shareable_available = False
         self.shareable_export_button.setEnabled(False)
@@ -1359,14 +1490,14 @@ class MainWindow(QMainWindow):
             )
         )
         self.shareable_export_button.clicked.connect(self.prepare_shareable_export)
-        layout.addWidget(self.shareable_export_button)
+        delivery.addWidget(self.shareable_export_button)
         self.shareable_note = QLabel(tr(
             "Shareable installation ZIPs are unavailable for this source adapter. "
             "Use approved game-text export; it is not an installation package."
         ))
         self.shareable_note.setWordWrap(True)
         self.shareable_note.setVisible(False)
-        layout.addWidget(self.shareable_note)
+        delivery.addWidget(self.shareable_note)
         backup = QPushButton(tr("Back up data, drafts and job history"))
         backup.setToolTip(
             tr(
@@ -1376,15 +1507,18 @@ class MainWindow(QMainWindow):
             )
         )
         backup.clicked.connect(self.backup_project)
-        layout.addWidget(backup)
+        project_export.addWidget(backup)
         self.runtime_export_button = QPushButton(
             tr("Select approved translations for a small trial…")
         )
         self.runtime_export_button.clicked.connect(self.prepare_runtime_export)
-        layout.addWidget(self.runtime_export_button)
-        layout.addWidget(preview)
-        layout.addWidget(self.import_button)
-        layout.addWidget(self.restore_button)
+        delivery.addWidget(self.runtime_export_button)
+        import_tools = Disclosure(tr("Preview JSON import…"))
+        import_tools.content.addWidget(preview)
+        import_tools.content.addWidget(self.import_button)
+        import_tools.content.addWidget(self.restore_button)
+        project_export.addWidget(import_tools)
+        layout = self.section(layout, tr("Export results"))
         self.export_status = QTextEdit()
         self.export_status.setReadOnly(True)
         layout.addWidget(self.export_status)
@@ -1846,6 +1980,12 @@ class MainWindow(QMainWindow):
     def selection_changed(self):
         indexes = self.table.selectionModel().selectedRows()
         self.current_item = self.review_model.rows[indexes[0].row()] if indexes else None
+        identity = (self.current_item or {}).get("original_key", "")
+        self.record_identity.setText(
+            self.fontMetrics().elidedText(identity, Qt.TextElideMode.ElideMiddle, 680)
+            if identity else tr("Select a record to review")
+        )
+        self.record_identity.setToolTip(identity)
         entry = self.drafts.ensure(self.current_item) if self.current_item else None
         self.editor_loading = True
         try:
@@ -1921,6 +2061,8 @@ class MainWindow(QMainWindow):
         self.draft_status.setText(note)
         busy = self.drafts.action is not None or self.draft_refresh_pending
         self.translation_editor.setReadOnly(busy or not self.current_item)
+        self.save_translation.setEnabled(bool(self.current_item) and not busy and not stale)
+        self.approve_translation.setEnabled(bool(self.current_item) and not busy and not stale)
         self.table.setEnabled(not busy)
         self.discard_draft.setEnabled(
             bool(entry and (entry["revision"] or self.drafts.dirty(entry))) and not busy

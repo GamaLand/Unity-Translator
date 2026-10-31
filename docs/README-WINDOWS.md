@@ -4,6 +4,13 @@ Extract the complete application ZIP into its own folder and run `UnityTranslato
 Keep the included DLLs, runtime kits, notices and guides together. You do not need Python
 or a compiler to run this standalone package.
 
+The workflow sidebar groups preparation, translation/review and delivery. In Review,
+resize the list and labelled editors by dragging the dividers. **Text comparison**
+and **Reference and checks** share the lower workspace; check notices remain visible.
+Use **Record tools** for history, new candidates, plural branches and draft removal.
+**Bulk actions** contains page/filter/project operations with their existing previews
+and confirmations. Saving and human approval remain separate.
+
 The default interface language is English. Select **Language**, beside **Help**, to
 choose English, Turkish, German, French, Spanish, Brazilian Portuguese, Russian or
 Simplified Chinese. The saved preference takes effect the next time you open the app;

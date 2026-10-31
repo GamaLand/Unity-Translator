@@ -226,7 +226,12 @@ def test_compact_menu_previews_current_filters_and_requires_confirmation(monkeyp
             window.status_filter.setCurrentIndex(window.status_filter.findData("needs_review"))
             window.search.setText("Hello")
             window.affected_filter.setChecked(True)
-            assert len(window.bulk_review_menu.actions()) == 2
+            from unitytranslator.ui.i18n import tr
+
+            assert [action.text() for action in window.bulk_review_menu.actions()[:2]] == [
+                tr("Approve translations identical to source…"),
+                tr("Return empty translations to pending…"),
+            ]
             window.bulk_review_menu.actions()[0].trigger()
             command, data = submitted[-1]
             assert command == "matching_review_preview" and data["action"] == "approve_identical"

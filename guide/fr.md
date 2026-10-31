@@ -1,5 +1,9 @@
 # Guide d’utilisation de UnityTranslator
 
+## Espace de travail
+
+La barre latérale regroupe préparation, traduction/révision et livraison. Faites glisser les séparateurs pour redimensionner la liste et les éditeurs source/traduction étiquetés. En bas, alternez entre **Comparaison des textes** et **Références et vérifications** ; les avertissements restent visibles. **Outils de l’entrée** contient historique, nouveaux candidats, pluriels et suppression du brouillon. **Actions groupées** contient les opérations de page/filtre/projet avec leurs aperçus et confirmations. Enregistrement et approbation humaine restent distincts. Les formulaires défilent dans les petites fenêtres (minimum 900 × 740).
+
 ## Contexte de dialogue vérifié
 
 La préparation du pilote affiche la phase des entrées ou du contexte avant toute requête au modèle. Un grand projet peut nécessiter une première vérification du contexte. Annuler arrête la préparation en sécurité ; la fermeture attend le nettoyage. Reprenez le pilote enregistré avec Continuer sans recréer le projet.

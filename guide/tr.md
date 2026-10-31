@@ -1,5 +1,9 @@
 # UnityTranslator kullanım rehberi
 
+## Çalışma alanı
+
+Sol menü hazırlık, çeviri/inceleme ve çıktıları gruplar. Ayırıcıları sürükleyerek kayıt listesini ve etiketli kaynak/çeviri editörlerini boyutlandırın. Alt alanda **Metin karşılaştırma** ile **Bağlam ve kontroller** arasında geçiş yapın; kontrol uyarıları görünür kalır. Geçmiş, yeni aday, çoğul düzenleme ve taslak kaldırma **Kayıt işlemleri** menüsündedir. Sayfa/filtre/proje kapsamındaki işlemler **Toplu işlemler** menüsünde, mevcut önizleme ve onay adımlarıyla sunulur. Kaydetme ve insan onayı ayrı adımlardır. Küçük pencerelerde formlar kaydırılır (en az 900 × 740).
+
 ## Doğrulanmış diyalog bağlamı
 
 Pilot hazırlanırken model isteğinden önce kayıt/bağlam hazırlığı gösterilir. Büyük projelerde ilk bağlam doğrulaması biraz sürebilir. İptal hazırlığı güvenle durdurur; kapatma güvenli temizliği bekler. Projeyi yeniden oluşturmak yerine kayıtlı pilotu Devam et ile sürdürün.

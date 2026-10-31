@@ -1,6 +1,6 @@
 # Documentation
 
-Current checkout: 0.6.1. Unity installation remains fingerprint-bound. Initial
+Current checkout: 0.7.0. Unity installation remains fingerprint-bound. Initial
 Ren'Py templates, audited original-source behavior, `_ren.py`, large disjoint source
 sets, shared review and sharded native staging are implemented in source. The
 experimental installation ZIP adds approved text and helpers without copying the

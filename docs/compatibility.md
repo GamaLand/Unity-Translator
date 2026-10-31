@@ -1,6 +1,6 @@
 # Compatibility
 
-Current version: UnityTranslator 0.6.1. The previous published validation baseline
+Current version: UnityTranslator 0.7.0. The previous published validation baseline
 is 0.1.0 RC7, validated on 16 October 2026. Current Krypta evidence is scoped below.
 Source additions described below were validated locally on 23 October 2026; they do
 not replace published RC7 artifacts. Krypta installation evidence is scoped below.
@@ -34,6 +34,16 @@ file alone does not establish translation or installation support. The current g
 profile is a discovery hint; the runtime kit's fingerprints remain an additional gate.
 
 ## What was verified
+
+Version 0.7.0 adds the grouped workflow sidebar, modular presentation components,
+shared charcoal/sage theme and resizable review workspace. Eight synthetic locale
+checks cover 1360 × 900 and 900 × 740 layouts, long action labels, horizontal
+overflow, retained plain source text, navigation and guarded menu actions. A focused
+139-test UI/review/export run passed. The final full run passed Ruff/mypy, 1,028
+Python tests (one skipped) and the relevant synthetic C# checks. The new standalone
+EXE passed isolated-PATH edit/draft/reopen/approval/plural/export/worker checks on
+the development machine. This is not clean-Windows, accessibility certification or
+new game/runtime compatibility evidence. No user project or game was changed.
 
 The reference game's main menu and Turkish glyphs were verified by the user. RC7's
 packaged reader extracted 6,737 French records without errors and without changing
@@ -150,6 +160,7 @@ code. Published artifacts and matching source/license archives remain immutable.
 
 | Version / event | Recorded evidence and limits |
 | --- | --- |
+| 0.7.0 local candidate | Modular desktop workbench, eight-language layout and action checks, 139 focused UI tests, final Ruff/mypy, 1,028 Python tests (one skipped), relevant synthetic C# checks and a fresh standalone isolated-PATH smoke check passed. Existing pipeline/schema/confirmation contracts remain. No real-game translation, installation or launch ran. |
 | 0.6.1 local candidate | Single-pass representative pilot selection, visible preparation stages and cooperative cancel/close without starting a late model request. All 200 identities/order matched the original pilot in a private diagnostic copy. Ruff/mypy, 1,020 Python tests (one skipped), relevant synthetic C# checks, eight catalogs/guides and the new standalone isolated-PATH smoke check passed. The original 93,937-record project remained pending with its one queued pilot and zero model attempts, translations or drafts. No game launch/install or real-game translation ran. |
 | 0.6.0 local candidate | Optional Ren'Py source windows, safe source ordering and backed-up schema-6 job evidence. Ruff/mypy passed; the full Python run passed 1,010 tests with one skipped, and the final context/cache suite passed 38 targeted checks. Relevant synthetic C# suites passed. The new Windows package passed the isolated-PATH Qt/edit/draft/approval/export/worker smoke check on the development machine. Source/wheel privacy and guide audits passed. The small llama.cpp comparison above is not universal quality, performance, gameplay or clean-Windows evidence. No release publication is implied. |
 | 0.5.0 | Shareable I2 and pinned Krypta en-to-tr packages. Synthetic recipient install/remove, relocation, links, changed files, wrong builds, tampering, plan approval and Qt export checks. Both kits' sources/licenses and shared core hash agreement are required. Portable Krypta gameplay and clean Windows remain deferred. |

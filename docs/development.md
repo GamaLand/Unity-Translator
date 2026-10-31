@@ -6,7 +6,7 @@ requirements marked **planned** do not enable a capability.
 
 ## Current architecture
 
-The checkout is UnityTranslator 0.6.1. Python 3.12 owns project state, translation,
+The checkout is UnityTranslator 0.7.0. Python 3.12 owns project state, translation,
 validation and deployment. PySide6 Widgets calls `ApplicationSession` through the
 Qt bridge. An independent asyncio thread owns SQLite and job state; model HTTP
 requests do not hold transactions open. Minimizing the window does not pause work.
@@ -548,6 +548,37 @@ only a pending directory; existing exports are never replaced. This does not pro
 load order, language activation, fonts or installation support in a game.
 
 ### UI and CLI
+
+#### Desktop design foundation
+
+The desktop is a local translation workbench: source preparation, candidate
+generation, human review and approved delivery are separate activities. Navigation
+must expose that sequence without implying that generation approves a translation
+or that extraction establishes installation support. Existing session commands,
+draft flushing, pilot gates and explicit confirmation dialogs remain authoritative.
+
+Version 0.7.0 uses a persistent grouped workflow sidebar, a compact
+project summary and a page heading with one next-step shortcut. Reusable shell,
+section, disclosure, action-menu and editor components live under `ui/`; presentation
+components own no project state or backend policy. Secondary tools use labelled
+menus and expandable sections, not a wall of equally prominent buttons. Menus
+must track the enabled state of the underlying action. Review prioritizes a
+resizable record list and labelled source/translation editors, with reference and
+check details in an alternate inspector tab. Check notices remain visible below
+the workspace; the inspector and tooltips retain their complete plain text.
+The supported minimum window is 900 × 740; narrow tables prioritize source and
+translation, retaining the full selected key and category filter. Saving, approval
+and draft status remain distinct. Whole-project operations retain their preview and confirmation flows.
+
+Use a restrained warm charcoal palette, off-white text and a muted sage accent;
+no gradients. Semantic warning/error colors supplement explicit text. Shared
+spacing, borders, focus indicators and typography belong to one theme module.
+Long action labels wrap and forms scroll vertically when space is limited;
+review panes resize without hiding primary
+actions. Keyboard navigation, eight offline catalogs, plain-text rendering of
+untrusted content and existing UI-language/project-language separation are required.
+Validate synthetic populated and empty screens, long localized labels, smaller
+windows, draft/history/approval workflows and a fresh standalone Windows package.
 
 | Surface | Implemented behavior and remaining limits |
 | --- | --- |
