@@ -2,6 +2,9 @@
 
 import asyncio
 import json
+import logging
+from contextlib import AsyncExitStack
+from copy import copy
 from hashlib import sha256
 from importlib.resources import files
 from time import perf_counter
@@ -27,6 +30,15 @@ ADAPTIVE_REASONING_POLICY = "adaptive-v1"
 ADAPTIVE_REASONING_BASE = 64
 ADAPTIVE_REASONING_PER_REFERENCE = 64
 ADAPTIVE_REASONING_MAX = 1024
+# The optional server slot probe at job start: short, and a sane upper bound on slots.
+SLOT_PROBE_SECONDS = 3.0
+MAX_SERVER_SLOTS = 4096
+LOGGER = logging.getLogger(__name__)
+
+
+def request_timeout(*, generation: bool) -> httpx.Timeout:
+    """Per-request timeouts; generation waits for the server queue and reasoning."""
+    return httpx.Timeout(connect=5, read=1800 if generation else 110, write=10, pool=5)
 
 
 def adaptive_reasoning_budget(source: str, references: list[dict[str, Any]]) -> int:
@@ -111,6 +123,19 @@ def local_endpoint(address: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}/v1"
 
 
+def slot_count(value: Any, route: str) -> int | None:
+    """The server's concurrent slot count from untrusted /props or /slots JSON, if valid."""
+    if route == "/props" and isinstance(value, dict):
+        slots = value.get("total_slots")
+    elif route == "/slots" and isinstance(value, list) and all(
+        isinstance(item, dict) for item in value
+    ):
+        slots = len(value)
+    else:
+        return None
+    return slots if type(slots) is int and 1 <= slots <= MAX_SERVER_SLOTS else None
+
+
 class LocalProvider:
     def __init__(
         self,
@@ -123,6 +148,52 @@ class LocalProvider:
         self.endpoint = local_endpoint(address)
         self.transport = transport
         self.structured_output = structured_output
+        # A job's shared client; without one every call uses its own short-lived client.
+        self.client: httpx.AsyncClient | None = None
+
+    def job_client(self, parallel_requests: int) -> httpx.AsyncClient:
+        """A client for one job's lifetime; the caller owns it and must close it.
+
+        Its pool admits every parallel request and keeps their connections alive, so the
+        workers reuse connections instead of opening one per record. Each request still
+        sets its own timeouts.
+        """
+        return httpx.AsyncClient(
+            trust_env=False,
+            follow_redirects=False,
+            transport=self.transport,
+            timeout=request_timeout(generation=False),
+            limits=httpx.Limits(
+                max_connections=parallel_requests,
+                max_keepalive_connections=parallel_requests,
+            ),
+        )
+
+    def with_client(self, client: httpx.AsyncClient) -> "LocalProvider":
+        """A copy of this provider whose requests share ``client``."""
+        bound = copy(self)
+        bound.client = client
+        return bound
+
+    async def server_slots(self) -> int | None:
+        """The concurrent slots a llama.cpp server reports, or None when unknown.
+
+        LM Studio reports none. The probe is short, bounded and optional: any failure,
+        including a missing or malformed field, means unknown.
+        """
+        if self.provider != "llama-cpp":
+            return None
+        for route in ("/props", "/slots"):
+            try:
+                value = await self.fetch("GET", route, native=True, deadline=SLOT_PROBE_SECONDS)
+            except Exception as exc:  # The probe never affects the job.
+                LOGGER.debug("Server slot probe %s failed: %s", route, type(exc).__name__)
+                continue
+            slots = slot_count(value, route)
+            if slots is not None:
+                return slots
+            LOGGER.debug("Server slot probe %s returned no valid slot count", route)
+        return None
 
     async def request(
         self,
@@ -133,90 +204,108 @@ class LocalProvider:
         native: bool = False,
         generation: bool = False,
     ) -> dict[str, Any]:
+        result = await self.fetch(method, route, payload, native=native, generation=generation)
+        if not isinstance(result, dict):
+            raise ProviderError("invalid_response", "The server did not return a JSON object.")
+        return result
+
+    async def fetch(
+        self,
+        method: str,
+        route: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        native: bool = False,
+        generation: bool = False,
+        deadline: float | None = None,
+    ) -> Any:
+        """One bounded request; returns the parsed JSON value of any type."""
+        timeout = (
+            httpx.Timeout(deadline) if deadline is not None
+            else request_timeout(generation=generation)
+        )
         # Non-streaming generation includes the server's queue and reasoning time.
         # Keep connection checks short, but allow a bounded 30 minutes for inference.
-        deadline = 1800 if generation else 120
+        if deadline is None:
+            deadline = 1800 if generation else 120
         try:
-            async with asyncio.timeout(deadline):
-                async with httpx.AsyncClient(
-                    trust_env=False,
-                    follow_redirects=False,
-                    transport=self.transport,
-                    timeout=httpx.Timeout(
-                        connect=5, read=deadline if generation else 110, write=10, pool=5
-                    ),
-                ) as client:
-                    root = self.endpoint.removesuffix("/v1") if native else self.endpoint
-                    async with client.stream(method, root + route, json=payload) as reply:
-                        if reply.status_code in (401, 403):
-                            raise ProviderError("unauthorized", "The server denied access.")
-                        if reply.status_code == 404:
-                            raise ProviderError("not_found", "The endpoint or model was not found.")
-                        data = bytearray()
-                        async for block in reply.aiter_bytes():
-                            data.extend(block)
-                            if len(data) > 1024 * 1024:
-                                raise ProviderError(
-                                    "invalid_response", "The server response is too large."
-                                )
-                        if not 200 <= reply.status_code < 300:
-                            message = bytes(data).decode("utf-8", errors="replace").casefold()
-                            if any(
-                                term in message
-                                for term in (
-                                    "out of memory",
-                                    "failed to allocate",
-                                    "insufficient memory",
-                                )
-                            ):
-                                raise ProviderError(
-                                    "out_of_memory",
-                                    "The model server is out of memory; check the "
-                                    "model/context and other GPU processes.",
-                                )
-                            if "context" in message and any(
-                                term in message for term in ("exceed", "length", "too long")
-                            ):
-                                raise ProviderError(
-                                    "context",
-                                    "The model server context limit was exceeded; "
-                                    "the text was not truncated.",
-                                )
-                            if "model" in message and any(
-                                term in message for term in ("not loaded", "not found", "no model")
-                            ):
-                                raise ProviderError(
-                                    "not_found",
-                                    "The selected model is not loaded or available on the server.",
-                                )
-                            if "unsupported" in message or "unknown parameter" in message:
-                                raise ProviderError(
-                                    "unsupported_option",
-                                    "The server does not support the requested generation option.",
-                                )
-                            if reply.status_code == 429 or reply.status_code >= 500:
-                                # Loading models, rate limits and restarts are transient.
-                                raise ProviderError(
-                                    "server_unavailable",
-                                    "The local model server is temporarily unavailable "
-                                    "(HTTP {p0}).",
-                                    p0=reply.status_code,
-                                )
+            async with asyncio.timeout(deadline), AsyncExitStack() as stack:
+                client = self.client
+                if client is None:
+                    client = await stack.enter_async_context(httpx.AsyncClient(
+                        trust_env=False,
+                        follow_redirects=False,
+                        transport=self.transport,
+                        timeout=timeout,
+                    ))
+                root = self.endpoint.removesuffix("/v1") if native else self.endpoint
+                async with client.stream(
+                    method, root + route, json=payload, timeout=timeout,
+                ) as reply:
+                    if reply.status_code in (401, 403):
+                        raise ProviderError("unauthorized", "The server denied access.")
+                    if reply.status_code == 404:
+                        raise ProviderError("not_found", "The endpoint or model was not found.")
+                    data = bytearray()
+                    async for block in reply.aiter_bytes():
+                        data.extend(block)
+                        if len(data) > 1024 * 1024:
                             raise ProviderError(
-                                "http_error", "The server returned HTTP {p0}.",
+                                "invalid_response", "The server response is too large."
+                            )
+                    if not 200 <= reply.status_code < 300:
+                        message = bytes(data).decode("utf-8", errors="replace").casefold()
+                        if any(
+                            term in message
+                            for term in (
+                                "out of memory",
+                                "failed to allocate",
+                                "insufficient memory",
+                            )
+                        ):
+                            raise ProviderError(
+                                "out_of_memory",
+                                "The model server is out of memory; check the "
+                                "model/context and other GPU processes.",
+                            )
+                        if "context" in message and any(
+                            term in message for term in ("exceed", "length", "too long")
+                        ):
+                            raise ProviderError(
+                                "context",
+                                "The model server context limit was exceeded; "
+                                "the text was not truncated.",
+                            )
+                        if "model" in message and any(
+                            term in message for term in ("not loaded", "not found", "no model")
+                        ):
+                            raise ProviderError(
+                                "not_found",
+                                "The selected model is not loaded or available on the server.",
+                            )
+                        if "unsupported" in message or "unknown parameter" in message:
+                            raise ProviderError(
+                                "unsupported_option",
+                                "The server does not support the requested generation option.",
+                            )
+                        if reply.status_code == 429 or reply.status_code >= 500:
+                            # Loading models, rate limits and restarts are transient.
+                            raise ProviderError(
+                                "server_unavailable",
+                                "The local model server is temporarily unavailable "
+                                "(HTTP {p0}).",
                                 p0=reply.status_code,
                             )
-                        result = json.loads(data)
-                        if not isinstance(result, dict):
-                            raise ProviderError(
-                                "invalid_response", "The server did not return a JSON object."
-                            )
-                        return result
+                        raise ProviderError(
+                            "http_error", "The server returned HTTP {p0}.",
+                            p0=reply.status_code,
+                        )
+                    return json.loads(data)
         except (TimeoutError, httpx.TimeoutException) as exc:
             raise ProviderError("timeout", "Local server request timed out.") from exc
         except httpx.HTTPError as exc:
             raise ProviderError("connection", "Could not connect to the local server.") from exc
-        except (ValueError, UnicodeError) as exc:
+        except (ValueError, UnicodeError, RecursionError) as exc:
             if isinstance(exc, ProviderError):
                 raise
             raise ProviderError(

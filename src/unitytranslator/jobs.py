@@ -4,10 +4,11 @@ import asyncio
 import json
 import random
 from collections.abc import Callable, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from functools import partial
 from hashlib import sha256
 from time import perf_counter
-from typing import Any
+from typing import Any, NamedTuple
 from uuid import uuid4
 
 from unitytranslator.diagnostics import Diagnostic
@@ -43,9 +44,111 @@ RETRY_CODES = frozenset({
 PAUSE_CODES = frozenset({"out_of_memory", "not_found", "unauthorized", "unsupported_option"})
 
 
+# A running job reports progress at most this often; each report is two key lookups.
+PROGRESS_INTERVAL = 0.2
+# English template of the warning when a job's parallel requests exceed the server's slots.
+SERVER_SLOT_WARNING = (
+    "The job sends up to {p0} parallel requests, but the model server reports {p1} slots. "
+    "Requests beyond the slots wait in the server's queue and count toward their timeout; "
+    "reduce parallel requests to {p1} or start the server with more slots."
+)
+
+
 def retry_delay(failures: int, base: float) -> float:
     """Jittered exponential backoff, capped at 30 seconds."""
     return float(min(30.0, base * 2 ** max(0, failures - 1)) * random.uniform(0.5, 1.0))
+
+
+def slot_warning(parallel_requests: int, server_slots: int | None) -> dict[str, Any] | None:
+    """A structured warning when more requests run in parallel than the server has slots."""
+    if server_slots is None or parallel_requests <= server_slots:
+        return None
+    params = {"p0": str(parallel_requests), "p1": str(server_slots)}
+    return {
+        "kind": "server_slots",
+        "code": SERVER_SLOT_WARNING,
+        "params": params,
+        "message": SERVER_SLOT_WARNING.format(**params),
+    }
+
+
+class Claim(NamedTuple):
+    """A claimed record with its started run; ``item`` is None when nothing was claimed."""
+
+    item: dict[str, Any] | None
+    run_id: str
+    metadata: dict[str, Any]
+    stale_skipped: int
+
+
+@dataclass
+class ProgressState:
+    """The sums behind a job's progress result; see JobStore.progress_state."""
+
+    counts: dict[str, int]
+    generation_seconds: float
+    measured_records: int
+    measured_chars: int
+    measured_seconds: float
+    remaining_chars: int
+
+
+class ProgressTracker:
+    """Live progress of a running job, updated from each committed record.
+
+    The first report scans the job once; afterwards each committed record updates the
+    sums with at most one index lookup. Rare transitions (stale records skipped at claim,
+    lost claims, cancelled requests) mark it stale, and the next report scans once again.
+    Updates must follow their commit without an await in between.
+    """
+
+    def __init__(self, store: "JobStore", job_id: str):
+        self.store = store
+        self.job_id = job_id
+        self.state: ProgressState | None = None
+
+    def invalidate(self) -> None:
+        """Scan again at the next report."""
+        self.state = None
+
+    def move(self, old: str, new: str) -> None:
+        if self.state is not None:
+            counts = self.state.counts
+            counts[old] = counts.get(old, 0) - 1
+            counts[new] = counts.get(new, 0) + 1
+
+    def claimed(self, stale_skipped: int) -> None:
+        self.move("queued", "processing")
+        if stale_skipped:
+            self.invalidate()
+
+    def attempt_recorded(self, elapsed: float) -> None:
+        if self.state is not None:
+            self.state.generation_seconds += elapsed
+
+    def requeued(self) -> None:
+        self.move("processing", "queued")
+
+    def finished(self, item: dict[str, Any], status: str | None) -> None:
+        """A claimed record left processing with ``status`` (None: claim was lost)."""
+        if status not in ("completed", "skipped", "failed"):
+            self.invalidate()
+        if self.state is None or status is None:
+            return
+        self.move("processing", status)
+        chars = len(item["source_text"])
+        self.state.remaining_chars -= chars
+        if status in ("completed", "failed"):
+            seconds = self.store.record_seconds(self.job_id, item["unit_id"])
+            if seconds > 0:
+                self.state.measured_records += 1
+                self.state.measured_chars += chars
+                self.state.measured_seconds += seconds
+
+    def snapshot(self) -> dict[str, Any]:
+        if self.state is None:
+            self.state = self.store.progress_state(self.job_id)
+        return self.store.progress_view(self.job_id, self.state)
 
 
 class JobStore:
@@ -246,17 +349,19 @@ class JobStore:
         return dict(row)
 
     def progress(self, job_id: str) -> dict[str, Any]:
-        job = self.job(job_id)
-        counts = dict(
-            self.repository.db.execute(
-                "SELECT status,count(*) FROM job_items WHERE job_id=? GROUP BY status", (job_id,)
-            ).fetchall()
-        )
-        elapsed = self.repository.db.execute(
+        """Progress from a full scan of the job's records and runs."""
+        return self.progress_view(job_id, self.progress_state(job_id))
+
+    def progress_state(self, job_id: str) -> ProgressState:
+        db = self.repository.db
+        counts = dict(db.execute(
+            "SELECT status,count(*) FROM job_items WHERE job_id=? GROUP BY status", (job_id,)
+        ).fetchall())
+        elapsed = db.execute(
             "SELECT COALESCE(sum(elapsed_seconds),0) FROM translation_runs WHERE job_id=?",
             (job_id,),
         ).fetchone()[0]
-        measured = self.repository.db.execute(
+        measured = db.execute(
             "SELECT count(*),coalesce(sum(length(s.source_text)),0),coalesce(sum("
             "(SELECT sum(r.elapsed_seconds) FROM translation_runs r "
             "WHERE r.job_id=i.job_id AND r.unit_id=i.unit_id)),0) "
@@ -266,17 +371,27 @@ class JobStore:
             "AND r.unit_id=i.unit_id AND r.elapsed_seconds>0)",
             (job_id,),
         ).fetchone()
-        remaining = counts.get("queued", 0) + counts.get("processing", 0)
-        remaining_chars = self.repository.db.execute(
+        remaining_chars = db.execute(
             "SELECT coalesce(sum(length(s.source_text)),0) FROM job_items i "
             "JOIN source_revisions s ON s.id=i.source_revision WHERE i.job_id=? "
             "AND i.status IN ('queued','processing')",
             (job_id,),
         ).fetchone()[0]
-        rate = measured[0] * 60 / measured[2] if measured[2] > 0 else None
+        return ProgressState(
+            counts, float(elapsed), int(measured[0]), int(measured[1]), float(measured[2]),
+            int(remaining_chars),
+        )
+
+    def progress_view(self, job_id: str, state: ProgressState) -> dict[str, Any]:
+        """The progress result for ``state`` with the job's current status (key lookups)."""
+        job = self.job(job_id)
+        counts = {status: count for status, count in state.counts.items() if count}
+        remaining = counts.get("queued", 0) + counts.get("processing", 0)
+        seconds = state.measured_seconds
+        rate = state.measured_records * 60 / seconds if seconds > 0 else None
         eta = (
-            remaining_chars * measured[2] / measured[1]
-            if remaining_chars and measured[1] and measured[2] > 0
+            state.remaining_chars * seconds / state.measured_chars
+            if state.remaining_chars and state.measured_chars and seconds > 0
             else None
         )
         return {
@@ -285,14 +400,21 @@ class JobStore:
             "pause_reason": self.pause_reason(job_id) if job["pause_requested"] else None,
             "counts": counts,
             "total": sum(counts.values()),
-            "generation_seconds": round(elapsed, 3),
-            "measured_records": measured[0],
+            "generation_seconds": round(state.generation_seconds, 3),
+            "measured_records": state.measured_records,
             "records_per_minute": round(rate, 2) if rate is not None else None,
             "active_generation_eta_seconds": 0
             if remaining == 0
             else (round(eta, 1) if eta is not None else None),
             "eta_method": "completed-source-characters; generation time only; approximate",
         }
+
+    def record_seconds(self, job_id: str, unit_id: str) -> float:
+        """All recorded request time of one record in one job (one index lookup)."""
+        return float(self.repository.db.execute(
+            "SELECT COALESCE(sum(elapsed_seconds),0) FROM translation_runs "
+            "WHERE job_id=? AND unit_id=?", (job_id, unit_id),
+        ).fetchone()[0])
 
     def pause_reason(self, job_id: str) -> str | None:
         row = self.repository.db.execute(
@@ -411,217 +533,316 @@ class JobStore:
     def claim(self, job_id: str, avoid: frozenset[str] = frozenset()) -> dict[str, Any] | None:
         """Claim the next queued record; records in ``avoid`` go last, never skipped."""
         with self.repository.transaction() as db:
-            if not DialogueContextStore(self.repository).current(job_id):
-                self.pause(job_id, "context_sources_changed")
-                return None
-            job = self.job(job_id)
-            if job["pause_requested"] or job["cancel_requested"]:
-                return None
-            query = (
-                "SELECT j.*,u.active,u.source_revision AS current_source,w.version,"
-                "w.status AS work_status,s.source_text,s.category,s.context "
-                "FROM job_items j JOIN text_units u USING(unit_id) "
-                "JOIN work_items w USING(unit_id) "
-                "JOIN source_revisions s ON s.id=j.source_revision "
-                "WHERE j.job_id=? AND j.status='queued' "
-            )
-            while True:
-                # Both statements keep the job_pending index order (no full sort).
+            return self._claim(db, job_id, avoid, [])
+
+    def claim_attempt(
+        self,
+        job_id: str,
+        avoid: frozenset[str],
+        metadata: Callable[[dict[str, Any]], dict[str, Any]],
+    ) -> Claim:
+        """Claim the next record and start its attempt in one commit.
+
+        ``metadata`` builds the run's metadata from the claimed record inside the
+        transaction, so it must not await or write. A crash after this commit leaves a
+        processing claim with a processing run, which reopening requeues and marks
+        interrupted, exactly as a crash after a separate attempt commit did.
+        """
+        skipped: list[str] = []
+        with self.repository.transaction() as db:
+            item = self._claim(db, job_id, avoid, skipped)
+            if item is None:
+                return Claim(None, "", {}, len(skipped))
+            values = metadata(item)
+            return Claim(item, self._start_run(db, item, values), values, len(skipped))
+
+    def _claim(
+        self, db: Any, job_id: str, avoid: frozenset[str], skipped: list[str],
+    ) -> dict[str, Any] | None:
+        if not DialogueContextStore(self.repository).current(job_id):
+            self.pause(job_id, "context_sources_changed")
+            return None
+        job = self.job(job_id)
+        if job["pause_requested"] or job["cancel_requested"]:
+            return None
+        query = (
+            "SELECT j.*,u.active,u.source_revision AS current_source,w.version,"
+            "w.status AS work_status,s.source_text,s.category,s.context "
+            "FROM job_items j JOIN text_units u USING(unit_id) "
+            "JOIN work_items w USING(unit_id) "
+            "JOIN source_revisions s ON s.id=j.source_revision "
+            "WHERE j.job_id=? AND j.status='queued' "
+        )
+        while True:
+            # Both statements keep the job_pending index order (no full sort).
+            item = db.execute(
+                query + "AND j.unit_id NOT IN (SELECT value FROM json_each(?)) "
+                "ORDER BY j.rowid LIMIT 1", (job_id, json.dumps(sorted(avoid))),
+            ).fetchone() if avoid else None
+            if item is None:
                 item = db.execute(
-                    query + "AND j.unit_id NOT IN (SELECT value FROM json_each(?)) "
-                    "ORDER BY j.rowid LIMIT 1", (job_id, json.dumps(sorted(avoid))),
-                ).fetchone() if avoid else None
-                if item is None:
-                    item = db.execute(
-                        query + "ORDER BY j.rowid LIMIT 1", (job_id,)
-                    ).fetchone()
-                if item is None:
-                    return None
-                if (
-                    not item["active"]
-                    or item["current_source"] != item["source_revision"]
-                    or (item["work_status"] == "approved" and not item["candidate_only"])
-                    or item["attempts"] >= 3
-                    or item["version"] != item["work_version"]
-                ):
-                    status = "failed" if item["attempts"] >= 3 else "skipped"
-                    db.execute(
-                        "UPDATE job_items SET status=?,error_code='stale_or_exhausted' "
-                        "WHERE job_id=? AND unit_id=?",
-                        (status, job_id, item["unit_id"]),
-                    )
-                    continue
-                if item["work_status"] == "processing":
-                    raise ValueError("The record is being processed by another job.")
-                claim = uuid4().hex
-                version = item["version"] if item["candidate_only"] else item["version"] + 1
-                if not item["candidate_only"]:
-                    db.execute(
-                        "UPDATE work_items SET status='processing',version=? WHERE unit_id=?",
-                        (version, item["unit_id"]),
-                    )
+                    query + "ORDER BY j.rowid LIMIT 1", (job_id,)
+                ).fetchone()
+            if item is None:
+                return None
+            if (
+                not item["active"]
+                or item["current_source"] != item["source_revision"]
+                or (item["work_status"] == "approved" and not item["candidate_only"])
+                or item["attempts"] >= 3
+                or item["version"] != item["work_version"]
+            ):
+                status = "failed" if item["attempts"] >= 3 else "skipped"
                 db.execute(
-                    "UPDATE job_items SET status='processing',work_version=?,claim_id=? "
+                    "UPDATE job_items SET status=?,error_code='stale_or_exhausted' "
                     "WHERE job_id=? AND unit_id=?",
-                    (version, claim, job_id, item["unit_id"]),
+                    (status, job_id, item["unit_id"]),
                 )
-                return {**dict(item), "claim_id": claim, "work_version": version}
+                skipped.append(item["unit_id"])
+                continue
+            if item["work_status"] == "processing":
+                raise ValueError("The record is being processed by another job.")
+            claim = uuid4().hex
+            version = item["version"] if item["candidate_only"] else item["version"] + 1
+            if not item["candidate_only"]:
+                db.execute(
+                    "UPDATE work_items SET status='processing',version=? WHERE unit_id=?",
+                    (version, item["unit_id"]),
+                )
+            db.execute(
+                "UPDATE job_items SET status='processing',work_version=?,claim_id=? "
+                "WHERE job_id=? AND unit_id=?",
+                (version, claim, job_id, item["unit_id"]),
+            )
+            return {**dict(item), "claim_id": claim, "work_version": version}
 
     def attempt(self, item: dict[str, Any], metadata: dict[str, Any]) -> str:
-        identifier = uuid4().hex
         with self.repository.transaction() as db:
-            updated = db.execute(
-                "UPDATE job_items SET attempts=attempts+1 WHERE job_id=? "
-                "AND unit_id=? AND claim_id=? AND status='processing' AND attempts<3",
-                (item["job_id"], item["unit_id"], item["claim_id"]),
-            )
-            if updated.rowcount != 1:
-                raise ValueError("The job claim is invalid or the attempt budget is exhausted.")
-            # Run numbers follow history, not the refundable budget, so they never repeat.
-            count = db.execute(
-                "SELECT COALESCE(MAX(attempt),0)+1 FROM translation_runs "
-                "WHERE job_id=? AND unit_id=?",
-                (item["job_id"], item["unit_id"]),
-            ).fetchone()[0]
-            db.execute(
-                "INSERT INTO translation_runs(id,job_id,unit_id,source_revision,attempt,"
-                "metadata_json,status,created_at) VALUES(?,?,?,?,?,?,'processing',?)",
-                (
-                    identifier,
-                    item["job_id"],
-                    item["unit_id"],
-                    item["source_revision"],
-                    count,
-                    canonical(metadata),
-                    now(),
-                ),
-            )
+            return self._start_run(db, item, metadata)
+
+    def _start_run(self, db: Any, item: dict[str, Any], metadata: dict[str, Any]) -> str:
+        identifier = uuid4().hex
+        updated = db.execute(
+            "UPDATE job_items SET attempts=attempts+1 WHERE job_id=? "
+            "AND unit_id=? AND claim_id=? AND status='processing' AND attempts<3",
+            (item["job_id"], item["unit_id"], item["claim_id"]),
+        )
+        if updated.rowcount != 1:
+            raise ValueError("The job claim is invalid or the attempt budget is exhausted.")
+        # Run numbers follow history, not the refundable budget, so they never repeat.
+        count = db.execute(
+            "SELECT COALESCE(MAX(attempt),0)+1 FROM translation_runs "
+            "WHERE job_id=? AND unit_id=?",
+            (item["job_id"], item["unit_id"]),
+        ).fetchone()[0]
+        db.execute(
+            "INSERT INTO translation_runs(id,job_id,unit_id,source_revision,attempt,"
+            "metadata_json,status,created_at) VALUES(?,?,?,?,?,?,'processing',?)",
+            (
+                identifier,
+                item["job_id"],
+                item["unit_id"],
+                item["source_revision"],
+                count,
+                canonical(metadata),
+                now(),
+            ),
+        )
         return identifier
 
     def record_attempt(
         self, run_id: str, status: str, elapsed: float, metadata: dict[str, Any]
     ) -> None:
         with self.repository.transaction() as db:
-            db.execute(
-                "UPDATE translation_runs SET status=?,elapsed_seconds=?,metadata_json=? WHERE id=?",
-                (status, elapsed, canonical(metadata), run_id),
-            )
+            self._record_run(db, run_id, status, elapsed, metadata)
+
+    @staticmethod
+    def _record_run(
+        db: Any, run_id: str, status: str, elapsed: float, metadata: dict[str, Any],
+    ) -> None:
+        db.execute(
+            "UPDATE translation_runs SET status=?,elapsed_seconds=?,metadata_json=? WHERE id=?",
+            (status, elapsed, canonical(metadata), run_id),
+        )
 
     def finish(self, item: dict[str, Any], result: dict[str, Any], run_id: str) -> bool:
         with self.repository.transaction() as db:
-            if not DialogueContextStore(self.repository).current(item["job_id"]):
-                self.fail(item, "context_sources_changed")
-                self.pause(item["job_id"], "context_sources_changed")
-                return False
-            valid = db.execute(
-                "SELECT 1 FROM job_items j JOIN jobs b ON b.id=j.job_id "
-                "WHERE j.job_id=? AND j.unit_id=? AND j.claim_id=? "
-                "AND j.status='processing' AND b.cancel_requested=0",
-                (item["job_id"], item["unit_id"], item["claim_id"]),
-            ).fetchone()
-            if valid is None:
-                return False
-            metadata = {
-                key: value for key, value in result.items() if key not in ("source", "translation")
-            }
-            metadata["run_id"] = run_id
-            from unitytranslator.validation import REVIEW_CHECKS_VERSION
+            return self._finish(db, item, result, run_id)[0]
 
-            metadata["review_checks_version"] = REVIEW_CHECKS_VERSION
-            metadata["protected_format_version"] = self.repository.format_rules(item["unit_id"])
-            accepted = self.repository.candidate(
-                item["unit_id"],
-                item["source_revision"],
-                item["work_version"],
-                result["translation"],
-                "model",
-                metadata,
-                result.get("issues", []),
-            )
-            candidate_revision = None
-            if item["candidate_only"]:
-                current = db.execute(
-                    "SELECT u.source_revision,u.active,w.version,w.status "
-                    "FROM text_units u JOIN work_items w USING(unit_id) WHERE u.unit_id=?",
-                    (item["unit_id"],),
-                ).fetchone()
-                candidate_id, _ = self.repository.candidate_identity(
-                    item["unit_id"], item["source_revision"], result["translation"], "model",
-                    metadata,
-                )
-                candidate = db.execute(
-                    "SELECT id FROM translation_revisions WHERE id=?", (candidate_id,)
-                ).fetchone()
-                from unitytranslator.validation import format_issues
+    def complete(
+        self,
+        item: dict[str, Any],
+        result: dict[str, Any],
+        run_id: str,
+        elapsed: float,
+        metadata: dict[str, Any],
+    ) -> tuple[bool, str | None]:
+        """Store a model result and its run record in one commit.
 
-                accepted = bool(
-                    current
-                    and candidate
-                    and current["active"]
-                    and current["source_revision"] == item["source_revision"]
-                    and current["version"] == item["work_version"]
-                    and current["status"] == "approved"
-                    and not format_issues(
-                        item["source_text"],
-                        result["translation"],
-                        rules=self.repository.format_rules(item["unit_id"]),
-                    )
-                )
-                if accepted:
-                    candidate_revision = candidate[0]
-            revision = candidate_revision or (
-                db.execute(
-                    "SELECT translation_revision FROM work_items WHERE unit_id=?",
-                    (item["unit_id"],),
-                ).fetchone()[0]
-                if accepted
-                else None
-            )
-            db.execute(
-                "UPDATE job_items SET status=?,claim_id=NULL,error_code=?,result_revision=? "
-                "WHERE job_id=? AND unit_id=?",
-                (
-                    "completed" if accepted else "skipped",
-                    None if accepted else "stale_result",
-                    revision,
-                    item["job_id"],
-                    item["unit_id"],
-                ),
-            )
-            return accepted
-
-    def fail(self, item: dict[str, Any], code: str, retry: bool = False) -> None:
+        Returns whether the candidate was accepted and the record's new job status, or
+        None when its claim was already gone (cancelled or requeued). Either way the run
+        is recorded as accepted or stale with ``metadata`` and the response summary.
+        """
         with self.repository.transaction() as db:
-            updated = db.execute(
-                "UPDATE job_items SET status=?,claim_id=NULL,error_code=? "
-                "WHERE job_id=? AND unit_id=? AND claim_id=? AND status='processing'",
-                (
-                    "queued" if retry else "failed",
-                    code,
-                    item["job_id"],
-                    item["unit_id"],
-                    item["claim_id"],
-                ),
+            accepted, status = self._finish(db, item, result, run_id)
+            self._record_run(
+                db, run_id, "accepted" if accepted else "stale", elapsed,
+                {
+                    **metadata,
+                    "result": {
+                        k: v for k, v in result.items() if k not in ("source", "translation")
+                    },
+                },
             )
-            if updated.rowcount:
-                status = (
-                    "pending"
-                    if retry or code in OUTAGE_CODES
-                    else "needs_review"
-                    if code == "context"
-                    else "validation_error"
+        return accepted, status
+
+    def _finish(
+        self, db: Any, item: dict[str, Any], result: dict[str, Any], run_id: str,
+    ) -> tuple[bool, str | None]:
+        if not DialogueContextStore(self.repository).current(item["job_id"]):
+            failed = self._fail(db, item, "context_sources_changed", False)
+            self.pause(item["job_id"], "context_sources_changed")
+            return False, "failed" if failed else None
+        valid = db.execute(
+            "SELECT 1 FROM job_items j JOIN jobs b ON b.id=j.job_id "
+            "WHERE j.job_id=? AND j.unit_id=? AND j.claim_id=? "
+            "AND j.status='processing' AND b.cancel_requested=0",
+            (item["job_id"], item["unit_id"], item["claim_id"]),
+        ).fetchone()
+        if valid is None:
+            return False, None
+        metadata = {
+            key: value for key, value in result.items() if key not in ("source", "translation")
+        }
+        metadata["run_id"] = run_id
+        from unitytranslator.validation import REVIEW_CHECKS_VERSION
+
+        metadata["review_checks_version"] = REVIEW_CHECKS_VERSION
+        metadata["protected_format_version"] = self.repository.format_rules(item["unit_id"])
+        accepted = self.repository.candidate(
+            item["unit_id"],
+            item["source_revision"],
+            item["work_version"],
+            result["translation"],
+            "model",
+            metadata,
+            result.get("issues", []),
+        )
+        candidate_revision = None
+        if item["candidate_only"]:
+            current = db.execute(
+                "SELECT u.source_revision,u.active,w.version,w.status "
+                "FROM text_units u JOIN work_items w USING(unit_id) WHERE u.unit_id=?",
+                (item["unit_id"],),
+            ).fetchone()
+            candidate_id, _ = self.repository.candidate_identity(
+                item["unit_id"], item["source_revision"], result["translation"], "model",
+                metadata,
+            )
+            candidate = db.execute(
+                "SELECT id FROM translation_revisions WHERE id=?", (candidate_id,)
+            ).fetchone()
+            from unitytranslator.validation import format_issues
+
+            accepted = bool(
+                current
+                and candidate
+                and current["active"]
+                and current["source_revision"] == item["source_revision"]
+                and current["version"] == item["work_version"]
+                and current["status"] == "approved"
+                and not format_issues(
+                    item["source_text"],
+                    result["translation"],
+                    rules=self.repository.format_rules(item["unit_id"]),
                 )
-                work = db.execute(
-                    "UPDATE work_items SET status=?,version=version+1 WHERE unit_id=? "
-                    "AND version=? AND status='processing'",
-                    (status, item["unit_id"], item["work_version"]),
-                )
-                if work.rowcount and retry:
-                    db.execute(
-                        "UPDATE job_items SET work_version=work_version+1 "
-                        "WHERE job_id=? AND unit_id=?",
-                        (item["job_id"], item["unit_id"]),
-                    )
+            )
+            if accepted:
+                candidate_revision = candidate[0]
+        revision = candidate_revision or (
+            db.execute(
+                "SELECT translation_revision FROM work_items WHERE unit_id=?",
+                (item["unit_id"],),
+            ).fetchone()[0]
+            if accepted
+            else None
+        )
+        status = "completed" if accepted else "skipped"
+        db.execute(
+            "UPDATE job_items SET status=?,claim_id=NULL,error_code=?,result_revision=? "
+            "WHERE job_id=? AND unit_id=?",
+            (
+                status,
+                None if accepted else "stale_result",
+                revision,
+                item["job_id"],
+                item["unit_id"],
+            ),
+        )
+        return accepted, status
+
+    def fail(self, item: dict[str, Any], code: str, retry: bool = False) -> bool:
+        """Release a claim as queued (retry) or failed; False when the claim was gone."""
+        with self.repository.transaction() as db:
+            return self._fail(db, item, code, retry)
+
+    def _fail(self, db: Any, item: dict[str, Any], code: str, retry: bool) -> bool:
+        updated = db.execute(
+            "UPDATE job_items SET status=?,claim_id=NULL,error_code=? "
+            "WHERE job_id=? AND unit_id=? AND claim_id=? AND status='processing'",
+            (
+                "queued" if retry else "failed",
+                code,
+                item["job_id"],
+                item["unit_id"],
+                item["claim_id"],
+            ),
+        )
+        if not updated.rowcount:
+            return False
+        status = (
+            "pending"
+            if retry or code in OUTAGE_CODES
+            else "needs_review"
+            if code == "context"
+            else "validation_error"
+        )
+        work = db.execute(
+            "UPDATE work_items SET status=?,version=version+1 WHERE unit_id=? "
+            "AND version=? AND status='processing'",
+            (status, item["unit_id"], item["work_version"]),
+        )
+        if work.rowcount and retry:
+            db.execute(
+                "UPDATE job_items SET work_version=work_version+1 "
+                "WHERE job_id=? AND unit_id=?",
+                (item["job_id"], item["unit_id"]),
+            )
+        return True
+
+    def record_failure(
+        self,
+        item: dict[str, Any],
+        run_id: str,
+        code: str,
+        elapsed: float,
+        metadata: dict[str, Any],
+        *,
+        refund: bool = False,
+        release: bool | None = None,
+    ) -> bool | None:
+        """Record a failed attempt in one commit, optionally refunding or releasing it.
+
+        ``refund`` returns an outage attempt to the budget. ``release`` also releases the
+        claim now (True: requeue, False: fail); None keeps the claim, as during backoff,
+        so the recorded failure stays charged if the run stops while waiting. Returns the
+        release result, or None when the claim was kept.
+        """
+        with self.repository.transaction() as db:
+            self._record_run(db, run_id, code, elapsed, metadata)
+            if refund:
+                self._refund(db, item)
+            return None if release is None else self._fail(db, item, code, release)
 
     def consecutive_outages(self, job_id: str, unit_id: str) -> int:
         """Count this record's latest outage runs, across pause/resume cycles."""
@@ -640,11 +861,15 @@ class JobStore:
     def refund_attempt(self, item: dict[str, Any]) -> None:
         """Return an outage attempt to the record's budget; its run history stays."""
         with self.repository.transaction() as db:
-            db.execute(
-                "UPDATE job_items SET attempts=attempts-1 WHERE job_id=? AND unit_id=? "
-                "AND claim_id=? AND status='processing' AND attempts>0",
-                (item["job_id"], item["unit_id"], item["claim_id"]),
-            )
+            self._refund(db, item)
+
+    @staticmethod
+    def _refund(db: Any, item: dict[str, Any]) -> None:
+        db.execute(
+            "UPDATE job_items SET attempts=attempts-1 WHERE job_id=? AND unit_id=? "
+            "AND claim_id=? AND status='processing' AND attempts>0",
+            (item["job_id"], item["unit_id"], item["claim_id"]),
+        )
 
     def interrupt(self, job_id: str, reason: str = "shutdown") -> None:
         """Pause a job whose run stopped without an explicit cancel; requeue its claims.
@@ -730,6 +955,10 @@ class TranslationJobService:
         *,
         parallel_requests: int = 1,
     ) -> dict[str, Any]:
+        """Run a job: per record one claim-and-attempt commit and one result commit.
+
+        The job owns one HTTP client, shared by its workers and closed on every exit.
+        """
         if (
             type(parallel_requests) is not int
             or not 1 <= parallel_requests <= MAX_PARALLEL_REQUESTS
@@ -742,18 +971,89 @@ class TranslationJobService:
         profile = self.store.start(job_id)
         self.active_job = job_id
         self.task = asyncio.current_task()
-        provider = (
-            self.provider_factory(profile)
-            if self.provider_factory
-            else LocalProvider(
-                profile.provider, profile.address, structured_output=profile.structured_output
+        client: Any = None
+        warnings: list[dict[str, Any]] = []
+        try:
+            provider = (
+                self.provider_factory(profile)
+                if self.provider_factory
+                else LocalProvider(
+                    profile.provider, profile.address,
+                    structured_output=profile.structured_output,
+                )
             )
-        )
+            # Providers without these hooks (synthetic test providers) keep their own I/O.
+            open_client = getattr(provider, "job_client", None)
+            if callable(open_client):
+                client = open_client(parallel_requests)
+                provider = provider.with_client(client)
+            probe = getattr(provider, "server_slots", None)
+            server_slots = (
+                await probe() if parallel_requests > 1 and callable(probe) else None
+            )
+            warning = slot_warning(parallel_requests, server_slots)
+            if warning is not None:
+                warnings.append(warning)
+            await self._work(
+                job_id, profile, provider, progress, parallel_requests, server_slots, warnings,
+            )
+            return self._result(self.store.settle(job_id), warnings)
+        except (asyncio.CancelledError, OperationCancelled):
+            # Only an explicit cancel cancels; closing, switching projects or a cooperative
+            # shutdown leaves the job paused with its queue intact for an explicit resume.
+            if self.store.job(job_id)["cancel_requested"]:
+                self.store.cancel(job_id)
+            else:
+                self.store.interrupt(job_id)
+            return self._result(self.store.settle(job_id), warnings)
+        finally:
+            self.active_job = None
+            self.task = None
+            if client is not None:
+                # Shielded so a second cancellation cannot leave the pool open.
+                await asyncio.shield(client.aclose())
+
+    @staticmethod
+    def _result(progress: dict[str, Any], warnings: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run results and live progress carry this run's warnings, possibly none."""
+        return {**progress, "warnings": list(warnings)}
+
+    async def _work(
+        self,
+        job_id: str,
+        profile: GenerationProfile,
+        provider: Any,
+        progress: Callable[[dict[str, Any]], None] | None,
+        parallel_requests: int,
+        server_slots: int | None,
+        warnings: list[dict[str, Any]],
+    ) -> None:
         policy = PolicyStore(self.repository)
         cached_rules: tuple[str | None, list[GlossaryRule]] | None = None
         last_event = 0.0
         outage_streak = 0
         outage_units: set[str] = set()
+        tracker = ProgressTracker(self.store, job_id)
+        slots = {"server_slots": server_slots} if server_slots is not None else {}
+
+        def attempt_metadata(
+            item: dict[str, Any], *, effective: GenerationProfile,
+            rules: list[GlossaryRule], relevant: list[GlossaryRule],
+        ) -> dict[str, Any]:
+            """The run's metadata; runs inside the claim transaction (no I/O, no await)."""
+            relevant.extend(
+                rule for rule in rules
+                if rule.matches(
+                    item["source_text"], item["category"],
+                    language=self.repository.source_language,
+                )
+            )
+            return {
+                "profile": effective.to_dict(),
+                "parallel_requests": parallel_requests,
+                **slots,
+                "glossary_rules": [r.model_dump() for r in relevant],
+            }
 
         async def worker() -> None:
             nonlocal last_event, cached_rules, outage_streak
@@ -768,26 +1068,21 @@ class TranslationJobService:
                     cached_rules = (
                         effective.glossary_version, policy.rules(effective.glossary_version),
                     )
+                relevant: list[GlossaryRule] = []
                 # Records in a current outage go last, so a single failing record cannot
                 # starve the others or masquerade as a server-wide outage.
-                item = self.store.claim(job_id, frozenset(outage_units))
-                if item is None:
+                claim = self.store.claim_attempt(
+                    job_id, frozenset(outage_units), partial(
+                        attempt_metadata, effective=effective, rules=cached_rules[1],
+                        relevant=relevant,
+                    ),
+                )
+                if claim.item is None:
+                    if claim.stale_skipped:
+                        tracker.invalidate()
                     break
-                relevant = [
-                    rule
-                    for rule in cached_rules[1]
-                    if rule.matches(
-                        item["source_text"],
-                        item["category"],
-                        language=self.repository.source_language,
-                    )
-                ]
-                metadata = {
-                    "profile": effective.to_dict(),
-                    "parallel_requests": parallel_requests,
-                    "glossary_rules": [r.model_dump() for r in relevant],
-                }
-                run_id = self.store.attempt(item, metadata)
+                item, run_id, metadata = claim.item, claim.run_id, claim.metadata
+                tracker.claimed(claim.stale_skipped)
                 started = perf_counter()
                 try:
                     dialogue = (
@@ -807,9 +1102,9 @@ class TranslationJobService:
                         options["dialogue_context"] = dialogue
                     if profile.reasoning_effort != "default":
                         options["reasoning_effort"] = profile.reasoning_effort
-                    rules = self.repository.format_rules(item["unit_id"])
-                    if rules != "protected-i2-v4":
-                        options["format_rules"] = rules
+                    format_rules = self.repository.format_rules(item["unit_id"])
+                    if format_rules != "protected-i2-v4":
+                        options["format_rules"] = format_rules
                     result = await provider.translate_record(
                         profile.model,
                         item["source_text"],
@@ -837,95 +1132,100 @@ class TranslationJobService:
                             result.setdefault("issues", []).append(
                                 "glossary_violation:" + rule.source
                             )
-                    accepted = self.store.finish(item, result, run_id)
+                    elapsed = perf_counter() - started
+                    # The result, its revision, the record state and the run: one commit.
+                    _, status = self.store.complete(item, result, run_id, elapsed, metadata)
+                    tracker.attempt_recorded(elapsed)
+                    tracker.finished(item, status)
                     outage_streak = 0
                     outage_units.clear()
-                    self.store.record_attempt(
-                        run_id,
-                        "accepted" if accepted else "stale",
-                        perf_counter() - started,
-                        {
-                            **metadata,
-                            "result": {
-                                k: v
-                                for k, v in result.items()
-                                if k not in ("source", "translation")
-                            },
-                        },
-                    )
                 except OperationCancelled:
                     self.store.record_attempt(
                         run_id, "cancelled", perf_counter() - started, metadata,
                     )
+                    tracker.invalidate()
                     raise asyncio.CancelledError() from None
                 except (ProviderError, ValueError) as exc:
                     code = exc.code if isinstance(exc, ProviderError) else "unsupported_format"
                     failure_metadata = dict(metadata)
                     if isinstance(exc, ProviderError) and exc.diagnostics:
                         failure_metadata["error_diagnostics"] = exc.diagnostics
-                    self.store.record_attempt(
-                        run_id, code, perf_counter() - started, failure_metadata
-                    )
+                    elapsed = perf_counter() - started
                     if code in OUTAGE_CODES:
-                        self.store.refund_attempt(item)
                         outage_streak += 1
                         outage_units.add(item["unit_id"])
-                        failures = self.store.consecutive_outages(job_id, item["unit_id"])
+                        # This run is still processing, so it is not counted yet.
+                        failures = self.store.consecutive_outages(job_id, item["unit_id"]) + 1
+                        server_down = (
+                            outage_streak >= OUTAGE_PAUSE_STREAK + parallel_requests - 1
+                            and len(outage_units) > 1
+                        )
+                        release: bool | None
                         if failures >= MAX_RECORD_OUTAGES:
                             # One record that alone keeps failing is failed (left Pending
                             # for a later job) instead of pausing the job on every resume.
                             outage_units.discard(item["unit_id"])
-                            self.store.fail(item, code, False)
-                        elif (
-                            outage_streak >= OUTAGE_PAUSE_STREAK + parallel_requests - 1
-                            and len(outage_units) > 1
-                        ):
-                            # A server-wide outage spans several records and outlasts
-                            # the first concurrent wave of failures.
-                            self.store.fail(item, code, True)
-                            self.store.pause(job_id, code)
+                            release, server_down = False, False
                         else:
-                            # Keep the claim while waiting so no other worker retries at once.
+                            # A server-wide outage spans several records and outlasts the
+                            # first concurrent wave of failures. Otherwise keep the claim
+                            # while waiting so no other worker retries at once.
+                            release = True if server_down else None
+                        released = self.store.record_failure(
+                            item, run_id, code, elapsed, failure_metadata,
+                            refund=True, release=release,
+                        )
+                        tracker.attempt_recorded(elapsed)
+                        if release is None:
                             await asyncio.sleep(retry_delay(failures, 2.0))
-                            self.store.fail(item, code, True)
+                            release = True
+                            released = self.store.fail(item, code, True)
+                        self._released(tracker, item, release, bool(released))
+                        if server_down:
+                            self.store.pause(job_id, code)
                     else:
                         outage_streak = 0
                         outage_units.clear()
                         retry = code in RETRY_CODES and item["attempts"] + 1 < MAX_ATTEMPTS
+                        released = self.store.record_failure(
+                            item, run_id, code, elapsed, failure_metadata,
+                            release=None if retry else False,
+                        )
+                        tracker.attempt_recorded(elapsed)
                         if retry:
                             await asyncio.sleep(retry_delay(item["attempts"] + 1, 0.5))
-                        self.store.fail(item, code, retry)
+                            released = self.store.fail(item, code, True)
+                        self._released(tracker, item, retry, bool(released))
                         if code in PAUSE_CODES or (code == "timeout" and not retry):
                             self.store.pause(job_id, code)
                 except asyncio.CancelledError:
                     self.store.record_attempt(
                         run_id, "cancelled", perf_counter() - started, metadata
                     )
+                    tracker.invalidate()
                     raise
                 current = perf_counter()
-                if progress is not None and current - last_event >= 0.2:
-                    progress(self.store.progress(job_id))
+                if progress is not None and current - last_event >= PROGRESS_INTERVAL:
+                    progress(self._result(tracker.snapshot(), warnings))
                     last_event = current
                 await asyncio.sleep(0)
 
+        workers = [asyncio.create_task(worker()) for _ in range(parallel_requests)]
         try:
-            workers = [asyncio.create_task(worker()) for _ in range(parallel_requests)]
-            try:
-                await asyncio.gather(*workers)
-            except BaseException:
-                for task in workers:
-                    task.cancel()
-                await asyncio.gather(*workers, return_exceptions=True)
-                raise
-            return self.store.settle(job_id)
-        except (asyncio.CancelledError, OperationCancelled):
-            # Only an explicit cancel cancels; closing, switching projects or a cooperative
-            # shutdown leaves the job paused with its queue intact for an explicit resume.
-            if self.store.job(job_id)["cancel_requested"]:
-                self.store.cancel(job_id)
-            else:
-                self.store.interrupt(job_id)
-            return self.store.settle(job_id)
-        finally:
-            self.active_job = None
-            self.task = None
+            await asyncio.gather(*workers)
+        except BaseException:
+            for task in workers:
+                task.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
+            raise
+
+    @staticmethod
+    def _released(
+        tracker: ProgressTracker, item: dict[str, Any], retry: bool, released: bool,
+    ) -> None:
+        if not released:
+            tracker.invalidate()
+        elif retry:
+            tracker.requeued()
+        else:
+            tracker.finished(item, "failed")

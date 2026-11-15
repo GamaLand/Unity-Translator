@@ -1280,5 +1280,6 @@
   "The target path must be relative and inside its root.": "目标路径必须是相对路径，且位于其根目录内。",
   "The game folder cannot be inspected for running programs (links, reserved names, unreadable folders or too many entries); the file operation stopped.": "无法检查游戏文件夹中的运行程序（链接、保留名称、不可读文件夹或条目过多）；文件操作已停止。",
   "The game folder contains links, reserved names or unreadable folders.": "游戏文件夹包含符号链接、保留名称或无法读取的文件夹。",
-  "The script metadata file is not a Unity serialized file.": "脚本元数据文件不是 Unity 序列化文件。"
+  "The script metadata file is not a Unity serialized file.": "脚本元数据文件不是 Unity 序列化文件。",
+  "The job sends up to {p0} parallel requests, but the model server reports {p1} slots. Requests beyond the slots wait in the server's queue and count toward their timeout; reduce parallel requests to {p1} or start the server with more slots.": "该任务最多发送 {p0} 个并行请求，但模型服务器报告只有 {p1} 个槽位。超出槽位的请求会在服务器队列中等待，并计入其超时时间；请将并行请求数减少到 {p1}，或以更多槽位启动服务器。"
 }

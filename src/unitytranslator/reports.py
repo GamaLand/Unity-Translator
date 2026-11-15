@@ -9,7 +9,7 @@ from statistics import median
 from typing import Any
 from uuid import uuid4
 
-from unitytranslator.jobs import JobStore
+from unitytranslator.jobs import JobStore, slot_warning
 from unitytranslator.repository import ProjectRepository, now
 from unitytranslator.validation import (
     REVIEW_CHECKS_VERSION,
@@ -186,7 +186,7 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         dict(row)
         for row in repository.db.execute(
             "SELECT unit_id,attempt,status,elapsed_seconds,metadata_json FROM translation_runs "
-            "WHERE job_id=?",
+            "WHERE job_id=? ORDER BY rowid",
             (job_id,),
         )
     ]
@@ -207,11 +207,10 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
             "s.category,s.context,u.original_key,t.text AS translation,t.issues_json,"
             "w.status AS current_status,w.translation_revision AS current_translation,"
             "w.approved_source,w.approved_translation,j.source_revision,"
-            "ct.origin AS current_origin,ct.text AS current_text,ct.created_at AS current_created,"
-            "b.created_at AS job_created,u.source_revision AS active_source "
+            "ct.origin AS current_origin,ct.text AS current_text,ct.rowid AS current_sequence,"
+            "t.rowid AS result_sequence,u.source_revision AS active_source "
             "FROM job_items j JOIN source_revisions s ON s.id=j.source_revision "
             "JOIN text_units u ON u.unit_id=j.unit_id JOIN work_items w ON w.unit_id=j.unit_id "
-            "JOIN jobs b ON b.id=j.job_id "
             "LEFT JOIN translation_revisions ct ON ct.id=w.translation_revision "
             "LEFT JOIN translation_revisions t ON t.id=j.result_revision "
             "WHERE j.job_id=? ORDER BY j.rowid",
@@ -228,7 +227,9 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         row["result_revision"] is not None
         and row["active_source"] == row["source_revision"]
         and row["current_origin"] == "manual"
-        and row["current_created"] >= row["job_created"]
+        # Revision order, not timestamps: an edit saved in the same clock tick as the job
+        # was created must not count as a correction of that job's result.
+        and row["current_sequence"] > row["result_sequence"]
         and row["current_text"] != row["translation"]
         for row in rows
     )
@@ -253,8 +254,13 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
     review_blocker = store.pilot_review_blocker(job_id)
     context_attempts = []
     reasoning_attempts = []
+    # Only the latest run's settings matter; a later run may already use fewer requests.
+    latest_slots: tuple[int, int] | None = None
     for attempt in attempts:
         metadata = json.loads(attempt["metadata_json"])
+        parallel, slots = metadata.get("parallel_requests"), metadata.get("server_slots")
+        if type(parallel) is int and type(slots) is int:
+            latest_slots = (parallel, slots)
         reasoning = metadata.get("result", {}).get("reasoning")
         if isinstance(reasoning, dict):
             reasoning_attempts.append(reasoning)
@@ -328,6 +334,12 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         "quality_note": "Biçim kontrolleri anlam doğruluğunu garanti etmez. "
         "İnsan incelemesi gereklidir.",
         "project_time_estimate": project_estimate(repository, job_id),
+        # Runs record the slots a llama.cpp server reported at job start, when it did.
+        "warnings": [
+            warning
+            for warning in ([slot_warning(*latest_slots)] if latest_slots else [])
+            if warning is not None
+        ],
         "records": rows,
     }
 

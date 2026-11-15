@@ -486,3 +486,33 @@ def test_history_dialog_does_not_select_new_candidate_over_approval_without_choi
         assert dialog.chosen == history["revisions"][index]["id"]
         assert repo.page()[0]["status"] == "approved"
         dialog.close()
+
+
+def test_server_slot_warning_stays_with_its_job_until_a_new_run_reports():
+    from unitytranslator.jobs import slot_warning
+    from unitytranslator.ui import i18n
+
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    try:
+        progress = {
+            "job_id": "job-1", "status": "running", "pause_reason": None,
+            "counts": {"completed": 1, "processing": 3}, "total": 4,
+            "generation_seconds": 1.0, "records_per_minute": 60.0,
+            "active_generation_eta_seconds": 3.0,
+        }
+        warning = slot_warning(4, 2)
+        localized = i18n.tr(warning["code"], **warning["params"])
+        assert localized != warning["message"] and "4" in localized and "2" in localized
+        window.on_progress({**progress, "warnings": [warning]})
+        assert localized in window.job_status.text()
+        # Job lists carry no warnings; the latest run's warning stays visible.
+        window.on_progress(progress)
+        assert localized in window.job_status.text()
+        window.on_progress({**progress, "job_id": "job-2"})
+        assert localized not in window.job_status.text()
+        window.on_progress({**progress, "warnings": []})
+        assert localized not in window.job_status.text()
+    finally:
+        window.close()
+        wait_for(app, lambda: window.backend_closed)

@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
 )
 
 from unitytranslator import __version__
-from unitytranslator.diagnostics import describe
+from unitytranslator.diagnostics import Failure, describe
 from unitytranslator.jobs import MAX_PARALLEL_REQUESTS
 from unitytranslator.language import DEFAULT_STYLE, LANGUAGE_NAMES
 from unitytranslator.providers import reasoning_supported
@@ -719,6 +719,8 @@ class MainWindow(QMainWindow):
         self.current_job = None
         self.job_preparing = False
         self.job_summaries = {}
+        # Warnings of each job's latest run in this session, by job ID.
+        self.job_warnings: dict[str, list[dict[str, Any]]] = {}
         self.project_open = False
         self.closing = False
         self.backend_closed = False
@@ -2572,6 +2574,22 @@ class MainWindow(QMainWindow):
                 + tr("\nAutomatically paused: ")
                 + descriptions.get(reason, tr("Model server error."))
             )
+        self.show_job_warnings(result)
+
+    def show_job_warnings(self, result: dict[str, Any]) -> None:
+        """Append the warnings of the job's latest run; job lists carry none of their own."""
+        warnings = result.get("warnings")
+        if isinstance(warnings, list):
+            self.job_warnings[result["job_id"]] = warnings
+        else:
+            warnings = self.job_warnings.get(result["job_id"], [])
+        if warnings:
+            self.job_status.setText(self.job_status.text() + "".join(
+                "\n" + localize(Failure(
+                    warning["message"], code=warning["code"], params=warning["params"],
+                ))
+                for warning in warnings
+            ))
 
     def failed(self, command, message):
         if command in ("create_job", "create_affected_job", "create_page_job"):
@@ -2682,6 +2700,13 @@ class PilotReportDialog(QDialog):
         state.setWordWrap(True)
         state.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(state)
+        for warning in report.get("warnings", []):
+            notice = QLabel(localize(Failure(
+                warning["message"], code=warning["code"], params=warning["params"],
+            )))
+            notice.setWordWrap(True)
+            notice.setTextFormat(Qt.TextFormat.PlainText)
+            layout.addWidget(notice)
         if report["record_count"] > 200:
             layout.addWidget(
                 QLabel(tr("Showing the first 200 records; filter the rest in Review."))

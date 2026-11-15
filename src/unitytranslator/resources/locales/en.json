@@ -1280,5 +1280,6 @@
   "The target path must be relative and inside its root.": "The target path must be relative and inside its root.",
   "The game folder cannot be inspected for running programs (links, reserved names, unreadable folders or too many entries); the file operation stopped.": "The game folder cannot be inspected for running programs (links, reserved names, unreadable folders or too many entries); the file operation stopped.",
   "The game folder contains links, reserved names or unreadable folders.": "The game folder contains links, reserved names or unreadable folders.",
-  "The script metadata file is not a Unity serialized file.": "The script metadata file is not a Unity serialized file."
+  "The script metadata file is not a Unity serialized file.": "The script metadata file is not a Unity serialized file.",
+  "The job sends up to {p0} parallel requests, but the model server reports {p1} slots. Requests beyond the slots wait in the server's queue and count toward their timeout; reduce parallel requests to {p1} or start the server with more slots.": "The job sends up to {p0} parallel requests, but the model server reports {p1} slots. Requests beyond the slots wait in the server's queue and count toward their timeout; reduce parallel requests to {p1} or start the server with more slots."
 }

@@ -327,3 +327,55 @@ def test_pilot_acknowledgement_does_not_approve_records_and_gate_is_source_bound
         repo.ingest([replace(draft(), context="changed")], {})
         with pytest.raises(ValueError, match="source changed; a new pilot evaluation"):
             store.acknowledge_pilot(job)
+
+
+def test_manual_edit_in_the_job_creation_tick_is_not_a_later_correction(
+    paths: ProjectPaths, monkeypatch
+) -> None:
+    # A fast machine can save the approval and create the job in one clock tick.
+    import unitytranslator.jobs as jobs_module
+    import unitytranslator.repository as repository_module
+
+    monkeypatch.setattr(repository_module, "now", lambda: "2026-01-01T00:00:00+00:00")
+    monkeypatch.setattr(jobs_module, "now", lambda: "2026-01-01T00:00:00+00:00")
+    with ProjectRepository(paths) as repo:
+        repo.ingest([draft()], {})
+        repo.edit("UI/start", 0, "Elle onay")
+        repo.approve("UI/start", repo.page()[0]["version"])
+        store = JobStore(repo)
+        job = store.create(["UI/start"], profile(), retranslate=True, approved_candidates=True)
+        asyncio.run(TranslationJobService(repo, lambda _: FakeProvider()).run(job))
+        from unitytranslator.reports import job_report
+
+        assert job_report(repo, job)["changed_after_generation"] == 0
+        # An edit saved after the generated result is a correction, even in the same tick.
+        repo.edit("UI/start", repo.page()[0]["version"], "Sonradan düzeltildi")
+        assert job_report(repo, job)["changed_after_generation"] == 1
+
+
+def test_job_report_warns_only_for_the_latest_run_settings(paths: ProjectPaths) -> None:
+    from unitytranslator.reports import job_report
+
+    with ProjectRepository(paths) as repo:
+        repo.ingest([draft("UI/a", "A"), draft("UI/b", "B")], {})
+        job = JobStore(repo).create(["UI/a", "UI/b"], profile(), kind="pilot")
+        asyncio.run(TranslationJobService(repo, lambda _: FakeProvider()).run(job))
+        ids = [row[0] for row in repo.db.execute(
+            "SELECT id FROM translation_runs WHERE job_id=? ORDER BY rowid", (job,)
+        )]
+
+        def settings(*pairs: tuple[int, int]) -> list[dict]:
+            with repo.transaction() as db:
+                for run_id, (parallel, slots) in zip(ids, pairs, strict=True):
+                    metadata = json.loads(db.execute(
+                        "SELECT metadata_json FROM translation_runs WHERE id=?", (run_id,)
+                    ).fetchone()[0])
+                    metadata.update(parallel_requests=parallel, server_slots=slots)
+                    db.execute(
+                        "UPDATE translation_runs SET metadata_json=? WHERE id=?",
+                        (json.dumps(metadata), run_id),
+                    )
+            return job_report(repo, job)["warnings"]
+
+        assert settings((4, 2), (2, 2)) == []
+        assert len(settings((2, 2), (4, 2))) == 1
