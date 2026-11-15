@@ -30,7 +30,7 @@ from unitytranslator.validation import (
     review_issues,
 )
 
-LATEST_SCHEMA = 7
+LATEST_SCHEMA = 8
 # Records per review page; the interface, session and repository share it.
 REVIEW_PAGE_SIZE = 200
 SUPPORTED_SCHEMAS = frozenset(range(1, LATEST_SCHEMA + 1))
@@ -750,8 +750,8 @@ class ProjectRepository:
         )
         with self.transaction() as db:
             current = db.execute(
-                "SELECT u.source_revision,u.active,s.source_text,s.source_language,w.* "
-                "FROM text_units u "
+                "SELECT u.source_revision,u.active,s.source_text,s.source_language,"
+                "s.category,w.* FROM text_units u "
                 "JOIN source_revisions s ON s.id=u.source_revision "
                 "JOIN work_items w ON w.unit_id=u.unit_id WHERE u.unit_id=?",
                 (unit_id,),
@@ -759,7 +759,8 @@ class ProjectRepository:
             if current is None or source_revision != current["source_revision"]:
                 return False
             hard_issues, issues = self.candidate_issues(
-                unit_id, current["source_text"], current["source_language"], text, issues
+                unit_id, current["source_text"], current["source_language"], text, issues,
+                category=current["category"],
             )
             db.execute(
                 "INSERT OR IGNORE INTO translation_revisions VALUES(?,?,?,?,?,?,?,?)",
@@ -793,7 +794,7 @@ class ProjectRepository:
 
     def candidate_issues(
         self, unit_id: str, source_text: str, source_language: str, text: str,
-        issues: list[str],
+        issues: list[str], *, category: str | None = None,
     ) -> tuple[list[str], list[str]]:
         """Return the protected-format issues and every stored issue of one candidate."""
         rules = self.format_rules(unit_id)
@@ -801,7 +802,7 @@ class ProjectRepository:
         return hard_issues, sorted(set(
             issues + hard_issues + review_issues(
                 source_text, text, source_language=source_language,
-                target_language=self.target_language, rules=rules,
+                target_language=self.target_language, rules=rules, category=category,
             )
         ))
 
@@ -821,7 +822,7 @@ class ProjectRepository:
         )
         with self.transaction() as db:
             current = db.execute(
-                "SELECT u.source_revision,u.active,s.source_text,s.source_language "
+                "SELECT u.source_revision,u.active,s.source_text,s.source_language,s.category "
                 "FROM text_units u JOIN source_revisions s ON s.id=u.source_revision "
                 "WHERE u.unit_id=?",
                 (unit_id,),
@@ -831,7 +832,8 @@ class ProjectRepository:
             ):
                 raise ValueError("The candidate or source changed; reopen the current history.")
             hard_issues, issues = self.candidate_issues(
-                unit_id, current["source_text"], current["source_language"], text, []
+                unit_id, current["source_text"], current["source_language"], text, [],
+                category=current["category"],
             )
             if hard_issues:
                 raise ValueError(

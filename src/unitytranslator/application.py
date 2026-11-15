@@ -28,6 +28,7 @@ from unitytranslator.commands import (
     JobIdPayload,
     JobPayload,
     LanguagePayload,
+    LocalReviewPayload,
     MatchingReviewPayload,
     ModelPayload,
     OpenPayload,
@@ -51,6 +52,9 @@ from unitytranslator.filesystem import ProjectPaths
 from unitytranslator.game_process import inspect_game_processes
 from unitytranslator.installation import InstallationSession
 from unitytranslator.jobs import JobStore, TranslationJobService
+from unitytranslator.local_review import LocalReviewRun, check_server, reviewer_profile
+from unitytranslator.local_review import attach as attach_local_reviews
+from unitytranslator.local_review import selection as local_review_selection
 from unitytranslator.pilot import select_pilot
 from unitytranslator.policy import GlossaryRule, PolicyStore
 from unitytranslator.portable import PortableService
@@ -84,6 +88,14 @@ MEMORY_IDENTITY = "Translation memory request project identity does not match."
 MEMORY_IDLE: tuple[IdleScope, str] = (
     "work", "Wait for extraction or translation to finish before reusing translation memory."
 )
+LOCAL_REVIEW_IDENTITY = "Local review request project identity does not match."
+LOCAL_REVIEW_IDLE: tuple[IdleScope, str] = (
+    "work", "Wait for extraction or translation to finish before the local review."
+)
+LOCAL_REVIEW_BUSY = "Wait for the local review to finish or cancel it first."
+LOCAL_REVIEW_PROJECT_CHANGED = (
+    "The open project changed during the local review check. Open the local review again."
+)
 EXPORT_STATE = "Project changed or extraction is active; retry when it finishes."
 IMPORT_IDLE: tuple[IdleScope, str] = (
     "work", "Stop the running extraction or translation job before importing."
@@ -105,6 +117,10 @@ class ApplicationSession:
         self.all_approval: dict[str, Any] | None = None
         self.matching_review: dict[str, Any] | None = None
         self.translation_memory: dict[str, Any] | None = None
+        # The pending local review preview, and the run with its task while one is active.
+        self.local_review_plan: dict[str, Any] | None = None
+        self.local_review: LocalReviewRun | None = None
+        self.local_review_task: asyncio.Task[Any] | None = None
 
     @property
     def repo(self) -> ProjectRepository:
@@ -119,6 +135,12 @@ class ApplicationSession:
 
     async def close(self) -> None:
         self.extraction_cancelled.set()
+        if self.local_review is not None:
+            # Completed reviews are already committed; the rest is abandoned.
+            self.local_review.cancel()
+            task = self.local_review_task
+            if task is not None and task != asyncio.current_task():
+                await asyncio.gather(task, return_exceptions=True)
         if self.extraction_task is not None and self.extraction_task != asyncio.current_task():
             await asyncio.gather(self.extraction_task, return_exceptions=True)
         if self.jobs is not None and self.jobs.active_job is not None:
@@ -135,6 +157,7 @@ class ApplicationSession:
         self.all_approval = None
         self.matching_review = None
         self.translation_memory = None
+        self.local_review_plan = None
 
     def operation_cancelled(self) -> bool:
         return self.shutdown_requested.is_set() or self.preparation_cancelled.is_set()
@@ -163,6 +186,8 @@ class ApplicationSession:
             self.reserve_preparation()
         repo.db.set_progress_handler(lambda: int(self.operation_cancelled()), 10000)
         try:
+            if self.local_review is not None:
+                raise ValueError(LOCAL_REVIEW_BUSY)
             if self.extracting or self.jobs is None or self.jobs.active_job is not None:
                 raise ValueError("Translation cannot start before extraction finishes.")
             repo.check_cancelled()
@@ -223,7 +248,10 @@ class ApplicationSession:
         return await spec.handler(self, data)
 
     def busy(self, scope: IdleScope) -> bool:
-        job = self.jobs is not None and self.jobs.active_job is not None
+        # A running local review uses the model server and reads current revisions.
+        job = (
+            self.jobs is not None and self.jobs.active_job is not None
+        ) or self.local_review is not None
         return {"work": self.extracting or job, "extraction": self.extracting, "job": job}[scope]
 
     def check_guard(self, guard: Guard, data: Mapping[str, Any]) -> None:
@@ -418,6 +446,8 @@ class ApplicationSession:
         drafts = EditorDraftStore(self.repo)
         for row in rows:
             row["editor_draft"] = drafts.get(row["unit_id"])
+        # Only the current revision's local reviewer codes apply to a row.
+        attach_local_reviews(rows, self.repo, "translation_revision")
         return {
             "project_id": self.repo.project_id,
             "request_token": data.get("request_token"),
@@ -634,6 +664,59 @@ class ApplicationSession:
             ),
         }
 
+    @command("local_review_preview", identity=LOCAL_REVIEW_IDENTITY, idle=LOCAL_REVIEW_IDLE)
+    async def command_local_review_preview(self, data: LocalReviewPayload) -> dict[str, Any]:
+        """Count the records in scope and check the already running server and model."""
+        self.local_review_plan = None
+        reviewer = reviewer_profile(data.get("profile"))
+        # The selection belongs to this repository; the server check below yields, and
+        # another project may be opened meanwhile.
+        repo = self.repo
+        project_id = repo.project_id
+        plan = local_review_selection(
+            repo, reviewer, data.get("filters", {}), data.get("units"),
+        )
+        await check_server(reviewer)
+        if self.repository is not repo:
+            raise ValueError(LOCAL_REVIEW_PROJECT_CHANGED)
+        token = uuid4().hex
+        self.local_review_plan = {
+            "project_id": project_id, "token": token, "reviewer": reviewer,
+            "units": plan["units"],
+        }
+        return {key: value for key, value in plan.items() if key != "units"} | {
+            "project_id": project_id, "request_token": data.get("request_token"),
+            "token": token, "provider": reviewer["provider"], "address": reviewer["address"],
+            "model": reviewer["model"], "prompt_version": reviewer["prompt_version"],
+            "filters": data.get("filters", {}), "units": data.get("units"),
+        }
+
+    @command("local_review_run", identity=LOCAL_REVIEW_IDENTITY, idle=LOCAL_REVIEW_IDLE)
+    async def command_local_review_run(self, data: LocalReviewPayload) -> dict[str, Any]:
+        """Run the previewed review; it only adds codes and keeps completed ones on cancel."""
+        pending, self.local_review_plan = self.local_review_plan, None
+        if data.get("user_action") is not True:
+            raise ValueError("The local review requires an explicit user action.")
+        if pending is None or pending["project_id"] != self.repo.project_id or (
+            pending["token"] != data.get("token")
+        ):
+            raise ValueError("Local review preview expired. Open it again.")
+        review = LocalReviewRun(
+            self.repo, pending, parallel_requests=data.get("parallel_requests", 1),
+        )
+        self.local_review, self.local_review_task = review, asyncio.current_task()
+        try:
+            result = await review.run(self.progress)
+        finally:
+            self.local_review, self.local_review_task = None, None
+        return {**result, "request_token": data.get("request_token")}
+
+    @command("local_review_cancel", project=False)
+    async def command_local_review_cancel(self, data: Mapping[str, Any]) -> bool:
+        if self.local_review is not None:
+            self.local_review.cancel()
+        return True
+
     @command("approve_all_preview", identity=APPROVE_ALL_IDENTITY)
     async def command_approve_all_preview(self, data: ApproveAllPayload) -> dict[str, Any]:
         preview = all_approval_preview(self.repo)
@@ -720,6 +803,7 @@ class ApplicationSession:
     @command("history")
     async def command_history(self, data: UnitPayload) -> dict[str, Any]:
         history = self.repo.history(data["unit_id"])
+        attach_local_reviews(history["revisions"], self.repo, "id")
         if self.repo.format_rules(data["unit_id"]) in ("renpy-text-v1", "renpy-text-v2"):
             from unitytranslator.renpy_export import template_candidate
 
@@ -805,6 +889,8 @@ class ApplicationSession:
     async def command_run_job(self, data: RunPayload) -> dict[str, Any]:
         if self.jobs is None or self.extracting:
             raise ValueError("The project or extraction state does not allow translation.")
+        if self.local_review is not None:
+            raise ValueError(LOCAL_REVIEW_BUSY)
         if "model_selection" in data:
             selected = data["model_selection"]
             saved = json.loads(JobStore(self.repo).job(data["job_id"])["profile_json"])

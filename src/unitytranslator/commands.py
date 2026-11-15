@@ -183,6 +183,17 @@ class TranslationMemoryPayload(Identified, total=False):
     user_action: bool
 
 
+class LocalReviewPayload(Identified, total=False):
+    # The selected model settings; the server must already be running.
+    profile: dict[str, Any]
+    # The current review filters; units optionally narrows them to explicit records.
+    filters: dict[str, Any]
+    units: list[str] | None
+    token: str
+    user_action: bool
+    parallel_requests: int
+
+
 class ApproveAllPayload(Identified, total=False):
     token: str
     user_action: bool

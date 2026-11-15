@@ -271,6 +271,14 @@ off the job took 17.0 s before and 15.5 s after; with the adaptive budget 27.6 s
 27.0 s, so model time dominates. The server reported 12 slots through `/props`, and a
 run at 16 parallel requests carried the slot warning. Single runs; timings vary.
 
+On 16 November 2026 the local reviewer (`review-v1`, adaptive budget, 12 parallel
+requests) reviewed 12 synthetic English-to-Turkish interface translations on the same
+server in 7.6 s. It flagged all six deliberately faulty ones with the expected kind
+(reversed meaning twice, a swapped spell name as meaning, an omission, an addition and
+a person/number error as grammar), each with an accurate note, and none of the six
+correct ones. No status, check or approval changed. This is one small synthetic
+sample, not a precision measurement.
+
 A read-only inspection of a second local layout, LR2, found static Ren'Py
 8.3.6.25022803 evidence, 588 loose `.rpy` files totaling 18,701,812 bytes,
 289 `_ren.py` files and 877 `.rpyc` files, with no `game/tl` directory.

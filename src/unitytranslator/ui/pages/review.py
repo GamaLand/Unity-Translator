@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from unitytranslator.review_selection import canonical_all_confirmation
 from unitytranslator.ui.i18n import tr
+from unitytranslator.ui.local_review import progress_text
 from unitytranslator.ui.pages.base import STOP, Completion, PageController
 
 
@@ -17,6 +18,9 @@ class ReviewController(PageController):
         "matching_review_apply": "matching_review",
         "translation_memory_preview": "translation_memory",
         "translation_memory_apply": "translation_memory",
+        "local_review_preview": "local_review",
+        "local_review_run": "local_review",
+        "local_review_cancel": "local_review",
         "approve_all_preview": "approve_all_preview",
         "approve_selection": "approved_many",
         "approve_all": "approved_many",
@@ -63,6 +67,34 @@ class ReviewController(PageController):
             "one before approval.", p0=str(result["added"]),
         ))
         return None
+
+    def local_review(self, command: str, result: Any) -> Completion:
+        window = self.window
+        if command == "local_review_cancel":
+            window.statusBar().showMessage(tr("Cancelling the local review…"), 8000)
+            return STOP
+        if command == "local_review_run":
+            # The backend run has ended, even when its project or request is no longer open.
+            window.set_local_review_running(False)
+        else:
+            window.local_review_action.setEnabled(not window.local_review_running)
+        if result["project_id"] != window.current_project_id or (
+            result["request_token"] != window.local_review_token
+        ):
+            return STOP
+        if command == "local_review_preview":
+            window.confirm_local_review(result)
+            return STOP
+        window.set_local_review_running(False)
+        window.local_review_token = None
+        # Kept below the record details until the user selects another record, so the
+        # page refresh below cannot replace a stop or cancel reason.
+        window.local_review_summary = progress_text(result)
+        window.refresh()
+        window.review_details.setText(window.local_review_summary)
+        # The stop or cancel reason when there is one, otherwise the counts.
+        window.statusBar().showMessage(window.local_review_summary.split("\n")[-1], 15000)
+        return STOP
 
     def approve_all_preview(self, command: str, result: Any) -> Completion:
         window = self.window
@@ -165,16 +197,21 @@ class ReviewController(PageController):
         window.update_next_step()
         window.draft_refresh_pending = False
         selected = window.current_item["unit_id"] if window.current_item else None
-        window.review_model.set_rows(result["rows"])
-        window.retranslate_page_button.setEnabled(
-            bool(result["rows"]) and window.job_combo.isEnabled()
-        )
-        window.selection_changed()
-        if selected is not None:
-            for index, row in enumerate(result["rows"]):
-                if row["unit_id"] == selected:
-                    window.table.selectRow(index)
-                    break
+        # Restoring the selection is not a user choice; the last local review summary stays.
+        window.restoring_selection = True
+        try:
+            window.review_model.set_rows(result["rows"])
+            window.retranslate_page_button.setEnabled(
+                bool(result["rows"]) and window.job_combo.isEnabled()
+            )
+            window.selection_changed()
+            if selected is not None:
+                for index, row in enumerate(result["rows"]):
+                    if row["unit_id"] == selected:
+                        window.table.selectRow(index)
+                        break
+        finally:
+            window.restoring_selection = False
         window.page_label.setText(
             tr(
                 "{p0} records · {p2}–{p4}",
@@ -222,6 +259,14 @@ class ReviewController(PageController):
                 ),
                 p0=f"{result['audited_current_translations']}",
                 p2=f"{result['flagged_records']}",
+            )
+            + (
+                tr(
+                    "{p0} records have local reviewer codes (model suggestions, unverified).",
+                    p0=f"{result['local_review_records']}",
+                ) + "\n"
+                if result.get("local_review_records")
+                else ""
             )
             + result["html_path"]
         )

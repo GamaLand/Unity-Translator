@@ -16,7 +16,7 @@ from test_repository import draft
 
 from unitytranslator.editor_drafts import EditorDraftStore
 from unitytranslator.filesystem import ProjectPaths, hash_file
-from unitytranslator.repository import ProjectRepository
+from unitytranslator.repository import LATEST_SCHEMA, ProjectRepository
 from unitytranslator.source_contracts import ReaderResult, SourceDescriptor, SourceSnapshot
 
 
@@ -127,7 +127,7 @@ def test_schema4_backup_preserves_approvals_drafts_history_and_receipt(tmp_path,
     receipt = paths.write_json("deployment/receipts/synthetic.json", {"owned": "unchanged"})
     receipt_hash = hash_file(receipt)
     with ProjectRepository(paths) as reopened:
-        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == LATEST_SCHEMA
         assert_rows_preserved(reopened.db, {table: before[table] for table in PRESERVED})
         page = {row["unit_id"]: row for row in reopened.page()}
         for row in expect["page"]:

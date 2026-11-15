@@ -14,7 +14,7 @@ from uuid import uuid4
 from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.dialogue_context import DialogueContextStore
 from unitytranslator.domain import GenerationProfile, OperationCancelled
-from unitytranslator.policy import GlossaryRule, PolicyStore
+from unitytranslator.policy import CompiledGlossary, GlossaryRule, PolicyStore
 from unitytranslator.providers import (
     REASONING_MODES,
     LocalProvider,
@@ -1029,7 +1029,7 @@ class TranslationJobService:
         warnings: list[dict[str, Any]],
     ) -> None:
         policy = PolicyStore(self.repository)
-        cached_rules: tuple[str | None, list[GlossaryRule]] | None = None
+        cached_rules: tuple[str | None, CompiledGlossary] | None = None
         last_event = 0.0
         outage_streak = 0
         outage_units: set[str] = set()
@@ -1038,14 +1038,14 @@ class TranslationJobService:
 
         def attempt_metadata(
             item: dict[str, Any], *, effective: GenerationProfile,
-            rules: list[GlossaryRule], relevant: list[GlossaryRule],
+            rules: CompiledGlossary, relevant: list[GlossaryRule],
         ) -> dict[str, Any]:
             """The run's metadata; runs inside the claim transaction (no I/O, no await)."""
+            # The record's own text rule decides which tokens are protected, not the I2 default.
             relevant.extend(
-                rule for rule in rules
-                if rule.matches(
+                rules.relevant(
                     item["source_text"], item["category"],
-                    language=self.repository.source_language,
+                    format_rules=self.repository.format_rules(item["unit_id"]),
                 )
             )
             return {
@@ -1065,15 +1065,17 @@ class TranslationJobService:
                     style_version=policy.active_version("style"),
                 )
                 if cached_rules is None or cached_rules[0] != effective.glossary_version:
+                    # Compiled once per content-addressed glossary version.
                     cached_rules = (
-                        effective.glossary_version, policy.rules(effective.glossary_version),
+                        effective.glossary_version, policy.compiled(effective.glossary_version),
                     )
+                glossary = cached_rules[1]
                 relevant: list[GlossaryRule] = []
                 # Records in a current outage go last, so a single failing record cannot
                 # starve the others or masquerade as a server-wide outage.
                 claim = self.store.claim_attempt(
                     job_id, frozenset(outage_units), partial(
-                        attempt_metadata, effective=effective, rules=cached_rules[1],
+                        attempt_metadata, effective=effective, rules=glossary,
                         relevant=relevant,
                     ),
                 )
@@ -1122,16 +1124,13 @@ class TranslationJobService:
                     )
                     result["glossary_version"] = effective.glossary_version
                     result["style_version"] = effective.style_version
-                    for rule in relevant:
-                        if not rule.matches(
-                            result["translation"],
-                            item["category"],
-                            target=True,
-                            language=self.repository.target_language,
-                        ):
-                            result.setdefault("issues", []).append(
-                                "glossary_violation:" + rule.source
-                            )
+                    for rule in glossary.violations(
+                        item["source_text"], result["translation"], item["category"], relevant,
+                        format_rules=format_rules,
+                    ):
+                        result.setdefault("issues", []).append(
+                            "glossary_violation:" + rule.source
+                        )
                     elapsed = perf_counter() - started
                     # The result, its revision, the record state and the run: one commit.
                     _, status = self.store.complete(item, result, run_id, elapsed, metadata)

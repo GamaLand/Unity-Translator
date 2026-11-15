@@ -26,6 +26,8 @@ FIXTURES = Path(__file__).parent / "fixtures" / "legacy-projects"
 INDEX = json.loads((FIXTURES / "index.json").read_text(encoding="utf-8"))
 PROJECTS = {item["name"]: item for item in INDEX["fixtures"]}
 NAMES = sorted(PROJECTS)
+# Development schemas no release has left as a project's final schema.
+UNRELEASED_SCHEMAS = {7}
 TableRows = dict[str, tuple[list[str], list[tuple[object, ...]]]]
 
 
@@ -122,7 +124,11 @@ def failing_step(monkeypatch: pytest.MonkeyPatch, version: int) -> None:
 
 def test_frozen_projects_cover_every_earlier_schema() -> None:
     assert INDEX["synthetic_only"] is True
-    assert {item["schema"] for item in PROJECTS.values()} == set(range(1, LATEST_SCHEMA))
+    # Schema 7 has not been released; test_migrations builds schema-7 projects from the
+    # frozen schema-6 projects by stopping the numbered steps at 7 and migrates them to 8.
+    assert {item["schema"] for item in PROJECTS.values()} == set(range(1, LATEST_SCHEMA)) - (
+        UNRELEASED_SCHEMAS
+    )
     released = {item["revision"] for item in PROJECTS.values() if item["build"] == "release"}
     assert released >= {
         "9ba9495",

@@ -6,7 +6,7 @@ from test_repository import draft
 
 from unitytranslator.editor_drafts import EditorDraftStore
 from unitytranslator.filesystem import ProjectPaths
-from unitytranslator.repository import ProjectRepository
+from unitytranslator.repository import LATEST_SCHEMA, ProjectRepository
 
 # The frozen schema-3 project in tests/fixtures/legacy-projects replaces rebuilding schema 3
 # by dropping schema-4 to schema-7 objects from a current project.
@@ -181,7 +181,7 @@ def test_v3_migration_preserves_approved_translation_and_readable_backup(tmp_pat
             assert page[unit]["translation"] == text
         for row in expect["page"]:
             assert {key: page[row["unit_id"]][key] for key in row} == row
-        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == LATEST_SCHEMA
         assert all(EditorDraftStore(reopened).get(unit) is None for unit in page)
     (backup,) = (paths.project / "backups").glob("schema-3-*.sqlite3")
     with connect(backup) as stream:

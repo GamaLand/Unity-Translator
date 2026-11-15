@@ -15,6 +15,11 @@ from unitytranslator.portable import PortableService
 from unitytranslator.repository import LATEST_SCHEMA, ProjectRepository
 
 SCHEMA7_INDEXES = ("source_revisions_unit", "translation_revisions_source", "units_review_order")
+# Schema 8 adds only the optional local reviewer table, its unique key and its unit index.
+SCHEMA8_OBJECTS = {
+    ("table", "local_reviews"), ("index", "sqlite_autoindex_local_reviews_1"),
+    ("index", "sqlite_autoindex_local_reviews_2"), ("index", "local_reviews_unit"),
+}
 # Frozen schema-6 projects written by 0.6.0, 0.6.1 and 0.7.0 replace rebuilding schema 6
 # by dropping the schema-7 indexes from a current project.
 SCHEMA6 = [name for name in NAMES if PROJECTS[name]["schema"] == 6]
@@ -91,11 +96,11 @@ def test_schema7_adds_indexes_without_changing_frozen_schema6_project(
         rows = snapshot_rows(db)
         objects = set(db.execute("SELECT type,name FROM sqlite_master"))
     with ProjectRepository(paths) as reopened:
-        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == LATEST_SCHEMA
         current = reopened.db.execute("SELECT type,name FROM sqlite_master")
         added = {tuple(row) for row in current} - objects
-        assert added == {("index", index) for index in SCHEMA7_INDEXES}
-        assert snapshot_rows(reopened.db) == rows
+        assert added == {("index", index) for index in SCHEMA7_INDEXES} | SCHEMA8_OBJECTS
+        assert snapshot_rows(reopened.db) == {**rows, "local_reviews": []}
         page = {row["unit_id"]: row for row in reopened.page()}
         for row in expect["page"]:
             assert {key: page[row["unit_id"]][key] for key in row} == row
@@ -276,3 +281,37 @@ def test_candidate_identity_matches_stored_revision(tmp_path: Path) -> None:
             "SELECT metadata_json FROM translation_revisions WHERE id=?", (identity,)
         ).fetchone()
         assert stored is not None and json.loads(stored[0]) == metadata
+
+
+@pytest.mark.parametrize("name", SCHEMA6)
+def test_schema8_adds_local_reviews_to_a_schema7_project(
+    tmp_path: Path, name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Schema 7 was never released: build it from a frozen schema-6 project, then step to 8."""
+    expect = PROJECTS[name]["expect"]
+    paths = frozen_copy(tmp_path, name)
+    monkeypatch.setattr(
+        module, "MIGRATIONS", tuple(step for step in module.MIGRATIONS if step[1] <= 7)
+    )
+    with ProjectRepository(paths) as schema7:
+        assert schema7.db.execute("PRAGMA user_version").fetchone()[0] == 7
+    monkeypatch.undo()
+    with closing(sqlite3.connect(paths.project / "project.sqlite3")) as db:
+        rows = snapshot_rows(db)
+        objects = set(db.execute("SELECT type,name FROM sqlite_master"))
+        dumped = list(db.iterdump())
+    with ProjectRepository(paths) as reopened:
+        assert reopened.db.execute("PRAGMA user_version").fetchone()[0] == LATEST_SCHEMA == 8
+        current = reopened.db.execute("SELECT type,name FROM sqlite_master")
+        assert {tuple(row) for row in current} - objects == SCHEMA8_OBJECTS
+        assert snapshot_rows(reopened.db) == {**rows, "local_reviews": []}
+        page = {row["unit_id"]: row for row in reopened.page()}
+        for row in expect["page"]:
+            assert {key: page[row["unit_id"]][key] for key in row} == row
+        for unit, revisions in expect["history"].items():
+            assert [r["id"] for r in reopened.history(unit)["revisions"]] == revisions
+    (backup,) = (paths.project / "backups").glob("schema-7-*.sqlite3")
+    with closing(sqlite3.connect(backup)) as db:
+        assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert list(db.iterdump()) == dumped

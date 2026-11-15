@@ -9,7 +9,9 @@ from statistics import median
 from typing import Any
 from uuid import uuid4
 
+from unitytranslator import local_review
 from unitytranslator.jobs import JobStore, slot_warning
+from unitytranslator.policy import PolicyStore
 from unitytranslator.repository import ProjectRepository, now
 from unitytranslator.validation import (
     REVIEW_CHECKS_VERSION,
@@ -20,11 +22,21 @@ from unitytranslator.validation import (
 
 
 def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
-    """Recheck current candidates without changing revisions, statuses or approvals."""
+    """Recheck current candidates without changing revisions, statuses or approvals.
+
+    Uses the current REVIEW_CHECKS_VERSION and the active glossary version, so findings
+    of an older check version that it no longer reports, or new ones, are both visible.
+    """
     findings = []
     count = 0
+    revisions: list[str] = []
+    policy = PolicyStore(repository)
+    glossary_version = policy.active_version("glossary")
+    glossary = policy.compiled(glossary_version)
+    # Records flagged only by the local reviewer are listed too, with empty audit_issues.
+    coded = local_review.coded_revisions(repository)
     for row in repository.db.execute(
-        "SELECT u.unit_id,u.original_key,s.source_text,s.source_language,"
+        "SELECT u.unit_id,u.original_key,s.source_text,s.source_language,s.category,"
         "t.id AS translation_revision,t.text,t.target_language,t.issues_json,w.status "
         "FROM text_units u JOIN source_revisions s ON s.id=u.source_revision "
         "JOIN work_items w USING(unit_id) JOIN translation_revisions t "
@@ -33,6 +45,7 @@ def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
         "WHERE u.active=1 ORDER BY +u.original_key,u.unit_id"
     ):
         count += 1
+        revisions.append(row["translation_revision"])
         issues = sorted(
             set(
                 format_issues(
@@ -44,10 +57,18 @@ def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
                     source_language=row["source_language"],
                     target_language=row["target_language"],
                     rules=repository.format_rules(row["unit_id"]),
+                    category=row["category"],
                 )
+                + [
+                    "glossary_violation:" + rule.source
+                    for rule in glossary.violations(
+                        row["source_text"], row["text"], row["category"],
+                        format_rules=repository.format_rules(row["unit_id"]),
+                    )
+                ]
             )
         )
-        if issues:
+        if issues or row["translation_revision"] in coded:
             findings.append(
                 {
                     "unit_id": row["unit_id"],
@@ -60,16 +81,31 @@ def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
                     "new_issues": sorted(set(issues) - set(json.loads(row["issues_json"]))),
                 }
             )
+    # Local reviewer codes are model suggestions, counted apart from deterministic checks.
+    reviews = local_review.reviews_for(repository, revisions)
+    for finding in findings:
+        finding["local_review_issues"] = local_review.issues_of(
+            reviews.get(finding["translation_revision"], [])
+        )
     summary = {
         "review_checks_version": REVIEW_CHECKS_VERSION,
+        "glossary_version": glossary_version,
         "created_at": now(),
         "audited_current_translations": count,
-        "flagged_records": len(findings),
+        # Deterministic findings only; local reviewer codes are counted separately.
+        "flagged_records": sum(bool(row["audit_issues"]) for row in findings),
         "newly_flagged_records": sum(bool(row["new_issues"]) for row in findings),
+        "local_review_records": sum(bool(row["local_review_issues"]) for row in findings),
+        "local_review_only_records": sum(
+            bool(row["local_review_issues"]) and not row["audit_issues"] for row in findings
+        ),
         "issue_counts": dict(Counter(code for row in findings for code in row["audit_issues"])),
+        "local_review": local_review.summary(reviews),
         "note": "Bu ayrı yeniden kontrol raporudur; eski revizyonlar, pilot ölçümleri, "
-        "kayıt durumları ve insan onayları değiştirilmedi. Dil ipuçları yalnızca en→tr için "
-        "uygulanır; yanlış uyarı veya kaçırılan hata olabilir. İnsan incelemesi gerekir.",
+        "kayıt durumları ve insan onayları değiştirilmedi. Olumsuzluk ve koşul ipuçları "
+        "yalnızca İngilizceden tr, de, fr, es, pt, ru ve zh dillerine (olumsuzlukta bazı "
+        "dillerden İngilizceye) uygulanır; sözlük denetimi etkin sözlük sürümünü kullanır. "
+        "Yanlış uyarı veya kaçırılan hata olabilir. İnsan incelemesi gerekir.",
     }
     stem = "reports/quality-audit-" + uuid4().hex
     json_path = repository.paths.write_json(stem + ".json", {**summary, "records": findings})
@@ -83,6 +119,7 @@ def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
                 row["translation"],
                 row["stored_status"],
                 "; ".join(issue_label(code) for code in row["audit_issues"]),
+                "; ".join(local_review.label(code) for code in row["local_review_issues"]),
             )
         )
         + "</tr>"
@@ -98,10 +135,12 @@ def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
         "</style><h1>Çeviri kalite kontrolleri</h1><p>"
         + escape(str(summary["note"]))
         + "</p><p>"
-        + f"{count} güncel çeviri kontrol edildi; {len(findings)} kayıtta uyarı var. "
-        + "HTML ilk 200 uyarılı kaydı gösterir; JSON raporu bütün bulguları içerir.</p>"
+        + f"{count} güncel çeviri kontrol edildi; {summary['flagged_records']} kayıtta "
+        + f"uyarı var; {summary['local_review_records']} kayıtta yerel inceleyici kodu var "
+        + "(model önerisi, doğrulanmadı). "
+        + "HTML ilk 200 kaydı gösterir; JSON raporu bütün bulguları içerir.</p>"
         + "<table><thead><tr><th>Kayıt</th><th>Kaynak</th><th>Çeviri</th>"
-        + "<th>Kayıt durumu</th><th>Kontroller</th></tr></thead><tbody>"
+        + "<th>Kayıt durumu</th><th>Kontroller</th><th>Yerel inceleyici</th></tr></thead><tbody>"
         + table
         + "</tbody></table></html>"
     )
@@ -217,6 +256,11 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
             (job_id,),
         )
     ]
+    reviews = local_review.reviews_for(repository, (row["result_revision"] for row in rows))
+    for row in rows:
+        row["local_review_issues"] = local_review.issues_of(
+            reviews.get(row["result_revision"] or "", [])
+        )
     categories = Counter(row["category"] for row in rows)
     issue_counts = Counter(
         issue for row in rows for issue in json.loads(row["issues_json"] or "[]")
@@ -292,6 +336,8 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         "categories": dict(categories),
         "failure_codes": dict(failure_counts),
         "issue_counts": dict(issue_counts),
+        # Model suggestions on this job's results, never part of issue_counts or statuses.
+        "local_review": local_review.summary(reviews),
         # Retries come from run history: outage attempts are refunded from the budget column.
         "retry_count": sum(max(count - 1, 0) for count in Counter(
             attempt["unit_id"] for attempt in attempts
@@ -387,7 +433,8 @@ def save_review_html(repository: ProjectRepository, job_id: str) -> Path:
                     issue_label(item["error_code"])
                     if item["error_code"]
                     else "; ".join(
-                        issue_label(code) for code in json.loads(item["issues_json"] or "[]")
+                        [issue_label(code) for code in json.loads(item["issues_json"] or "[]")]
+                        + [local_review.label(code) for code in item["local_review_issues"]]
                     ),
                 )
             )

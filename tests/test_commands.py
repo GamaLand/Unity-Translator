@@ -24,10 +24,12 @@ LEGACY_COMMANDS = {
     "pilot_seen",
     # Added in 0.7.0 with the explicit project translation memory (T1).
     "translation_memory_preview", "translation_memory_apply",
+    # Added with the optional local reviewer pass (T4).
+    "local_review_preview", "local_review_run", "local_review_cancel",
 }
 NO_PROJECT = {
     "cancel_preparation", "cancel_extract", "open", "models", "connection_test", "run_job",
-    "pause", "cancel",
+    "pause", "cancel", "local_review_cancel",
 }
 WORK = "work"
 EXPECTED_IDENTITY = {
@@ -50,6 +52,8 @@ EXPECTED_IDENTITY = {
                     "Project changed or extraction is active; retry when it finishes."),
     **dict.fromkeys(("translation_memory_preview", "translation_memory_apply"),
                     "Translation memory request project identity does not match."),
+    **dict.fromkeys(("local_review_preview", "local_review_run"),
+                    "Local review request project identity does not match."),
     "runtime_export": "Trial request project identity does not match.",
     "shareable_export": "Distribution request project identity does not match.",
 }
@@ -72,6 +76,9 @@ EXPECTED_IDLE = {
     **dict.fromkeys(("translation_memory_preview", "translation_memory_apply"),
                     (WORK, "Wait for extraction or translation to finish before reusing "
                      "translation memory.")),
+    **dict.fromkeys(("local_review_preview", "local_review_run"),
+                    (WORK, "Wait for extraction or translation to finish before the local "
+                     "review.")),
     **dict.fromkeys(("import_preview", "import_apply", "import_restore"),
                     (WORK, "Stop the running extraction or translation job before importing.")),
 }
@@ -185,6 +192,7 @@ def test_commands_without_a_project_and_shutdown():
     assert run(session, "cancel_extract") == {"cancel_requested": True}
     assert run(session, "pause") is True
     assert run(session, "cancel") is True
+    assert run(session, "local_review_cancel") is True
     session.request_shutdown()
     with pytest.raises(OperationCancelled, match="closing"):
         run(session, "page")

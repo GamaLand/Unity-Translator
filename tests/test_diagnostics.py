@@ -154,9 +154,11 @@ GUARD_MESSAGES = {
 # patterns, language names, the persisted approve-all confirmation phrase and
 # synthetic Unicode fixture text of the developer UI verification.
 # validation.py holds Turkish issue labels and linguistic patterns; its exception
-# messages are still checked by the catalogued-code rule.
+# messages are still checked by the catalogued-code rule. glossary_match.py holds
+# per-language inflection endings (Turkish, Finnish, Russian letters) and raises nothing.
 LANGUAGE_EXEMPT_FILES = {
-    "reports.py", "language.py", "validation.py", "ui/verify.py", "ui/i18n.py",
+    "reports.py", "language.py", "validation.py", "glossary_match.py", "ui/verify.py",
+    "ui/i18n.py",
 }
 LANGUAGE_EXEMPT_SCOPES = {("review_selection.py", "canonical_all_confirmation")}
 

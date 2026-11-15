@@ -31,7 +31,7 @@ from unitytranslator.providers import LocalProvider
 from unitytranslator.renpy_python import PYTHON_BLOCKS_V2
 from unitytranslator.renpy_scripts import parse_scripts
 from unitytranslator.renpy_templates import parse_template
-from unitytranslator.repository import ProjectRepository
+from unitytranslator.repository import LATEST_SCHEMA, ProjectRepository
 from unitytranslator.source_contracts import ReaderResult
 
 
@@ -333,7 +333,7 @@ def test_schema6_backup_and_reopen_preserve_approvals_drafts_and_old_jobs(tmp_pa
     with connect(paths.project / "project.sqlite3") as db:
         before = table_rows(db)
     with ProjectRepository(paths) as repo:
-        assert repo.db.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert repo.db.execute("PRAGMA user_version").fetchone()[0] == LATEST_SCHEMA
         assert_rows_preserved(repo.db, {"work_items": before["work_items"]})
         for unit, value in expect["drafts"].items():
             assert EditorDraftStore(repo).get(unit)["text"] == value["text"]

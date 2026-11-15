@@ -73,7 +73,7 @@ def test_quality_warning_is_persisted_without_approval_or_text_changes(paths: Pr
         assert "mechanical_condition_review" in json.loads(row["issues_json"])
         stored = repo.history(current["unit_id"])["revisions"][0]
         assert (
-            json.loads(stored["metadata_json"])["review_checks_version"] == "review-multilingual-v5"
+            json.loads(stored["metadata_json"])["review_checks_version"] == "review-multilingual-v6"
         )
         assert metadata == {"model": "synthetic"}
         # İnsanın açık onayı mümkündür; uyarı kendi başına onay sayılmaz.

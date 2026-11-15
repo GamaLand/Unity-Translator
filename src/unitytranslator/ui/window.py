@@ -83,6 +83,13 @@ from unitytranslator.ui.i18n import (
 from unitytranslator.ui.i18n import (
     localized_issue_label as issue_label,
 )
+from unitytranslator.ui.local_review import (
+    code_labels,
+    confirmation_text,
+    nothing_to_review_text,
+    progress_text,
+    review_lines,
+)
 from unitytranslator.ui.pages import STOP, CompletionRegistry, Page
 from unitytranslator.ui.text_editor import DataTextEdit
 from unitytranslator.ui.theme import apply_theme
@@ -155,7 +162,11 @@ class ReviewModel(QAbstractTableModel):
             if key == "status":
                 return STATUS.get(value, value)
             if key == "issues_json":
-                return "; ".join(issue_label(code) for code in json.loads(value)) if value else ""
+                # Local reviewer codes of the current revision follow the automated checks.
+                return "; ".join(
+                    [issue_label(code) for code in json.loads(value or "[]")]
+                    + code_labels(self.rows[index.row()].get("local_reviews") or [])
+                )
             return str(value)[:180].replace("\n", " ↵ ")
         return None
 
@@ -348,10 +359,12 @@ class CandidateHistoryDialog(QDialog):
             row,
             current["translation_revision"] if current["status"] == "approved" else None,
         )
+        local = review_lines(row.get("local_reviews") or [])
         self.details.setPlainText(
             (note + "\n" if note else "")
             + "; ".join(issue_label(code) for code in json.loads(row["issues_json"]))
             + "\n"
+            + ("\n".join(local) + "\n" if local else "")
             + json.dumps(json.loads(row["metadata_json"]), ensure_ascii=False)
         )
         self.use.setEnabled(
@@ -719,6 +732,12 @@ class MainWindow(QMainWindow):
         self.approve_all_token = None
         self.matching_review_token = None
         self.translation_memory_token = None
+        self.local_review_token = None
+        self.local_review_running = False
+        # The last run's summary, shown until the user selects another record.
+        self.local_review_summary: str | None = None
+        # True while a page refresh restores the selection, which is not a user choice.
+        self.restoring_selection = False
         self.bulk_readiness_token = None
         self.reviewed_pilot_id = None
         self.pilot_profile_token = None
@@ -1302,6 +1321,18 @@ class MainWindow(QMainWindow):
             tr("Reuse translation memory…"), self.preview_translation_memory,
         )
         self.translation_memory_action.setToolTip(memory_scope_note())
+        # Explicit only: sends the filtered records to the already running model server.
+        self.local_review_action = self.bulk_review_menu.addAction(
+            tr("Run local reviewer…"), self.preview_local_review,
+        )
+        self.local_review_action.setToolTip(tr(
+            "Asks the selected local model to add issue codes to current translations in the "
+            "current filters. It never starts a server, edits text or approves."
+        ))
+        self.local_review_cancel_action = self.bulk_review_menu.addAction(
+            tr("Cancel local review"), self.cancel_local_review,
+        )
+        self.local_review_cancel_action.setEnabled(False)
         self.bulk_review_button.setMenu(self.bulk_review_menu)
         self.bulk_review_menu.setToolTipsVisible(True)
         filters.addWidget(self.bulk_review_button)
@@ -1764,6 +1795,9 @@ class MainWindow(QMainWindow):
             self.draft_state_changed()
 
     def submit_open_project(self, data):
+        # A preview or run result of the previous project must not reach the next one.
+        self.local_review_token = None
+        self.local_review_summary = None
         self.bridge.submit(
             "open",
             data,
@@ -2050,6 +2084,8 @@ class MainWindow(QMainWindow):
             self.refresh()
 
     def selection_changed(self) -> None:
+        if not self.restoring_selection:
+            self.local_review_summary = None
         indexes = self.table.selectionModel().selectedRows()
         self.current_item = self.review_model.rows[indexes[0].row()] if indexes else None
         identity = (self.current_item or {}).get("original_key", "")
@@ -2086,6 +2122,10 @@ class MainWindow(QMainWindow):
             )
             + tr("Automated checks do not guarantee meaning; human review is required.")
         )
+        local = review_lines((self.current_item or {}).get("local_reviews") or [])
+        if local:
+            # Model suggestions of the current revision, kept apart from automated checks.
+            self.review_details.setText(self.review_details.text() + "\n" + "\n".join(local))
         if self.current_item and self.current_item.get("translation_origin") == (
             "translation_memory"
         ):
@@ -2106,6 +2146,10 @@ class MainWindow(QMainWindow):
                 f"{ref['offset']:+d} · {ref['speaker']}: {ref['source']}" for ref in references
             ) if references else tr("No verified neighbouring dialogue for this record."))
         )
+        if self.local_review_summary:
+            self.review_details.setText(
+                self.review_details.text() + "\n\n" + self.local_review_summary
+            )
         self.draft_state_changed()
 
     def editor_changed(self):
@@ -2393,6 +2437,67 @@ class MainWindow(QMainWindow):
         else:
             self.translation_memory_token = None
 
+    def preview_local_review(self) -> None:
+        if not self.project_open or self.local_review_running or self.drafts.action or (
+            self.draft_refresh_pending
+        ):
+            return
+        if any(self.drafts.dirty(entry) for entry in self.drafts.entries.values()):
+            QMessageBox.information(
+                self, tr("Unsaved edits"), tr("Wait for edits to be saved first.")
+            )
+            return
+        self.local_review_token = uuid4().hex
+        self.local_review_summary = None
+        self.local_review_action.setEnabled(False)
+        self.bridge.submit("local_review_preview", {
+            "project_id": self.current_project_id, "request_token": self.local_review_token,
+            "profile": self.profile(), "filters": self.matching_review_filters(),
+        })
+
+    def confirm_local_review(self, result: dict[str, Any]) -> None:
+        self.local_review_action.setEnabled(True)
+        if result["filters"] != self.matching_review_filters():
+            self.local_review_token = None
+            return
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(tr("Local reviewer"))
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        if not result["selected"]:
+            # Nothing to send: inform only, without a send question or a run choice.
+            dialog.setIcon(QMessageBox.Icon.Information)
+            dialog.setText(nothing_to_review_text(result))
+            dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+            dialog.exec()
+            self.local_review_token = None
+            return
+        dialog.setText(confirmation_text(result))
+        if result["samples"]:
+            dialog.setDetailedText("\n".join(result["samples"]))
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        if dialog.exec() == QMessageBox.StandardButton.Yes and (
+            result["project_id"] == self.current_project_id
+        ):
+            self.set_local_review_running(True)
+            self.bridge.submit("local_review_run", {
+                "project_id": self.current_project_id,
+                "request_token": self.local_review_token,
+                "token": result["token"], "user_action": True,
+                "parallel_requests": self.parallel_requests.value(),
+            })
+        else:
+            self.local_review_token = None
+
+    def set_local_review_running(self, running: bool) -> None:
+        self.local_review_running = running
+        self.local_review_action.setEnabled(not running)
+        self.local_review_cancel_action.setEnabled(running)
+
+    def cancel_local_review(self) -> None:
+        if self.local_review_running:
+            self.bridge.submit("local_review_cancel")
+
     def approve_page(self):
         if not self.project_open or self.drafts.action or self.draft_refresh_pending:
             return
@@ -2574,6 +2679,10 @@ class MainWindow(QMainWindow):
             if result["project_id"] == self.current_project_id:
                 self.installation_state.setText(diagnostic(result["message"]))
             return
+        if result.get("kind") == "local_review":
+            if result["project_id"] == self.current_project_id:
+                self.statusBar().showMessage(progress_text(result).split("\n")[0], 8000)
+            return
         counts = result["counts"]
         self.job_combo.setEnabled(result["status"] not in ("running", "pausing"))
         self.retranslate_page_button.setEnabled(
@@ -2683,6 +2792,9 @@ class MainWindow(QMainWindow):
         if command in ("translation_memory_preview", "translation_memory_apply"):
             self.bulk_review_button.setEnabled(True)
             self.translation_memory_token = None
+        if command in ("local_review_preview", "local_review_run"):
+            self.set_local_review_running(False)
+            self.local_review_token = None
         if command == "create_page_job":
             self.retranslate_page_button.setEnabled(bool(self.review_model.rows))
         if command == "use_pilot_profile":
