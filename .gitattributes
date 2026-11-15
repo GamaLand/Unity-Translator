@@ -4,6 +4,8 @@
 *.md text eol=lf
 *.ps1 text eol=crlf
 *.cmd text eol=crlf
+# Third-party license files keep their exact pinned bytes (tests/test_loader_notices.py).
+adapters/i2mono/third_party_licenses/*.txt -text
 AGENTS.md export-ignore
 GOAL.md export-ignore
 TECHNICAL_DESIGN.md export-ignore

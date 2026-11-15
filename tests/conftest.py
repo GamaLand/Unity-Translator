@@ -7,6 +7,11 @@ import pytest
 
 os.environ.setdefault("UNITYTRANSLATOR_UI_LANGUAGE", "tr")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# Windows PowerShell 5.1 started from a PowerShell 7 shell (as in CI steps) inherits the
+# PowerShell 7 module path and cannot load its own Microsoft.PowerShell.Utility module,
+# which hides cmdlets such as Get-FileHash. A recipient's own console has no such path,
+# so child installer runs get the default module path.
+os.environ.pop("PSModulePath", None)
 
 
 @pytest.fixture(scope="session", autouse=True)
