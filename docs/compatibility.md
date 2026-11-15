@@ -264,6 +264,13 @@ and unlimited translations differed mainly in wording. With a 1,024-token output
 and unlimited thinking, 9 of 24 requests ended as `output_truncated` after three attempts.
 These are observations for this model and server only.
 
+On the same day and server, 48 synthetic interface lines were translated through the
+app's job path at 12 parallel requests before and after T3. Write transactions fell
+from 4.29 to 2.29 per record (job start and finish add the remainder). With thinking
+off the job took 17.0 s before and 15.5 s after; with the adaptive budget 27.6 s and
+27.0 s, so model time dominates. The server reported 12 slots through `/props`, and a
+run at 16 parallel requests carried the slot warning. Single runs; timings vary.
+
 A read-only inspection of a second local layout, LR2, found static Ren'Py
 8.3.6.25022803 evidence, 588 loose `.rpy` files totaling 18,701,812 bytes,
 289 `_ren.py` files and 877 `.rpyc` files, with no `game/tl` directory.
