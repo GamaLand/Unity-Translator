@@ -38,6 +38,7 @@ from unitytranslator.commands import (
     RecordsPayload,
     RunPayload,
     SelectionPayload,
+    TranslationMemoryPayload,
     UnitPayload,
     command,
     registry,
@@ -66,6 +67,8 @@ from unitytranslator.review_selection import (
 )
 from unitytranslator.runtime_export import export_selected_runtime
 from unitytranslator.shareable import export_shareable_patch, supports_shareable_patch
+from unitytranslator.translation_memory import apply as apply_translation_memory
+from unitytranslator.translation_memory import preview as translation_memory_preview
 
 DEPLOYMENT_IDENTITY = "Installation request project identity does not match."
 DEPLOYMENT_IDLE = FAMILY_FALLBACKS["deployment_"][0].idle
@@ -77,6 +80,10 @@ MATCHING_IDLE: tuple[IdleScope, str] = (
     "work", "Wait for extraction or translation to finish before bulk review."
 )
 APPROVE_ALL_IDENTITY = "Approve-all request project identity does not match."
+MEMORY_IDENTITY = "Translation memory request project identity does not match."
+MEMORY_IDLE: tuple[IdleScope, str] = (
+    "work", "Wait for extraction or translation to finish before reusing translation memory."
+)
 EXPORT_STATE = "Project changed or extraction is active; retry when it finishes."
 IMPORT_IDLE: tuple[IdleScope, str] = (
     "work", "Stop the running extraction or translation job before importing."
@@ -97,6 +104,7 @@ class ApplicationSession:
         self.installation: InstallationSession | None = None
         self.all_approval: dict[str, Any] | None = None
         self.matching_review: dict[str, Any] | None = None
+        self.translation_memory: dict[str, Any] | None = None
 
     @property
     def repo(self) -> ProjectRepository:
@@ -126,6 +134,7 @@ class ApplicationSession:
         self.installation = None
         self.all_approval = None
         self.matching_review = None
+        self.translation_memory = None
 
     def operation_cancelled(self) -> bool:
         return self.shutdown_requested.is_set() or self.preparation_cancelled.is_set()
@@ -591,6 +600,36 @@ class ApplicationSession:
             "project_id": self.repo.project_id, "request_token": data.get("request_token"),
             "action": pending["preview"]["action"],
             "changed": apply_matching_review(
+                self.repo, pending["preview"], user_action=data.get("user_action", False),
+            ),
+        }
+
+    @command("translation_memory_preview", identity=MEMORY_IDENTITY, idle=MEMORY_IDLE)
+    async def command_translation_memory_preview(
+        self, data: TranslationMemoryPayload,
+    ) -> dict[str, Any]:
+        include_translated = data.get("include_translated", False) is True
+        profile = data.get("profile")
+        preview = translation_memory_preview(
+            self.repo, include_translated=include_translated, profile=profile,
+        )
+        self.translation_memory = {"project_id": self.repo.project_id, "preview": preview}
+        return {key: value for key, value in preview.items() if key != "actions"} | {
+            "project_id": self.repo.project_id, "request_token": data.get("request_token"),
+        }
+
+    @command("translation_memory_apply", identity=MEMORY_IDENTITY, idle=MEMORY_IDLE)
+    async def command_translation_memory_apply(
+        self, data: TranslationMemoryPayload,
+    ) -> dict[str, Any]:
+        pending, self.translation_memory = self.translation_memory, None
+        if pending is None or pending["project_id"] != self.repo.project_id or (
+            pending["preview"]["token"] != data.get("token")
+        ):
+            raise ValueError("Translation memory preview expired. Open it again.")
+        return {
+            "project_id": self.repo.project_id, "request_token": data.get("request_token"),
+            "added": apply_translation_memory(
                 self.repo, pending["preview"], user_action=data.get("user_action", False),
             ),
         }

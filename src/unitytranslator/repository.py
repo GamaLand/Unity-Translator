@@ -38,6 +38,29 @@ SUPPORTED_SCHEMAS = frozenset(range(1, LATEST_SCHEMA + 1))
 MIGRATIONS = tuple((version, version + 1) for version in range(1, LATEST_SCHEMA))
 
 
+# Translation memory candidates are stored with origin 'import' and this origin detail.
+MEMORY_ORIGIN_DETAIL = "translation_memory"
+
+
+def is_memory_metadata(metadata: Any) -> bool:
+    """True for a translation memory candidate, also after a portable import of one."""
+    if not isinstance(metadata, dict):
+        return False
+    if metadata.get("origin_detail") == MEMORY_ORIGIN_DETAIL:
+        return True
+    return is_memory_metadata(metadata.get("original_metadata"))
+
+
+def descriptor_format_rules(descriptor_json: str | None, original_key: str) -> str:
+    """Effective rule of one record from its source descriptor and original key."""
+    if descriptor_json is None:
+        return PROTECTED_FORMAT_VERSION
+    rules = json.loads(descriptor_json).get("format_rules", PROTECTED_FORMAT_VERSION)
+    if rules not in (PROTECTED_FORMAT_VERSION, "literal-lines-v1", *RENPY_FORMATS):
+        raise ValueError("Unknown built-in source format rules.")
+    return unit_rules(str(rules), original_key)
+
+
 def canonical(value: Any) -> str:
     return json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -595,13 +618,29 @@ class ProjectRepository:
             ordering = "o.position IS NULL,o.position,u.original_key,u.unit_id"
         rows = self.db.execute(
             "SELECT u.*,s.source_text,s.source_hash,s.category,s.context,w.status,w.version,"
-            "w.translation_revision,t.text AS translation,t.issues_json FROM text_units u "
+            "w.translation_revision,t.text AS translation,t.issues_json,"
+            "t.origin AS translation_origin FROM text_units u "
             "JOIN source_revisions s ON s.id=u.source_revision JOIN work_items w USING(unit_id) "
             "LEFT JOIN translation_revisions t ON t.id=w.translation_revision "
             f"{order_join}WHERE {where} ORDER BY {ordering} LIMIT ? OFFSET ?",
             (*parameters, limit, offset),
         )
-        return [{**dict(row), "format_rules": self.format_rules(row["unit_id"])} for row in rows]
+        result = [
+            {**dict(row), "format_rules": self.format_rules(row["unit_id"])} for row in rows
+        ]
+        for item in result:
+            if item["translation_origin"] == "import":
+                metadata = json.loads(self.db.execute(
+                    "SELECT metadata_json FROM translation_revisions WHERE id=?",
+                    (item["translation_revision"],),
+                ).fetchone()[0])
+                if is_memory_metadata(metadata):
+                    # Review shows where a reused candidate came from; it stays unapproved.
+                    item["translation_origin"] = MEMORY_ORIGIN_DETAIL
+                    item["memory_donor_key"] = metadata.get("donor_key") or metadata.get(
+                        "original_metadata", {}
+                    ).get("donor_key", "")
+        return result
 
     def format_rules(self, unit_id: str) -> str:
         """Effective rule of one record; renpy-text-v2 applies only to string keys."""
@@ -610,12 +649,9 @@ class ProjectRepository:
             "LEFT JOIN source_descriptors d ON d.id=u.logical_source_id WHERE u.unit_id=?",
             (unit_id,),
         ).fetchone()
-        if row is None or row[0] is None:
+        if row is None:
             return PROTECTED_FORMAT_VERSION
-        rules = json.loads(row[0]).get("format_rules", PROTECTED_FORMAT_VERSION)
-        if rules not in (PROTECTED_FORMAT_VERSION, "literal-lines-v1", *RENPY_FORMATS):
-            raise ValueError("Unknown built-in source format rules.")
-        return unit_rules(str(rules), str(row[1]))
+        return descriptor_format_rules(row[0], str(row[1]))
 
     def renpy_format_rules(self) -> str | None:
         """The single text rule of this project's Ren'Py sources, if any exist."""
@@ -722,21 +758,8 @@ class ProjectRepository:
             ).fetchone()
             if current is None or source_revision != current["source_revision"]:
                 return False
-            hard_issues = format_issues(
-                current["source_text"], text, rules=self.format_rules(unit_id)
-            )
-            issues = sorted(
-                set(
-                    issues
-                    + hard_issues
-                    + review_issues(
-                        current["source_text"],
-                        text,
-                        source_language=current["source_language"],
-                        target_language=self.target_language,
-                        rules=self.format_rules(unit_id),
-                    )
-                )
+            hard_issues, issues = self.candidate_issues(
+                unit_id, current["source_text"], current["source_language"], text, issues
             )
             db.execute(
                 "INSERT OR IGNORE INTO translation_revisions VALUES(?,?,?,?,?,?,?,?)",
@@ -767,6 +790,60 @@ class ProjectRepository:
                 (revision, status, unit_id),
             )
         return True
+
+    def candidate_issues(
+        self, unit_id: str, source_text: str, source_language: str, text: str,
+        issues: list[str],
+    ) -> tuple[list[str], list[str]]:
+        """Return the protected-format issues and every stored issue of one candidate."""
+        rules = self.format_rules(unit_id)
+        hard_issues = format_issues(source_text, text, rules=rules)
+        return hard_issues, sorted(set(
+            issues + hard_issues + review_issues(
+                source_text, text, source_language=source_language,
+                target_language=self.target_language, rules=rules,
+            )
+        ))
+
+    def add_history_candidate(
+        self, unit_id: str, source_revision: str, text: str, origin: str,
+        metadata: dict[str, Any],
+    ) -> str:
+        """Store a candidate for the current source in history only.
+
+        The record's current translation, status, approval and version are unchanged;
+        a reviewer selects the candidate explicitly with select_candidate.
+        """
+        if origin not in ("model", "manual", "import") or not text.strip():
+            raise ValueError("Invalid translation candidate.")
+        revision, metadata = self.candidate_identity(
+            unit_id, source_revision, text, origin, metadata
+        )
+        with self.transaction() as db:
+            current = db.execute(
+                "SELECT u.source_revision,u.active,s.source_text,s.source_language "
+                "FROM text_units u JOIN source_revisions s ON s.id=u.source_revision "
+                "WHERE u.unit_id=?",
+                (unit_id,),
+            ).fetchone()
+            if current is None or not current["active"] or (
+                current["source_revision"] != source_revision
+            ):
+                raise ValueError("The candidate or source changed; reopen the current history.")
+            hard_issues, issues = self.candidate_issues(
+                unit_id, current["source_text"], current["source_language"], text, []
+            )
+            if hard_issues:
+                raise ValueError(
+                    "The candidate failed the protected format check; the existing text was "
+                    "preserved."
+                )
+            db.execute(
+                "INSERT OR IGNORE INTO translation_revisions VALUES(?,?,?,?,?,?,?,?)",
+                (revision, source_revision, self.target_language, text, origin,
+                 canonical(metadata), canonical(issues), now()),
+            )
+        return revision
 
     def approve(self, unit_id: str, version: int) -> None:
         with self.transaction() as db:

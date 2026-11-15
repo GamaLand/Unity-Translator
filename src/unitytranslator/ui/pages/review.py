@@ -15,6 +15,8 @@ class ReviewController(PageController):
     COMMANDS = {
         "matching_review_preview": "matching_review",
         "matching_review_apply": "matching_review",
+        "translation_memory_preview": "translation_memory",
+        "translation_memory_apply": "translation_memory",
         "approve_all_preview": "approve_all_preview",
         "approve_selection": "approved_many",
         "approve_all": "approved_many",
@@ -41,6 +43,25 @@ class ReviewController(PageController):
         window.refresh_installation()
         window.bridge.submit("policies")
         window.review_details.setText(tr("Updated {p0} records.", p0=str(result["changed"])))
+        return None
+
+    def translation_memory(self, command: str, result: Any) -> Completion:
+        window = self.window
+        if result["project_id"] != window.current_project_id or (
+            result["request_token"] != window.translation_memory_token
+        ):
+            return STOP
+        if command == "translation_memory_preview":
+            window.confirm_translation_memory(result)
+            return STOP
+        window.bulk_review_button.setEnabled(True)
+        window.translation_memory_token = None
+        window.refresh()
+        window.refresh_installation()
+        window.review_details.setText(tr(
+            "Added {p0} translation memory candidates. They are not approved; review each "
+            "one before approval.", p0=str(result["added"]),
+        ))
         return None
 
     def approve_all_preview(self, command: str, result: Any) -> Completion:

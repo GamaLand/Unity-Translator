@@ -175,6 +175,14 @@ class MatchingReviewPayload(Identified, total=False):
     user_action: bool
 
 
+class TranslationMemoryPayload(Identified, total=False):
+    include_translated: bool
+    # The selected generation profile; model translations count as donors only with it.
+    profile: dict[str, Any] | None
+    token: str
+    user_action: bool
+
+
 class ApproveAllPayload(Identified, total=False):
     token: str
     user_action: bool

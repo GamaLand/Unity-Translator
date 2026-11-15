@@ -22,6 +22,8 @@ LEGACY_COMMANDS = {
     "import_restore", "create_job", "create_affected_job", "create_page_job", "run_job",
     "pause", "cancel", "jobs", "job_report", "quality_audit", "shareable_export",
     "pilot_seen",
+    # Added in 0.7.0 with the explicit project translation memory (T1).
+    "translation_memory_preview", "translation_memory_apply",
 }
 NO_PROJECT = {
     "cancel_preparation", "cancel_extract", "open", "models", "connection_test", "run_job",
@@ -46,6 +48,8 @@ EXPECTED_IDENTITY = {
     "use_pilot_profile": "Explicitly select pilot settings for the current project.",
     **dict.fromkeys(("textasset_export", "renpy_export", "renpy_package"),
                     "Project changed or extraction is active; retry when it finishes."),
+    **dict.fromkeys(("translation_memory_preview", "translation_memory_apply"),
+                    "Translation memory request project identity does not match."),
     "runtime_export": "Trial request project identity does not match.",
     "shareable_export": "Distribution request project identity does not match.",
 }
@@ -65,6 +69,9 @@ EXPECTED_IDLE = {
     **dict.fromkeys(("textasset_export", "renpy_export", "renpy_package"),
                     ("extraction",
                      "Project changed or extraction is active; retry when it finishes.")),
+    **dict.fromkeys(("translation_memory_preview", "translation_memory_apply"),
+                    (WORK, "Wait for extraction or translation to finish before reusing "
+                     "translation memory.")),
     **dict.fromkeys(("import_preview", "import_apply", "import_restore"),
                     (WORK, "Stop the running extraction or translation job before importing.")),
 }

@@ -46,6 +46,7 @@ class ProjectController(PageController):
         window.approve_all_button.setEnabled(True)
         window.bulk_readiness_token = None
         window.matching_review_token = None
+        window.translation_memory_token = None
         window.bulk_review_button.setEnabled(True)
         window.game_process_status.setText(tr("Game process state has not been checked."))
         window.project_open = True

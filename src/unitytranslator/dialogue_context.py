@@ -326,6 +326,16 @@ class DialogueContextStore:
         ]
         return [tuple(row) for row in old] == current
 
+    def verified_windows(self, hashes: dict[str, str]) -> dict[str, dict[str, Any]]:
+        """Current verified windows of the given records (unit ID to source hash)."""
+        found: dict[str, dict[str, Any]] = {}
+        for binding in self.bindings():
+            index = self._index(binding)
+            for unit_id in hashes.keys() & index.keys():
+                if index[unit_id]["source_hash"] == hashes[unit_id]:
+                    found[unit_id] = index[unit_id]
+        return found
+
     def preview(self, rows: list[dict[str, Any]]) -> None:
         needed = {r["logical_source_id"] for r in rows}
         for row in rows:

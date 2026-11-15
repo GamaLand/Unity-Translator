@@ -86,6 +86,15 @@ from unitytranslator.ui.i18n import (
 from unitytranslator.ui.pages import STOP, CompletionRegistry, Page
 from unitytranslator.ui.text_editor import DataTextEdit
 from unitytranslator.ui.theme import apply_theme
+from unitytranslator.ui.translation_memory import (
+    TranslationMemoryOptionsDialog,
+    details_text,
+    memory_note,
+    memory_scope_note,
+    revision_note,
+    revision_origin,
+    summary_text,
+)
 from unitytranslator.validation import (
     format_issues,
     join_plural_branches,
@@ -267,9 +276,7 @@ class CandidateHistoryDialog(QDialog):
         self.combo = QComboBox()
         for row in history["revisions"]:
             current_source = row["source_revision"] == history["current"]["source_revision"]
-            label = {"model": tr("Model"), "manual": tr("Manual edit"), "import": tr("Import")}[
-                row["origin"]
-            ]
+            label = revision_origin(row)
             self.combo.addItem(
                 f"{row['created_at']} · {label} · "
                 + (tr("Current source") if current_source else tr("Previous source"))
@@ -335,12 +342,18 @@ class CandidateHistoryDialog(QDialog):
         row = self.history["revisions"][index]
         self.source.setPlainText(row["source_text"])
         self.translation.setPlainText(row["text"])
+        current = self.history["current"]
+        # Only the revision a reviewer approved is described as approved.
+        note = revision_note(
+            row,
+            current["translation_revision"] if current["status"] == "approved" else None,
+        )
         self.details.setPlainText(
-            "; ".join(issue_label(code) for code in json.loads(row["issues_json"]))
+            (note + "\n" if note else "")
+            + "; ".join(issue_label(code) for code in json.loads(row["issues_json"]))
             + "\n"
             + json.dumps(json.loads(row["metadata_json"]), ensure_ascii=False)
         )
-        current = self.history["current"]
         self.use.setEnabled(
             bool(
                 current["active"]
@@ -705,6 +718,7 @@ class MainWindow(QMainWindow):
         self.approve_selection_token = None
         self.approve_all_token = None
         self.matching_review_token = None
+        self.translation_memory_token = None
         self.bulk_readiness_token = None
         self.reviewed_pilot_id = None
         self.pilot_profile_token = None
@@ -1279,11 +1293,16 @@ class MainWindow(QMainWindow):
             tr("Return empty translations to pending…"),
             lambda: self.preview_matching_review("reset_empty"),
         )
-        self.bulk_review_button.setMenu(self.bulk_review_menu)
         for action in self.bulk_review_menu.actions():
             action.setToolTip(tr(
                 "Applies to all pages matching the current filters. Preview before applying."
             ))
+        # Translation memory ignores the review filters and covers every active record.
+        self.translation_memory_action = self.bulk_review_menu.addAction(
+            tr("Reuse translation memory…"), self.preview_translation_memory,
+        )
+        self.translation_memory_action.setToolTip(memory_scope_note())
+        self.bulk_review_button.setMenu(self.bulk_review_menu)
         self.bulk_review_menu.setToolTipsVisible(True)
         filters.addWidget(self.bulk_review_button)
         layout.addLayout(filters)
@@ -2067,6 +2086,14 @@ class MainWindow(QMainWindow):
             )
             + tr("Automated checks do not guarantee meaning; human review is required.")
         )
+        if self.current_item and self.current_item.get("translation_origin") == (
+            "translation_memory"
+        ):
+            # A reviewer may approve a reused candidate; the origin note then says so.
+            self.review_details.setText(self.review_details.text() + "\n" + memory_note(
+                str(self.current_item.get("memory_donor_key", "")),
+                self.current_item.get("status") == "approved",
+            ))
         if self.current_item and (context := self.current_item.get("native_context")):
             self.review_details.setText(self.review_details.text() + "\n" + tr(
                 "Ren'Py source: {file}:{line} · block {block} · speaker {speaker}", **context
@@ -2311,6 +2338,60 @@ class MainWindow(QMainWindow):
             })
         else:
             self.matching_review_token = None
+
+    def preview_translation_memory(self) -> None:
+        if not self.project_open or self.drafts.action or self.draft_refresh_pending:
+            return
+        if any(self.drafts.dirty(entry) for entry in self.drafts.entries.values()):
+            QMessageBox.information(
+                self, tr("Unsaved edits"), tr("Wait for edits to be saved first.")
+            )
+            return
+        dialog = TranslationMemoryOptionsDialog(self)
+        if not dialog.exec():
+            return
+        self.translation_memory_token = uuid4().hex
+        self.bulk_review_button.setEnabled(False)
+        self.bridge.submit("translation_memory_preview", {
+            "project_id": self.current_project_id,
+            "request_token": self.translation_memory_token,
+            "include_translated": dialog.include_translated.isChecked(),
+            "profile": self.profile() if dialog.model_donors.isChecked() else None,
+        })
+
+    def confirm_translation_memory(self, result: dict[str, Any]) -> None:
+        self.bulk_review_button.setEnabled(True)
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle(tr("Reuse translation memory"))
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText(summary_text(result))
+        details = details_text(result)
+        if details:
+            dialog.setDetailedText(details)
+        if not result["candidates"]:
+            dialog.setInformativeText(tr("No records can receive a translation memory candidate."))
+            dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+            dialog.exec()
+            self.translation_memory_token = None
+            return
+        dialog.setInformativeText(tr(
+            "Add these unapproved candidates? Nothing is approved; review each candidate "
+            "and its origin before approval."
+        ))
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        if dialog.exec() == QMessageBox.StandardButton.Yes and (
+            result["project_id"] == self.current_project_id
+            and not any(self.drafts.dirty(entry) for entry in self.drafts.entries.values())
+        ):
+            self.bulk_review_button.setEnabled(False)
+            self.bridge.submit("translation_memory_apply", {
+                "project_id": self.current_project_id,
+                "request_token": self.translation_memory_token,
+                "token": result["token"], "user_action": True,
+            })
+        else:
+            self.translation_memory_token = None
 
     def approve_page(self):
         if not self.project_open or self.drafts.action or self.draft_refresh_pending:
@@ -2599,6 +2680,9 @@ class MainWindow(QMainWindow):
         if command in ("matching_review_preview", "matching_review_apply"):
             self.bulk_review_button.setEnabled(True)
             self.matching_review_token = None
+        if command in ("translation_memory_preview", "translation_memory_apply"):
+            self.bulk_review_button.setEnabled(True)
+            self.translation_memory_token = None
         if command == "create_page_job":
             self.retranslate_page_button.setEnabled(bool(self.review_model.rows))
         if command == "use_pilot_profile":
