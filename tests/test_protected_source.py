@@ -143,7 +143,7 @@ def test_missing_reference_fingerprints_cannot_be_distributed_as_trace(inputs):
     value = json.loads(evidence.read_text())
     value.pop("references_sha256")
     evidence.write_text(json.dumps(value))
-    with pytest.raises(ValueError, match="derleme kanıtı"):
+    with pytest.raises(ValueError, match="build evidence is missing or invalid"):
         stage_protected_source(paths, **kwargs)
 
 
@@ -179,5 +179,5 @@ def test_extra_version_directive_is_not_a_line_ending_difference(inputs):
     version = kwargs["build"] / "source/BepInEx.Preloader/ProtectedVersion.cs"
     with version.open("ab") as stream:
         stream.write(b"unexpected source directive")
-    with pytest.raises(ValueError, match="sürüm kaynağı"):
+    with pytest.raises(ValueError, match="protection version source does not match"):
         stage_protected_source(paths, **kwargs)

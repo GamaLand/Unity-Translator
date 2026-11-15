@@ -5,7 +5,7 @@ from unitytranslator.repository import ProjectRepository
 
 def select_pilot(repository: ProjectRepository, limit: int = 200) -> list[str]:
     if not 1 <= limit <= 200:
-        raise ValueError("Pilot en fazla 200 kayıt olmalı.")
+        raise ValueError("A pilot can have at most 200 records.")
     # Read and order the eligible inventory once. Repeating a full join/sort for
     # every sampled offset makes large projects appear stuck before the first job.
     rows = repository.db.execute(

@@ -2,6 +2,7 @@ import json
 from dataclasses import replace
 
 import pytest
+from deployment_helpers import install_synthetic_plan
 from test_deployment import service as service_fixture  # noqa: F401
 from test_repository import draft
 
@@ -37,7 +38,7 @@ def test_default_inventory_includes_logs_and_selection_is_required(service):
     path.parent.mkdir()
     path.write_text("private log")
     assert "Logs/session.log" in service.inventory()
-    with pytest.raises(ValueError, match="açık kullanıcı"):
+    with pytest.raises(ValueError, match="data exclusions require an explicit user choice"):
         DeploymentService(service.repository, exclusions=(rule(),))
 
 
@@ -75,7 +76,7 @@ def test_rotated_log_and_save_cache_changes_are_separate_and_preserved(service):
     protected.target(rules[0].path).unlink()  # Yalnızca sentetik log rotasyonu.
     protected.target(rules[1].path).write_text("new save")
     protected.target(rules[2].path).write_text("new cache")
-    result = protected.activate(plan, user_action=True, adapter_verified=True)
+    result = install_synthetic_plan(protected, plan)
     assert result["status"] == "installed"
     assert result["excluded_observations"][0]["state"] == "missing"
     assert protected.original_changes() == []
@@ -95,14 +96,14 @@ def test_unselected_new_file_still_invalidates_plan(service):
     path = protected.target("Logs/new.log")
     path.parent.mkdir()
     path.write_text("unselected log")
-    with pytest.raises(ValueError, match="Oyun hazırlamadan"):
-        protected.activate(plan, user_action=True, adapter_verified=True)
+    with pytest.raises(ValueError, match="The game changed after preparation"):
+        install_synthetic_plan(protected, plan)
     assert not protected.target("mod/a.txt").exists()
 
 
 def test_missing_excluded_path_cannot_be_payload_target(service):
     protected = selected(service, rule())
-    with pytest.raises(ValueError, match="kullanıcı verisi"):
+    with pytest.raises(ValueError, match="conflicts with original or excluded user data"):
         prepare(protected, "Logs/session.log")
     assert not protected.target("Logs/session.log").exists()
 
@@ -114,7 +115,7 @@ def test_baseline_policy_is_immutable_and_reused_on_reopen(service):
         service.repository, process_probe=lambda _: GameProcessStatus("closed")
     )
     assert reopened.baseline() == baseline
-    with pytest.raises(ValueError, match="dışlama bağlantısı"):
+    with pytest.raises(ValueError, match="invalid project/game/exclusion binding"):
         selected(service, rule(), rule("Logs/new.log")).baseline()
     assert protected.baseline() == baseline
 
@@ -124,13 +125,13 @@ def test_tampered_policy_is_rejected(service):
     value = protected.baseline()
     value["exclusions"][0]["path"] = "Logs/new.log"
     protected.paths.write_json("artifacts/original-inventory.json", value)
-    with pytest.raises(ValueError, match="dışlama bağlantısı"):
+    with pytest.raises(ValueError, match="invalid project/game/exclusion binding"):
         protected.inventory()
 
 
 def test_known_reader_source_cannot_be_excluded(service):
     service.repository.ingest([replace(draft(), source_file="Logs/session.log")], {})
-    with pytest.raises(ValueError, match="oyun kaynağı"):
+    with pytest.raises(ValueError, match="extracted game source cannot be excluded"):
         selected(service, rule())
 
 
@@ -149,20 +150,20 @@ def test_corrupted_owned_receipt_cannot_delete_excluded_existing_user_data(servi
     path.write_bytes(b"synthetic private log")
     protected = selected(service, rule())
     plan = prepare(protected)
-    protected.activate(plan, user_action=True, adapter_verified=True)
+    install_synthetic_plan(protected, plan)
     manifest = protected.read_manifest()
     info = path.stat()
     manifest["files"][0].update(
         target="Logs/session.log", sha256=hash_file(path), device=info.st_dev, inode=info.st_ino
     )
-    with pytest.raises(ValueError, match="özgün dosyayı sahiplenemez"):
+    with pytest.raises(ValueError, match="removal manifest cannot claim an original file"):
         protected._remove_owned(manifest)
     assert path.read_bytes() == b"synthetic private log"
     assert protected.target("mod/a.txt").exists()
 
 
 def test_truthy_text_is_not_explicit_exclusion_approval(service):
-    with pytest.raises(ValueError, match="açık kullanıcı"):
+    with pytest.raises(ValueError, match="data exclusions require an explicit user choice"):
         DeploymentService(service.repository, exclusions=(rule(),), exclusions_reviewed="false")
 
 
@@ -171,18 +172,18 @@ def test_text_log_requires_selection_and_is_never_owned(service):
     path.parent.mkdir()
     path.write_bytes(b"synthetic game log")
     assert "Logs/runtime.txt" in service.inventory()
-    with pytest.raises(ValueError, match="açık kullanıcı"):
+    with pytest.raises(ValueError, match="data exclusions require an explicit user choice"):
         DeploymentService(service.repository, exclusions=(rule("Logs/runtime.txt"),))
     protected = selected(service, rule("Logs/runtime.txt"))
     baseline = protected.baseline()
     path.write_bytes(b"synthetic next launch log")
     assert protected.inventory() == baseline["files"]
     assert protected.excluded_observations()[0]["bytes"] == len(b"synthetic next launch log")
-    with pytest.raises(ValueError, match="kullanıcı verisi"):
+    with pytest.raises(ValueError, match="conflicts with original or excluded user data"):
         prepare(protected, "Logs/runtime.txt")
 
 
 def test_text_log_reader_source_is_still_protected(service):
     service.repository.ingest([replace(draft(), source_file="Logs/runtime.txt")], {})
-    with pytest.raises(ValueError, match="oyun kaynağı"):
+    with pytest.raises(ValueError, match="extracted game source cannot be excluded"):
         selected(service, rule("Logs/runtime.txt"))

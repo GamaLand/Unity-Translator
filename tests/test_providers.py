@@ -139,7 +139,10 @@ def test_provider_data_only_request_and_validation(provider: str) -> None:
 
 @pytest.mark.parametrize(
     "status,code",
-    [(302, "http_error"), (401, "unauthorized"), (404, "not_found"), (500, "http_error")],
+    [
+        (302, "http_error"), (400, "http_error"), (401, "unauthorized"), (404, "not_found"),
+        (429, "server_unavailable"), (500, "server_unavailable"), (503, "server_unavailable"),
+    ],
 )
 def test_http_errors_and_redirects(status: int, code: str) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
@@ -361,4 +364,23 @@ def test_plural_reply_cannot_drop_branch_or_transfer_markers(mode, code):
     adapter = LocalProvider("lm-studio", "http://localhost:1234", httpx.MockTransport(handler))
     with pytest.raises(ProviderError) as error:
         asyncio.run(adapter.translate_sample("synthetic-model", "{[A]} turns[i2p_One]{[B]} turn"))
+    assert error.value.code == code
+
+
+@pytest.mark.parametrize(
+    "body,code",
+    [
+        (b'{"error":{"code":503,"message":"Loading model","type":"unavailable_error"}}',
+         "server_unavailable"),
+        (b'{"error":"CUDA error: out of memory"}', "out_of_memory"),
+        (b'{"error":"No models loaded"}', "not_found"),
+    ],
+)
+def test_specific_server_bodies_win_over_transient_classification(body: bytes, code: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, content=body)
+
+    adapter = LocalProvider("llama-cpp", "http://localhost:8080", httpx.MockTransport(handler))
+    with pytest.raises(ProviderError) as error:
+        asyncio.run(adapter.list_models())
     assert error.value.code == code

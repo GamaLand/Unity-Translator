@@ -7,11 +7,13 @@ from pathlib import Path
 
 import pytest
 from test_installation import install_project, original_hashes  # noqa: F401
+from test_recipient_scripts import carries_core
 from test_textasset_pipeline import approve, synthetic_runtime_profile
 from test_textasset_pipeline import repo as synthetic_repo  # noqa: F401
 
 from unitytranslator.filesystem import hash_file
 from unitytranslator.krypta_runtime import KryptaRuntimeKit
+from unitytranslator.recipient_scripts import installer_bytes
 from unitytranslator.runtime_kit import RUNTIME_NAMES, RuntimeKit
 from unitytranslator.shareable import export_shareable_patch, supports_shareable_patch
 
@@ -88,6 +90,9 @@ def shareable(request, monkeypatch):
         assert archive.testzip() is None
         assert {"Install.cmd", "Uninstall.cmd", "Kur.cmd", "Kaldir.cmd"} <= set(archive.namelist())
         assert b"shareable translation patch" in archive.read("README.txt")
+        script = archive.read("patch.ps1")
+        assert script == b"\xef\xbb\xbf" + installer_bytes("patch-installer.ps1")
+        assert carries_core(script)
         assert not any(
             name.endswith((".sqlite3", ".gguf", ".assets")) for name in archive.namelist()
         )

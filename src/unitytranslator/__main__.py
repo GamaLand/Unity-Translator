@@ -44,6 +44,12 @@ def main() -> int:
                 "--engine", choices=("auto", "unity", "renpy"), default="auto",
                 help="Inspection engine override; does not grant installation support",
             )
+        if command == "extract":
+            item.add_argument(
+                "--format-rules", choices=("renpy-text-v1", "renpy-text-v2"),
+                help="Ren'Py text rule; renpy-text-v2 also protects printf placeholders in "
+                "string keys. Existing projects keep their rule unless upgraded here.",
+            )
         if command in ("export-renpy", "export-renpy-zip"):
             item.add_argument(
                 "--language", required=True,
@@ -109,7 +115,9 @@ def main() -> int:
             return 0
         if args.command == "extract":
             print(json.dumps(
-                extract_to_project(paths, args.source, engine=args.engine),
+                extract_to_project(
+                    paths, args.source, engine=args.engine, format_rules=args.format_rules
+                ),
                 ensure_ascii=True, indent=2,
             ))
             return 0

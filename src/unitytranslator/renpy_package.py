@@ -16,8 +16,10 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.engines import engine_evidence, renpy_inputs
 from unitytranslator.filesystem import checked_path, hash_file
+from unitytranslator.recipient_scripts import installer_bytes
 from unitytranslator.renpy_archive import read_index
 from unitytranslator.renpy_export import (
     MAX_OUTPUT_FILES,
@@ -101,9 +103,9 @@ def copy_build(
                     omitted["Installer receipts: not game inputs or distribution content"] = 1
                     continue
                 if name in _PRIVATE_METADATA or name.startswith((".aider", ".env.")):
-                    raise ValueError(
+                    raise Diagnostic(
                         "A reviewed clean game build is required; private tooling or credential "
-                        "metadata cannot enter a copy plan: " + relative
+                        "metadata cannot enter a copy plan: {p0}", p0=relative
                     )
                 if path.is_dir():
                     if depth >= MAX_DEPTH:
@@ -178,7 +180,7 @@ def _export_package(
         raise ValueError("Native source ownership changed before package preparation.")
     identity = uuid4().hex
     metadata = ".unitytranslator/renpy-additive/" + identity if additive else METADATA
-    installer = files("unitytranslator.resources").joinpath(INSTALLER).read_bytes()
+    installer = installer_bytes(INSTALLER)
     launcher = (
         '@echo off\r\nsetlocal\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass '
         f'-File "%~dp0{metadata.replace('/', chr(92))}\\{INSTALLER}" -Action Launch\r\n'
@@ -219,7 +221,10 @@ def _export_package(
         "source_resolution": native.get("source_resolution", "template-language-folder-v1"),
         "runtime_write_scope": "The new translated copy, including its own local saves and caches.",
     }
-    addon = files("unitytranslator.resources").joinpath("renpy-additive.ps1").read_bytes()
+    if native.get("format_rules", "renpy-text-v1") != "renpy-text-v1":
+        # Older manifests stay byte-identical; the recipient refuses unknown rule values.
+        package["format_rules"] = native["format_rules"]
+    addon = installer_bytes("renpy-additive.ps1")
     if additive:
         package.pop("copy_folder")
         package.update({

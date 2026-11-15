@@ -2,23 +2,23 @@
 
 import re
 
-from PySide6.QtWidgets import QTextEdit
+from PySide6.QtWidgets import QTextEdit, QWidget
 
 
 class DataTextEdit(QTextEdit):
-    def __init__(self, parent=None, reference=""):
+    def __init__(self, parent: QWidget | None = None, reference: str = "") -> None:
         super().__init__(parent)
         self.setAcceptRichText(False)
         self.reference = reference
         self._loaded = ""
         self._shadow = ""
 
-    def setPlainText(self, text):
+    def setPlainText(self, text: str) -> None:
         self._loaded = text
         super().setPlainText(text)
         self._shadow = self.document().toRawText()
 
-    def value(self):
+    def value(self) -> str:
         raw = self.document().toRawText()
         if raw == self._shadow:
             return self._loaded

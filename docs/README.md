@@ -11,8 +11,12 @@ legacy translated-copy packages remain supported.
 
 1. [Development](development.md): current architecture, shared review rules, Ren'Py
    backend/UI design, ordered acceptance gates and deferred Unity/Unreal work.
-   The next milestone is [broader Ren'Py support](development.md#broader-renpy-support-planned),
-   including remaining syntax, overlapping sources and wider runtime families.
+   The [development roadmap](development.md#development-roadmap) orders planned
+   work: foundation fixes first, then
+   [contract-based coverage](development.md#phase-c-contract-based-coverage), which
+   would check the user's own files instead of adding per-game or exact-build pins,
+   starting in the
+   [broader Ren'Py support](development.md#broader-renpy-support-planned) milestone.
 2. [Compatibility](compatibility.md): implemented support, limitations and historical
    release evidence. A roadmap is not a compatibility claim.
 3. [Installation](installation.md): original-file protection, project-managed and

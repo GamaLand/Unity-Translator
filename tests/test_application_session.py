@@ -82,7 +82,7 @@ def test_existing_project_opens_without_reentering_game_and_bad_selection_preser
         try:
             original = await session.dispatch("open", {"game": str(game), "project": str(project)})
             session.repo.ingest([draft()], {})
-            with pytest.raises(ValueError, match="kayıtlı proje bulunamadı"):
+            with pytest.raises(ValueError, match="No saved project was found in this folder"):
                 await session.dispatch(
                     "open", {"project": str(tmp_path / "missing"), "existing_only": True}
                 )
@@ -212,7 +212,7 @@ def test_editor_draft_commands_require_bound_project_and_use_common_commit(tmp_p
                 "base_version": row["version"],
                 "text": "Başla",
             }
-            with pytest.raises(ValueError, match="proje kimliği"):
+            with pytest.raises(ValueError, match="Draft request project identity does not match"):
                 await session.dispatch("editor_draft_put", {**data, "project_id": "other"})
             response = await session.dispatch("editor_draft_put", data)
             saved = response["draft"]

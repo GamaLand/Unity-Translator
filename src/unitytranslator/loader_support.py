@@ -40,10 +40,10 @@ def assess_loader_write_safety(loader: Path) -> dict[str, Any]:
 def confined(root: Path, name: str) -> Path:
     part = Path(name)
     if not name or part.is_absolute() or part.drive or ".." in part.parts:
-        raise ValueError("Destek paketi yolu güvenli ve göreli olmalı.")
+        raise ValueError("The support package path must be safe and relative.")
     path = checked_path(root / part)
     if not path.is_relative_to(root) or path == root:
-        raise ValueError("Destek paketi yolu kök dışında.")
+        raise ValueError("The support package path is outside the root.")
     return path
 
 
@@ -58,16 +58,16 @@ def stage_loader_support(
     loader, source_cache, catalog_root = map(checked_path, (loader, source_cache, catalog_root))
     catalog_path = confined(catalog_root, "loader-components.json")
     if catalog_path.stat().st_size > 1024 * 1024:
-        raise ValueError("Yükleyici katalog sınırı aşıldı.")
+        raise ValueError("Loader catalog limit exceeded.")
     catalog_bytes = catalog_path.read_bytes()
     catalog = strict_json(catalog_bytes)
     if catalog["format_version"] != 1:
-        raise ValueError("Yükleyici katalog sürümü desteklenmiyor.")
+        raise ValueError("Unsupported loader catalog version.")
     pending: list[tuple[Path, str, str, str]] = []
     license_names = {item["file"] for item in catalog["licenses"]}
     for item in catalog["components"]:
         if not item["license_files"] or not set(item["license_files"]) <= license_names:
-            raise ValueError("Bileşenin lisans bildirimi eksik.")
+            raise ValueError("The component license notice is missing.")
         pending.append(
             (confined(loader, item["path"]), "loader/" + item["path"], item["sha256"], "binary")
         )
@@ -85,7 +85,7 @@ def stage_loader_support(
         if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or not re.fullmatch(
             r"[a-f0-9]{40}", commit
         ):
-            raise ValueError("Kaynak arşiv kimliği geçersiz.")
+            raise ValueError("Invalid source archive identity.")
         filename = repo.replace("/", "-") + "-" + commit + ".zip"
         pending.append(
             (
@@ -96,27 +96,27 @@ def stage_loader_support(
             )
         )
     if not 1 <= len(pending) <= 1000:
-        raise ValueError("Destek paketi dosya sınırı aşıldı.")
+        raise ValueError("Support package file limit exceeded.")
     names = set()
     for source, name, digest, _ in pending:
         if not re.fullmatch(r"[a-f0-9]{64}", digest):
-            raise ValueError("Katalog hash'i geçersiz.")
+            raise ValueError("Invalid catalog hash.")
         if name.casefold() in names:
-            raise ValueError("Destek paketi hedefi yineleniyor.")
+            raise ValueError("Duplicate support package target.")
         names.add(name.casefold())
         if (
             not source.is_file()
             or source.stat().st_size > 64 * 1024 * 1024
             or hash_file(source) != digest
         ):
-            raise ValueError("Destek dosyası eksik, büyük veya katalogdan sonra değişmiş.")
+            raise ValueError("A support file is missing, too large or changed after the catalog.")
     relative = "artifacts/loader-support-" + uuid4().hex
     output = paths.output(relative)
     if output.exists() or any(
         output.is_relative_to(root) or root.is_relative_to(output)
         for root in (loader, source_cache, catalog_root)
     ):
-        raise ValueError("Destek hedefi kaynaklarla örtüşüyor veya mevcut.")
+        raise ValueError("A support target overlaps the sources or already exists.")
     output.mkdir(parents=True)
     manifest: dict[str, Any] = {
         "format_version": 1,
@@ -142,10 +142,10 @@ def stage_loader_support(
                 for block in iter(lambda: incoming.read(1024 * 1024), b""):
                     written += len(block)
                     if written > 64 * 1024 * 1024:
-                        raise ValueError("Destek dosyası kopyalama sırasında boyut sınırını aştı.")
+                        raise ValueError("A support file exceeded the size limit while copying.")
                     outgoing.write(block)
             if hash_file(target) != expected:
-                raise ValueError("Destek kopyası hash kontrolünü geçmedi.")
+                raise ValueError("The support copy failed the hash check.")
             manifest["files"].append(
                 {"path": name, "sha256": expected, "bytes": target.stat().st_size, "kind": kind}
             )

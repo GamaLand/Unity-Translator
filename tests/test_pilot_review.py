@@ -65,7 +65,7 @@ def test_cancelled_pilot_requires_attempted_full_sample_and_actual_results(
     with ProjectRepository(ProjectPaths(game, tmp_path / "project")) as repo:
         store, job, _ = interrupted(repo, attempted, successful)
         assert job_report(repo, job)["pilot_review_eligible"] is False
-        with pytest.raises(ValueError, match="örneklemi"):
+        with pytest.raises(ValueError, match="pilot sample is insufficient"):
             store.acknowledge_pilot(job)
         assert not store.pilot_reviewed(profile())
 
@@ -81,7 +81,7 @@ def test_cancelled_pilot_review_remains_source_bound(tmp_path):
         report = job_report(repo, job)
         assert report["pilot_review_eligible"] is False
         assert report["pilot_review_blocker"] == "source_changed"
-        with pytest.raises(ValueError, match="Kaynak"):
+        with pytest.raises(ValueError, match="source changed; a new pilot evaluation"):
             store.acknowledge_pilot(job)
 
 

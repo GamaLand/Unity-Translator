@@ -21,27 +21,27 @@ def extract_i2(
     languages = data["mLanguages"]
     terms = data["mTerms"]
     if not isinstance(languages, list) or not isinstance(terms, list):
-        raise ValueError("I2 dil/terim listesi çözülemedi.")
+        raise ValueError("The I2 language or term list could not be read.")
     source_language = normalize_language(source_language)
     index = language_index(languages, source_language)
     result = []
     seen: set[str] = set()
     source_set = data.get("mName") or tree.get("m_Name")
     if not isinstance(source_set, str) or not source_set:
-        raise ValueError("Kararlı kaynak kümesi adı bulunamadı.")
+        raise ValueError("A stable source set name was not found.")
     for term in terms:
         if not isinstance(term, dict):
-            raise ValueError("I2 terim nesnesi çözülemedi.")
+            raise ValueError("An I2 term object could not be read.")
         key = term.get("Term")
         # I2 eTermType.Text = 0; font, sprite and asset references are not translated.
         if term.get("TermType") != 0:
             continue
         values = term.get("Languages")
         if not isinstance(key, str) or not key or key in seen:
-            raise ValueError("Eksik veya yinelenen I2 terim anahtarı.")
+            raise ValueError("An I2 term key is missing or duplicated.")
         seen.add(key)
         if not isinstance(values, list) or len(values) != len(languages):
-            raise ValueError("I2 terim dil sayısı uyuşmuyor.")
+            raise ValueError("The I2 term language count does not match.")
         text = values[index]
         if not isinstance(text, str):
             raise ValueError("Selected source language text is missing.")

@@ -7,7 +7,7 @@ from pathlib import Path
 
 def entry() -> int:
     if "__compiled__" in globals() or getattr(sys, "frozen", False):
-        sys.frozen = True
+        sys.frozen = True  # type: ignore[attr-defined]  # Frozen-build marker; not in typeshed.
         sys.executable = str(Path(sys.argv[0]).resolve())
     if len(sys.argv) > 1 and sys.argv[1] == "--unity-worker":
         from unitytranslator.filesystem import checked_path
@@ -18,7 +18,7 @@ def entry() -> int:
             root = checked_path(Path(game))
             path = checked_path(Path(source))
             if not path.is_relative_to(root):
-                raise ValueError("Worker kaynağı oyun kökü dışında.")
+                raise ValueError("The worker source is outside the game root.")
             print(
                 json.dumps(
                     probe(path, logical, root, sys.argv[5] if len(sys.argv) > 5 else "en"),
@@ -27,7 +27,7 @@ def entry() -> int:
             )
             return 0
         except Exception as exc:
-            print(json.dumps({"fatal": type(exc).__name__}))
+            print(json.dumps({"fatal": type(exc).__name__, "message": str(exc)[:1024]}))
             return 1
     if len(sys.argv) > 1 and sys.argv[1] == "--verify-ui":
         from unitytranslator.ui.verify import verify_ui

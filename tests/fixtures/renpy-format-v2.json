@@ -1,0 +1,161 @@
+{
+ "format_rules": "renpy-text-v2",
+ "cases": [
+  {
+   "source": "Day %d of %(total)s",
+   "target": "Day %d of %(total)s",
+   "accepted": true,
+   "tokens": [
+    "%d",
+    "%(total)s"
+   ]
+  },
+  {
+   "source": "%(name)s won %.2f%%",
+   "target": "%(name)s won %.2f%%",
+   "accepted": true,
+   "tokens": [
+    "%(name)s",
+    "%.2f",
+    "%%"
+   ]
+  },
+  {
+   "source": "%-5s|%5.1f|%*d|%x|%r|%c|%e|%g|%o|%i|%u",
+   "target": "%-5s|%5.1f|%*d|%x|%r|%c|%e|%g|%o|%i|%u",
+   "accepted": true,
+   "tokens": [
+    "%-5s",
+    "%5.1f",
+    "%*d",
+    "%x",
+    "%r",
+    "%c",
+    "%e",
+    "%g",
+    "%o",
+    "%i",
+    "%u"
+   ]
+  },
+  {
+   "source": "%%d stays an escape",
+   "target": "%%d stays an escape",
+   "accepted": true,
+   "tokens": [
+    "%%"
+   ]
+  },
+  {
+   "source": "100% done and 50% sure",
+   "target": "100% done and 50% sure",
+   "accepted": true,
+   "tokens": [],
+   "note": "space flag excluded: prose percent stays text"
+  },
+  {
+   "source": "%(a b)s",
+   "target": "%(a b)s",
+   "accepted": true,
+   "tokens": [],
+   "note": "non-identifier mapping keys stay text"
+  },
+  {
+   "source": "Hello [name] %s {b}x{/b}",
+   "target": "Hello [name] %s {b}x{/b}",
+   "accepted": true,
+   "tokens": [
+    "[name]",
+    "%s",
+    "{b}",
+    "{/b}"
+   ]
+  },
+  {
+   "source": "Volume %d%%",
+   "target": "Volume %d%%",
+   "accepted": true,
+   "tokens": [
+    "%d",
+    "%%"
+   ]
+  },
+  {
+   "source": "Day %d of %(total)s",
+   "target": "Gün %d / %(total)s",
+   "accepted": true
+  },
+  {
+   "source": "100% sure",
+   "target": "%100 emin",
+   "accepted": true,
+   "note": "no template: stray percent is not checked"
+  },
+  {
+   "source": "Day %d",
+   "target": "Gün",
+   "accepted": false
+  },
+  {
+   "source": "Hi",
+   "target": "Hi %s",
+   "accepted": false
+  },
+  {
+   "source": "%s of %d",
+   "target": "%d / %s",
+   "accepted": false
+  },
+  {
+   "source": "%(a)s %(b)s",
+   "target": "%(b)s %(a)s",
+   "accepted": false
+  },
+  {
+   "source": "Day %d",
+   "target": "%50 Gün %d",
+   "accepted": false,
+   "note": "a bare % added to a format template"
+  },
+  {
+   "source": "Volume %d%%",
+   "target": "Ses %%%d",
+   "accepted": true,
+   "note": "%% may move around a conversion: Turkish %50"
+  },
+  {
+   "source": "50%off",
+   "target": "%50 indirim",
+   "accepted": false,
+   "note": "known false positive: %o is a conversion"
+  },
+  {
+   "source": "Hello [name] %s",
+   "target": "Merhaba %s [name]",
+   "accepted": true,
+   "note": "v1 tokens and conversions keep separate orders"
+  },
+  {
+   "source": "%d of %s",
+   "target": "%s / %d",
+   "accepted": false
+  },
+  {
+   "source": "[p:.0%] done, 100% sure",
+   "target": "[p:.0%] tamam",
+   "accepted": true,
+   "note": "% inside interpolation is not a printf template"
+  },
+  {
+   "source": "{image=a%.png} %d",
+   "target": "{image=a%.png} %d %",
+   "accepted": false,
+   "note": "template: stray % added"
+  },
+  {
+   "source": "[a] %d [b]",
+   "target": "[b] %d [a]",
+   "accepted": false
+  }
+ ]
+}

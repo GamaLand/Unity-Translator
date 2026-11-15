@@ -1,6 +1,6 @@
 # Development
 
-Updated: 31 October 2026. This is the single architecture, implementation plan and
+Updated: 14 November 2026. This is the single architecture, implementation plan and
 roadmap reference. [Compatibility](compatibility.md) records actual support;
 requirements marked **planned** do not enable a capability.
 
@@ -15,7 +15,7 @@ Extraction never executes game assemblies.
 
 | Location under `src/unitytranslator/` | Responsibility |
 | --- | --- |
-| `application.py`, `__main__.py` | Shared session commands and CLI entry point |
+| `application.py`, `commands.py`, `__main__.py` | Shared session, declarative command registry with typed payloads and guards, and CLI entry point |
 | `domain.py`, `repository.py`, `resources/schema-v*.sql` | Records, revisions, source ownership and migrations |
 | `jobs.py`, `providers.py`, `policy.py`, `validation.py` | Durable queue, local HTTP, glossary/style and format checks |
 | `dialogue_context.py` | Verified source segments, bounded reference windows and frozen job evidence |
@@ -27,7 +27,8 @@ Extraction never executes game assemblies.
 | `worker_process.py`, `report_stream.py`, `workers/` | Bounded JSON/framed reader IPC, timeout and cancellation |
 | `deployment.py`, `installation.py`, `runtime_*.py`, `krypta_runtime.py`, `krypta_trial.py`, `shareable.py` | Reviewed additive deployment and runtime/package variants |
 | `editor_drafts.py`, `review_selection.py`, `portable.py`, `reports.py` | Review, history interchange, drafts and reporting |
-| `ui/`, `resources/locales/` | Qt presentation and eight offline interface catalogs |
+| `diagnostics.py` | English reason-code diagnostics, bridge failures and legacy message aliases |
+| `ui/`, `ui/pages/`, `resources/locales/` | Qt presentation, per-page completion controllers and eight offline interface catalogs |
 
 `guide/` contains localized user guides; `adapters/` contains Unity runtime C# sources,
 synthetic checks and notices; `tools/` contains checks, source tracing and packaging.
@@ -53,13 +54,17 @@ to I2. Ren'Py/mixed-engine roots cannot select a Unity installation adapter.
 
 `SourceDescriptor` retains its numeric `source_object` for compatibility; Ren'Py uses
 the documented not-applicable sentinel `-1`, one logical source per file. It accepts
-`protected-i2-v4`, `literal-lines-v1` and `renpy-text-v1` explicitly.
+`protected-i2-v4`, `literal-lines-v1`, `renpy-text-v1` and `renpy-text-v2` explicitly.
 `result_from_report` still associates records using file/object pairs. Native Ren'Py
 staging requires a separate explicit language mapping and current approvals;
 a reader or exporter does not grant deployment.
 
 ### Persistence and identity
 
+Schema 7 adds lookup indexes only: revisions by unit and by source revision, plus
+a review-order index on original key without a leading `active` column so full-table
+counts keep their scan. It changes no stored record, identity or history. Migrations
+come from one ordered table bounded by `LATEST_SCHEMA`; each step keeps its backup.
 Schema 6 adds frozen source bindings for optional dialogue-context jobs; schema 5
 records logical sources and immutable snapshot descriptors. Schema-4 inputs,
 portable project formats, legacy I2 IDs and runtime v1/v2 payloads remain supported
@@ -98,8 +103,8 @@ IDs, then restores verified tokens. Duplicate keys, missing/extra records, trunc
 tool calls and invalid values are rejected with bounded retries. Model output never
 chooses a path, command, executable or interpolation expression.
 
-I2 uses `protected-i2-v4`; TextAsset uses `literal-lines-v1`; native Ren'Py templates
-use `renpy-text-v1`. I2 recognizes its tested
+I2 uses `protected-i2-v4`; TextAsset uses `literal-lines-v1`; Ren'Py sources use
+`renpy-text-v1` or, for new projects, `renpy-text-v2`. I2 recognizes its tested
 parameter/rich-text grammar and plural branches; these rules do not apply to Ren'Py.
 Current multilingual review checks are `review-multilingual-v5`. The implementation
 and fixtures define the authoritative grammar. Preserve line endings and exact
@@ -176,9 +181,36 @@ requires restoring the job's settings or preparing a new pilot. Legacy session
 callers without a model selection retain the saved-profile behavior.
 Pause stops new claims and saves in-flight
 results; cancellation closes client tasks. Recovery retains attempts and revisions.
-Request timeout or queue delay differs from window focus. The optional LM Studio
-`reasoning_effort="none"` is request-scoped; other providers reject it. Default
-profile serialization omits the field for compatibility. Requested settings do not
+Only the explicit Cancel action cancels a job. Closing the app, switching projects or a
+cooperative shutdown pauses it, keeping an earlier automatic reason or else recording
+`shutdown`, requeues claimed records and returns the attempt of a request that was cut
+off; reopening never resumes it. HTTP 429 and 5xx replies without a specific reason are
+`server_unavailable`. That code and `connection` keep their run history but refund the
+record's three-attempt budget. A record whose own latest five runs are outages, counted
+across resumes, is failed and left Pending for a later job; an outage on the only
+remaining record therefore fails it rather than pausing. Otherwise the job pauses when
+consecutive outages across all workers reach four plus the number of parallel requests
+and span more than one record; a success or any other error resets that count. Records
+in a current outage are claimed last without sorting the queue. Timeouts still spend
+attempts. Retries wait with jittered exponential backoff while keeping their claim, so
+no other worker retries at once. Run numbers, reported retries and pilot sample coverage
+follow run history rather than the refundable budget; job reports count outage attempts
+separately and leave them out of request timings. A pending pause keeps its first reason
+and an active run stays `pausing` until its workers finish.
+Request timeout or queue delay differs from window focus. The profile's
+`reasoning_effort` is `default` (server behaviour), `none` or `adaptive`. `none` sends
+`reasoning_effort="none"`, and for llama.cpp also `chat_template_kwargs.enable_thinking=false`,
+because templates such as Gemma's enable thinking for any system prompt. `adaptive`
+(llama.cpp only, policy `adaptive-v1`) sends a per-record `thinking_budget_tokens` of 64
+plus the source length, half the length of included dialogue references and 64 per
+reference, capped at 1,024. Dialogue references are fitted first; the budget is then
+reduced to the remaining safe context instead of dropping references or failing, and the
+reduction is recorded. The budget is added to `max_tokens` and to the safe context
+estimate, so thinking cannot consume the answer's output budget. Results and job reports
+record the mode, budget and the size of separately returned reasoning, never its text;
+report metrics include failed attempts such as `output_truncated`.
+Unsupported combinations are refused before any request. Default profile serialization
+omits the field for compatibility, and a changed mode needs a matching reviewed pilot. Requested settings do not
 prove server behavior; no model/server starts or downloads automatically.
 The synthetic connection test uses the selected context, output and temperature
 settings. llama.cpp model discovery reads the running per-slot `meta.n_ctx`, never
@@ -367,12 +399,22 @@ evidence remain bounded. Container hashes check cancellation while reading.
 Native identifiers are bounded at 2,000 characters and aggregate review context at
 64 MiB. Repeated dialogue uses monotonic per-member serial allocation to avoid
 rescanning earlier serials; source ordering and native IDs remain unchanged.
-Framed `reader-report-v1` transfer limits each frame to 256 KiB and the operation
-to 256 MiB, with explicit depth/node/frame/string budgets and a terminal digest.
-Truncation, changed order, duplicate paths and cancellation never return a partial
-source set. The parent releases the worker object before independently rebuilding
-the current report and comparing its canonical digest. No report is accepted on
-the worker's authority alone.
+The script worker returns only a strict `reader-digest-v1` result of at most 64 KiB:
+its report's canonical digest and record, source, member and exclusion counts. The
+parent independently rebuilds the current report and compares digest and counts; a
+mismatch names both record counts. Truncation, changed order, duplicate paths and
+cancellation never return a partial source set, and no report is accepted on the
+worker's authority alone. Framed `reader-report-v1` transfer (256 KiB frames, 256 MiB
+per operation, depth/node/frame/string budgets and a terminal digest) remains
+available for report-transferring workers; no bundled reader uses it now.
+Parsed RPA indexes are cached in memory per archive path, device, file ID, size and
+modification time, for up to one complete probe (128 archives and 200,000 members).
+A cache hit and every member read check the path policy, compare the open handle's
+device, file ID and size and re-hash the header and index region, which is
+equivalent to re-parsing the index; file IDs alone are not trusted, and a
+modification-time change alone keeps a verified index. A changed index is parsed
+again. Concurrent in-place rewrites of member data are caught by the probe's
+whole-container hashes before and after reading, not by member reads.
 
 Existing logical source anchors survive new earlier-sorting filenames and new
 disjoint containers. Missing prior members/anchors or another input profile cannot
@@ -478,6 +520,28 @@ arguments. Unknown tags, implicit tag closure, dynamic tag arguments and ruby te
 are outside this subset. Interpolation/tag nesting is bounded to 32 levels, tokens
 to 8,192 characters and text to 1,000,000 characters. Fixtures follow the upstream
 8.5.4 documentation, not a claim that a particular engine build has been run.
+
+`renpy-text-v2` is a descriptor rule: dialogue records keep `renpy-text-v1`, and
+string-key records (`original_key` beginning `string/`) also protect Python printf
+conversions such as `%d`, `%(name)s` and `%.2f`, because game code may apply `%` to
+them. The space flag is excluded so prose such as `100% done` stays text, mapping keys
+must be identifiers, and `str.format` braces remain unsupported Ren'Py tags. v1 tokens
+and printf conversions each keep their own order, so `%%` may move around a conversion
+(Turkish `%50`). In a format template a bare `%` may not be added or removed. Known false positive: `50%off`
+contains the conversion `%o`. Every v2 acceptance is also a v1 acceptance. New projects
+start with v2. Existing projects keep their persisted rule; only an explicit
+re-extraction with `--format-rules renpy-text-v2` (or the session's `format_rules`)
+upgrades every Ren'Py descriptor, refuses while any job is unfinished, invalidates only
+string translations, retired ones included, that fail the new rule, records a
+`format_rules_upgrade`
+snapshot. Downgrades are refused. Newer rules join the pilot identity, so an upgrade
+needs a new reviewed pilot; v1 projects keep their existing pilots. Approval rechecks
+the current rule. Native export records the rule; v2 recipient packages declare
+`format_rules`, and the recipient refuses unknown values and enforces printf tokens in
+string blocks. Shared vectors in `tests/fixtures/renpy-format-v1.json` and
+`renpy-format-v2.json` run against the Python validator and the recipient tokenizer.
+The recipient deliberately stays stricter for ruby brackets anywhere and for UTF-16
+length limits on astral characters; these pinned cases fail closed at review time.
 
 ### Export and separate deployment gate
 
@@ -639,6 +703,108 @@ Synthetic Windows tests cover the additive route; actual original-root gameplay
 and generated-sidecar cleanup remain unverified. Copy pilot evidence does not prove
 those behaviors or broader engine compatibility.
 
+## Development roadmap
+
+Observations below come from a 0.7.0 source review and synthetic 100,000-record
+measurements; recheck each before implementing it. Everything in this section is
+**planned** unless an item says it is implemented in source. It grants no capability
+and changes no compatibility claim.
+
+Phase F comes first. Phase C, contract-based coverage, is next: its Ren'Py items
+run inside the [broader Ren'Py support](#broader-renpy-support-planned) gates, and
+its Unity items then resume [deferred engine expansion](#deferred-engine-expansion).
+Phase M and T items may land in slices alongside that coverage work.
+Phase D follows the Ren'Py milestone and may proceed alongside the Unity items
+of Phase C. Items inside a phase are independent unless
+noted. Every item ships with targeted synthetic tests, the shared checks and updates
+to this document, Compatibility or Installation. Identities, approvals, drafts,
+receipts, legacy payloads, persisted confirmation values and historical metadata are
+preserved. Storage changes use the next numbered transactional migration with a
+consistent backup; new metadata reads as absent on legacy rows.
+
+### Phase F: foundation
+
+Scale and reliability defects affect every engine and the large Ren'Py sets targeted
+by the coverage milestone.
+
+| Item | Observed in 0.7.0 | Planned change and acceptance |
+| --- | --- | --- |
+| F1 Schema 7 and set-based queries | Only four explicit secondary indexes exist besides key autoindexes; none covers `source_revisions.unit_id` or `translation_revisions.source_revision`. Portable history export issues two scanning queries per unit, about 0.2 s per unit at 100,000 units, and every review page sorts the full inventory. | **Implemented in source.** An additive schema 7 adds those indexes and a review-order index. Portable history export reads two ordered sets with unchanged output, and candidate-only job results are found by their content-addressed revision ID. One migration table and `LATEST_SCHEMA` replace the repeated version tuples. A synthetic 100,000-record test with generous budgets covers ingest, paging, search, history, export and whole-project approval, and reopened schema-6 projects keep all work. Selective search and impact pages and whole-project reads keep their schema-6 scan-and-sort plans, because walking the review-order index for few matches is slower. In repeated synthetic runs, history export fell from a projected several hours to under 2 s and unfiltered early review pages from about 0.4 s to 0.01 s; index maintenance made first ingest about 15-40% and candidate writes about 10-20% slower. Deep pages still pay `OFFSET`. |
+| F2 Job resilience | HTTP 429 and 5xx replies whose body matches no specific reason (including 503 while a model loads) fall through to `http_error`, which fails the item permanently and neither retries nor pauses the job. Items are requeued before the backoff sleep, so parallel workers can spend all attempts at once. Closing the app cancels a running job. | **Implemented in source.** Unmatched 429/5xx replies become retryable `server_unavailable`. Outage failures keep history and refund the attempt budget. A record whose own latest five runs are outages, counted across resumes, is failed and left Pending; otherwise consecutive outages spanning more than one record pause the job once they reach four plus the parallel request count, so one concurrent loading wave does not pause it. Records in an outage are claimed last without a queue sort, and retries hold their claim during jittered backoff. Closing or switching projects pauses a running job, keeps an earlier automatic reason, never starts a late prepared job and never cancels a previously selected job; reopening never resumes automatically, and resume keeps the saved-profile and source-context checks. Jobs cancelled by earlier versions stay cancelled. Timeouts still spend attempts. Fake-provider tests cover model loading, rate limits, outage/recovery, a single failing record at one and two parallel requests, a concurrent loading wave, interleaved outages, bounded resumes, claim order and plan, backoff claims, pause reasons, report counts and shutdown. |
+| F3 Text-safety gaps | `renpy-text-v1` treats `%%` as its only percent token, so `%s` and `%(name)s` in `_()` string keys are unprotected. `extend` dialogue is skipped without a count. Excluded say statements reserve no native serial, so a later identical statement can receive the wrong native ID. Editing an inactive unit can clear its approval without a version bump. | **Implemented in source.** A `renpy-text-v2` descriptor rule protects printf conversions in string keys only; `str.format` braces stay unsupported tags. New projects use it; existing projects upgrade only through explicit re-extraction, which invalidates only failing string approvals, records the change and needs a new pilot. Descriptor validation, portable format 3, the native exporter and the recipient accept it explicitly. `extend` is counted as `extend_say` and reserves its native serial when its code is computable; other excluded say statements that may share a later statement's base refuse reading with a reason, keeping the previous snapshot; statements in a voice/nvl group are not suspects, because the engine hashes the whole group's code. The rule is recorded as `native_id_allocation` in new snapshot metadata without changing the parser version or dialogue-context evidence. Truncated-digest collisions between non-computable codes remain for C2. Inactive-unit edits are rejected before any state change. Shared v1/v2 vector fixtures run against Python and the recipient, whose multi-name tag acceptance was fixed. |
+| F4 Worker boundary | The I2 worker uses `subprocess.run`, post-hoc size checks, plain `json.loads` and no cancellation. The Ren'Py script worker transfers its full report only for hashing. Every RPA member read re-parses the whole index to detect archive changes. | **Implemented in source.** The I2 reader uses `run_json_worker` with strict JSON, the extraction's cancellation, the shared timeout and the 32 MiB IPC limit, and accepts only the Unity worker's own report fields with their types: units need exactly the record fields, 64-bit source objects and string texts. Strict JSON at every worker boundary reports excessive nesting as a value error. Worker failures report the worker's bounded fatal record and the last stderr line, at most 300 printable characters each, with control, format and lone surrogate characters removed; a fatal record after other output lines is still found, and the Unity and TextAsset workers' fatal records now carry a message of at most 1,024 characters. The Ren'Py script worker returns a strict `reader-digest-v1` digest-and-counts result instead of its full report; parent re-verification is unchanged. Parsed RPA indexes are cached per verified archive identity for a whole probe, and each member read checks the path policy, the open handle's identity and size, and the index-region hash. In a synthetic 15,000-member archive, reading every member took about 15 s instead of a projected 36 minutes of per-read index parsing; the per-read path policy check is most of that remaining time. |
+
+### Phase M: maintainability
+
+| Item | Observed in 0.7.0 | Planned change and acceptance |
+| --- | --- | --- |
+| M1 Structured diagnostics | About 350 backend exception messages are Turkish literals; only a few match catalog entries, so other interface languages show Turkish errors. The bridge sends only `str(exc)`. | **Implemented in source.** All 339 Turkish exception messages, and the installation status and discovery uncertainty texts, are English; parameterized and formerly concatenated messages are `Diagnostic` templates, and `PolicyError`, `ProviderError`, `OperationCancelled` and `GameNotClosedError` are diagnostics. Every exception message is now a reason code catalogued in all eight languages: 841 new catalog keys. Turkish keeps the previous wording where one existed. The first 387 other-language translations were produced and independently reviewed by assistant agents; the remaining 450 keys in all seven languages were translated through the app's own llama.cpp request path with the adaptive reasoning budget (T5) and a user-run local model, checked automatically for placeholders and technical names, and corrected by hand where review found meaning errors. These local-model translations have no full human review. Failures cross the bridge with code, parameters, request token and project ID and are localized by code; stored plain English text with parameters is recognized by bounded template matching. A legacy table of 386 aliases keeps messages stored by earlier versions localizable, with tests that every alias matches its old text and localizes in every language. AST tests reject non-English source text outside documented exemptions, dynamic or uncatalogued exception messages and hidden template parameters. Persisted confirmation values, generated Turkish pilot reports and their issue labels are unchanged. |
+| M2 Session and UI structure | `ApplicationSession.dispatch` is one chain of about 50 string commands with repeated guards. `MainWindow.completed` (about 720 lines) handles every page, and `ui.*` is excluded from mypy. | **Implemented in source.** `commands.py` declares each of the 50 unchanged command names with a typed payload (`TypedDict`) and a declarative guard: open project, payload project identity and idle scope (extraction, job or either), checked in that order with the previous messages. Handlers are `command_*` session methods registered by name; unknown `deployment_*` and `editor_draft_*` commands keep their family guard and message. Two commands whose previous checks had a different order (`use_pilot_profile`, `run_job`) keep them in the handler. `MainWindow.completed` dispatches to seven page controllers under `ui/pages/`, which hold the former branch bodies in their previous order; a review compared every branch with the previous method. `Page` names the eight workflow tabs and `REVIEW_PAGE_SIZE` the shared 200-record page. mypy now checks `ui.*`: new UI modules are strict, and `bridge`, `components`, `drafts`, `verify` and `window` have their function bodies type-checked without annotation requirements yet. This found and fixed a `MainWindow.style` attribute that shadowed Qt's `style()` and an `addTab` overload that broke icon tabs. Remaining: annotate those five modules and remove them from the relaxed override. |
+| M3 One installer contract | Ownership, process and path checks exist in Python and two PowerShell installers and have drifted. Some deployment activation and preview paths have no production caller. | **Implemented in source.** `resources/recipient-core.ps1` holds the file-identity and process C# types and the path, digest, create-new, journal and game-process helpers once; `recipient_scripts.py` inlines it at one marker line when a package is exported, so every shipped script stays self-contained and its hash pins cover the generated bytes. The Unity patch and Ren'Py copy/additive installers use it. The recipient process check now has Python's semantics: any image under the game root refuses, an unreadable or unmatched image whose name matches an EXE under the root is uncertain, and a game tree that cannot be inspected (links, reserved names, unreadable folders, more than 100,000 entries) fails closed with its own message in both; a folder without any EXE gets a select-the-game-folder message. Per-file checks reuse a closed result for at most one second and never across a typed confirmation, after which every current installer checks all planned destinations again before its first write. Device names match in ASCII only, as on Windows. Python and the core share path and process vectors (`tests/fixtures/recipient-*.json`); Python's name rule was tightened to the core's, and the three remaining differences are documented in the fixtures. Frozen installers built by their own revisions' exporters (Unity patch rc.6, rc.7 and 0.5.0; Ren'Py copy formats 1-2 from 0.5.0; additive format 3 from the 0.6-0.7 line) and the current Python and PowerShell implementations run one ownership scenario suite: exact plans and receipts, conflicts before and after review, clean and partial removal, tampered or relocated receipts, a process under the root during install and removal, a retry after restoring a preserved file and interrupted installs. Legacy behaviour that differs is asserted as recorded behaviour. The unused `prepare_i2_deployment_preview` and `DeploymentService.activate` were removed after receipt and plan searches; the loader-support staging tools and the documented `DeploymentAdapter` protocol stay. Remaining: an interrupted Ren'Py copy or additive install has no receipt yet, so its own Remove refuses and recovery is manual from the journal; the frozen 0.6-0.7 additive installer can leave unreceipted additions when a destination appears during its confirmation prompt. |
+| M4 Test and release hygiene | Unity worker parsing has no synthetic end-to-end test, migration tests rebuild old schemas by dropping objects, and privacy and version rules are duplicated across tools. | **Implemented in source.** `tests/fixtures/unity-serialized/` holds small format-17 serialized files and a metadata-only .NET image written by its own deterministic builder from UnityPy's bundled Unity 2017.4 class layouts; the real worker subprocess reads them through the I2 type-tree path and the managed-metadata fallback with the same unit IDs, and truncated or trailing payloads, assemblies and script files fail closed. A strict xfail records the C5 type-tree naming gap. `tests/fixtures/legacy-projects/` holds 11 frozen projects built by the released revisions' own code (schemas 4-6) and by the oldest revision's stepwise SQL (schemas 1-3), pinned by SHA-256 with recorded expectations; copies migrate to the latest schema with consistent backups, unchanged rows, pages, history, drafts and jobs, and injected failures roll back. Migration tests no longer rebuild old schemas by dropping objects. CI runs separate Python and C# jobs (`tools/check.py --python-only`/`--dotnet-only`), a stdlib per-test watchdog (120 s, `@pytest.mark.test_timeout`, `UNITYTRANSLATOR_TEST_TIMEOUT`), step timeouts, a uv cache keyed on `uv.lock` with a SHA-pinned `actions/cache`, and a concurrency group that cancels superseded branch runs but keeps every main run. `tools/release_rules.py` is the one privacy, label, language and version rule module for every packaging tool; source archives accept only the three synthetic fixture trees by path and type, and an sdist entry outside its root folder is refused. `src/unitytranslator/__init__.py` is the one version source (`pyproject.toml` reads it dynamically) and the package description names Ren'Py; `uv.lock` records the project version as dynamic. Remaining: the workflow has not run on GitHub yet. |
+
+### Phase T: throughput and translation quality
+
+| Item | Planned change and acceptance |
+| --- | --- |
+| T1 Project translation memory | Opt-in, explicitly triggered reuse of exact-match source text keyed by format rules, category, context, profile, policy versions and dialogue digest. Reuse adds unapproved candidates with origin metadata, never approvals, because equal source text need not have an equal translation. It never replaces current approvals, drafts or approved records' current translations. Acceptance: synthetic duplicates produce candidates only, and review shows their origin. |
+| T2 Prompt registry | Prompt files and the profile's `prompt_version` already exist, but jobs accept only `translate-v1` and the provider uses a fixed allowlist. A validated registry admits bundled, read-only prompt versions; profiles and imports select only bundled IDs, never prompt text, and a missing ID means `translate-v1`. A new version may add language names and fixed-template corrective feedback on retries. Isolated pilots compare failures, retries and human judgment between versions. |
+| T3 Request efficiency | Two commits per record instead of four, incremental progress, one HTTP client per job and a warning when requests exceed the server's reported slots. Optional micro-batching of short context-free records uses its own prompt version, joins pilot identity, needs a matching reviewed pilot and keeps exact-ID per-record validation. Acceptance: fake-server tests show the commit count and no lost progress on pause or cancel. |
+| T5 Reasoning control | **Implemented in source.** With a local Gemma model on llama.cpp every request reasoned for about 300-850 tokens, even for a seven-word message, so one-line records took about 40 s each at 12 parallel requests and some failed as `output_truncated`; the app could only switch reasoning off, and only for LM Studio. The profile now offers server default, off (LM Studio and llama.cpp) and an adaptive llama.cpp thinking budget that grows with record length and dialogue references and is reserved on top of the output budget. Job reports summarize budgets and reasoning size so the effect can be compared on the user's own records. Effort levels (`low`/`medium`/`high`) are not offered: the measured template ignored them. |
+| T4 Review QA | Precompiled, inflection-tolerant glossary matching, checks beyond English-to-Turkish and length ratios by category ship as a new review-check version. An optional local reviewer pass only adds issue codes and runs on explicit user action against an already running server. |
+
+### Phase C: contract-based coverage
+
+Support is defined per mechanism, such as an I2 layout family, Unity text components
+or the Ren'Py translation framework, not per game. For new support, author-side
+allowlists (build hashes, exact version strings, company/product profiles) give way
+to checks on the user's own files: the app checks statically that the files carry
+the structure a reader depends on and that runtime entry points match a verified
+family contract, or it refuses and names the missing contract. A static match is
+not runtime proof. A contract-matched build without runtime observation gets no
+compatibility claim and at most an experimental installation route; installation
+always needs current approved revisions, a concrete reviewed create-new plan and
+owned-removal checks. Engine families are verified with synthetic games built from
+official tooling rather than a growing list of commercial titles; real games remain
+private regression references. Reports distinguish verified families,
+contract-matched builds and unsupported inputs with reasons. Where a format proves
+that a failed record cannot change other records' identities, serials, grouping or
+order, that record is excluded and counted; otherwise the whole set is refused as
+before. Existing pins stay valid for the projects and packages created under them,
+and existing projects keep their recorded reader, profile and legacy report keys.
+Game-specific support such as the bundled Krypta reader and runtime, with its
+validated data profile, stays optional and is not the basis of support.
+
+Items are in priority order; C1 runs alongside the others.
+
+| Item | Planned change and acceptance |
+| --- | --- |
+| C1 Engine family matrix | A developer-side step outside the app, after explicit user authorization for each download, license activation, SDK or Editor run and synthetic-game launch: build small synthetic games with pinned official Ren'Py SDKs across 7.x and 8.x and with Unity Editor LTS versions under the user's own license (Mono first). The app itself never runs a Ren'Py launcher, compiler or translation generator. Contract digests per release become validated data with provenance, summarized in Compatibility. Only derived vectors, fingerprints and minimal synthetic data whose license permits redistribution enter the repository, with notices; engine or player binaries and Unity built-in resources never do. CI never downloads SDKs or uses real games. Acceptance: at least one pinned release per claimed family. |
+| C2 Ren'Py compiled-ID cross-check | For sources with a paired `.rpyc`, a data-only opcode scan, never unpickling, confirms that each computed dialogue ID occurs exactly once in the compiled file, using the slot and string forms C1 records per family. This is additional evidence for dialogue identity; it does not replace engine-source contracts for string keys, escapes, block grouping or source order. Sources without a paired `.rpyc` keep the current checks. Ren'Py 7 dialogue becomes readable only after C1 establishes its family, and Python 2 string semantics stay unsupported until separately verified. The persisted `renpy-script-8.1.2-v1` parser label stays unchanged as source identity, and a separate versioned dialect record names the verified family. Acceptance: synthetic vectors with a shifted serial fail. |
+| C3 Ren'Py runtime family gate | A new recipient ZIP format binds to the script-bearing files whose IDs were computed and to a runtime family whose translation loading, language selection and `.rpyc` sidecar/cache behavior C1 verified with synthetic and separately authorized pilot evidence, instead of one build string and every build file. Recipient checks still require a clean target namespace and refuse conflicts across loose files and archives. Builds that only match the static contract are reported without an installation route. Formats 1-3 keep their checks. Installation still needs the package's frozen current approvals and a reviewed create-new plan. Acceptance: synthetic recipients with the same runtime contract and unchanged script files pass; a changed loader function or script file is refused with a reason. |
+| C4 Ren'Py input breadth | Template input reports unsupported blocks such as `extend`, `voice` and `nvl clear` as counted exclusions and is never presented as complete. A new text-rule version may protect balanced unknown source tags as opaque tokens with a per-tag review diagnostic; allowlisted tags keep their pairing rules, and self-closing or unbalanced custom tags stay excluded. As in F3, existing units keep their rule until explicit re-extraction, which invalidates only affected approvals. Voice/nvl groups and say suffixes follow verified vectors. Discovery budgets count only relevant files. New snapshots store source bytes in content-addressed storage through a numbered migration; existing snapshots move only with verified byte and hash equality or stay as they are. Last, a data-only `.rpyc` reader for compiled-only games maps an allowlist of class names to plain records and never constructs objects. Acceptance: each unsupported block is counted, and tag vectors pass in the exporter and recipient validators. |
+| C5 Unity content-based selection | Each bundled reader exposes a cheap static detector, and a bounded scan of serialized candidates, including StreamingAssets bundles, reports detected content without extracting it. For new selections, reader choice follows that content; company/product profiles remain hints. A different detected reader for an existing project is reported and needs explicit re-selection that preserves history. Detection never grants extraction or installation. Acceptance: a synthetic I2 object read through the type-tree path reports the same GameObject name as the managed fallback; the suspected empty-name failure, found by code reading only, is confirmed by that test first. |
+| C6 Unity static type-tree generator | `managed_schema` replaces its Unity 2017-only gate with explicit Unity version dialects. It resolves inheritance and type references across `Managed/*.dll`, Unity built-in structs, more primitives, non-int32 enums, object references, serialized references and generic fields beyond `List<T>`. It reads both I2 layout families, ScriptableObject sources and text fields of `UI.Text`, TextMeshPro and `TextMesh` in scenes and prefabs without executing game code. Exact byte consumption remains the per-object contract; unknown layouts fail with reasons. Acceptance: synthetic stub assemblies and serialized vectors per dialect, including rejected layouts. |
+| C7 Unity ABI-checked runtime | The I2 plugin's compatibility check moves from author-side game hashes to an install-time static check that every type, field and method the shipped plugin references exists in the user's assemblies with matching signatures, together with Mono x64 and loader-family checks. Payloads keep binding to the assembly hash and per-entry source hashes of the build they were extracted from. A second compiled variant covers the `LanguageSourceData` layout family. Installation rules are unchanged. Acceptance: stub assemblies that differ by one member or signature are refused with a reason. |
+| C8 Generic Unity text runtime | A bundled plugin with compiled hooks on Unity-owned text APIs (`UI.Text`, `TMP_Text`, `TextMesh`) replaces reviewed, statically extracted source strings, keyed by source-text hash and limited to the component, scene/prefab or asset contexts they were extracted from; matching text elsewhere is left unchanged. Payload data selects strings, never hook targets. Equal source text with different approved translations is reported and excluded. The plugin neither captures nor transmits text, and runtime-composed strings stay out of scope. It targets Mono builds that pass C7-style checks; installation needs current approvals and a reviewed create-new plan, and removal follows owned-addition receipts. Acceptance: stub-based C# tests cover replacement, out-of-context text, conflicts and rollback. |
+| C9 Interop export | A fixed bundled writer exports current approved revisions to a named, versioned community runtime text format, such as XUnity.AutoTranslator translation files. It escapes separators and refuses entries the format would interpret as regex, substitution or configuration directives. Equal source text with different approved translations is reported and excluded. It writes no configuration, enables no capture or online translation and makes no compatibility or installation claim. No third-party runtime is bundled, downloaded or installed. Acceptance: a synthetic export reparses under the format's rules and round-trips every exported pair. |
+
+IL2CPP reading and runtime, Godot and Unreal stay outside Phase C; see
+[deferred engine expansion](#deferred-engine-expansion).
+
+### Phase D: delivery
+
+| Item | Planned change and acceptance |
+| --- | --- |
+| D1 Payload refresh | Replaces only unchanged receipt-owned additions with current approved revisions after identity, single-link and hash checks under a concrete reviewed plan, writes a new receipt and never touches original game files. Synthetic tests cover a tampered owned file, a stale receipt and rollback. |
+| D2 Loader allowlist | The protected preloader loads only catalog-pinned plugin files by name and hash, as a registered upstream change with matching source and notices. |
+| D3 Faster game checks | Single-pass hashing per operation. A stat cache may speed discovery reports but never replaces hash checks at installation or removal. |
+| D4 Worker limits | Reader workers run in a Windows Job Object with a memory limit and a minimal environment; the documented boundary remains crash isolation, not an OS sandbox. |
+| D5 Package authenticity | Shareable packages carry a signature or a published hash shown before installation. |
+| D6 Headless CLI | Pilot, translation and report commands reuse session commands; approval stays an explicit human step in the desktop. |
+
+Capturing text from running games remains outside this plan.
+
 ## Ren'Py roadmap
 
 Implementation must also extend source/package privacy checks for Ren'Py inputs,
@@ -677,8 +843,9 @@ only the corresponding compatibility/installation claim.
 
 ### Broader Ren'Py support (planned)
 
-The next milestone is reusable support across games and verified engine families,
-not another exact-build exception. Keep one extraction/review/export pipeline and
+This is the next coverage milestone, after [roadmap phase F](#phase-f-foundation):
+reusable support across games and verified engine families, not another exact-build
+exception. Keep one extraction/review/export pipeline and
 extend bundled readers. Invulnerable remains a regression reference; the inspected
 LR2 8.3.6 layout supplies a second, larger and mixed-source compatibility target.
 Neither game defines the general grammar. The first syntax increment (symbolic
@@ -708,9 +875,11 @@ from pinned upstream source and synthetic vectors, initially comparing the exist
 Record which canonicalization, escapes, label/block grouping, serial allocation and
 runtime rules differ, including patches that actually change those contracts.
 Use a shared implementation when behavior agrees, and explicit dialect branches
-when it differs. Version overrides permit inspection only. Package fingerprints
-still bind each recipient ZIP to its author's exact source build; broader reader
-compatibility does not make a patch interchangeable between game builds.
+when it differs. Version overrides permit inspection only. Package formats 1-3
+bind each recipient ZIP to its author's exact source build; the planned format of
+roadmap item C3 binds to verified script files and a verified runtime family, never
+to a version string alone. Broader reader compatibility alone never makes a patch
+interchangeable between game builds.
 
 **Source coverage.** Extend the data-only parser for common character attributes,
 temporary attributes, menu `nointeract`, multiline literals and supported say suffixes
@@ -760,6 +929,10 @@ never silently broaden existing inventories. The additive ZIP has synthetic
 recipient checks; original-folder gameplay and automatic sidecar ownership remain
 unverified. Game launch and runtime pilots require applicable explicit user action.
 
+Items C1-C4 of [roadmap phase C](#phase-c-contract-based-coverage) order the
+contract-based part of these gates; overlapping/mod source resolution and multiline
+literals remain as described above.
+
 | Order | Acceptance before declaring broader support |
 | --- | --- |
 | 1. Compatibility model | Feature/dialect decisions replace the blanket build gate with explicit reasons. Existing pinned behavior stays covered; unsupported/unknown versions cannot obtain deployment authority through an override. |
@@ -783,6 +956,12 @@ and bounded AssetBundle/Addressables resolution. JSON/CSV must preserve keys, ty
 locale mappings, ordering, non-text fields and encoding under reviewed schemas;
 project JSON interchange is not a game-file reader. IL2CPP deployment needs its own
 ABI/loader/lifecycle design. Never infer it from Mono extraction.
+
+The planned contract-based Unity work is listed as items C1 and C5-C9 of
+[roadmap phase C](#phase-c-contract-based-coverage). It precedes the other Unity
+methods above; a further I2 profile or TextAsset layout is added as validated data
+on top of C5 detection and the C6 generator. C5 only detects bundled content;
+AssetBundle/Addressables resolution remains the item above.
 
 Unreal Engine and Godot testing and implementation are planned after broader Unity
 and Ren'Py support. Establish supported engine versions, localization resources,
@@ -833,6 +1012,7 @@ uv sync --locked --extra ui
 uv run --locked --extra ui unitytranslator gui
 uv run --locked --extra ui python tools/check.py
 uv run --locked --extra ui python tools/check.py --with-dotnet
+python tools/check.py --dotnet-only
 uv run python tools/check_documentation.py
 uv build
 uv run python tools/check_distribution.py
@@ -842,6 +1022,10 @@ Use targeted synthetic fixtures first, then Ruff/mypy/pytest and relevant C# che
 for shared changes. C# projects require their compatible .NET SDK. `tools/check.py`
 allocates a new `.cache/` test directory; never use a running application's directory
 as pytest `--basetemp`. Do not repeat broad tests without new changes/failures.
+Each test has a 120 s watchdog; raise it per test with
+`@pytest.mark.test_timeout(seconds)` or per run with `UNITYTRANSLATOR_TEST_TIMEOUT`
+(0 turns it off). The version lives only in `src/unitytranslator/__init__.py`;
+packaging privacy rules live only in `tools/release_rules.py`.
 CI uses no real games, user projects or models. Clean Windows, physical llama.cpp,
 language rendering and gameplay need their own evidence; existing results are in
 [Compatibility](compatibility.md). This documentation reorganization is not a new
@@ -854,6 +1038,21 @@ Keep native-language guides and UTF-8 catalogs. `tr(...)` labels preserve `{p1}`
 tokens. Never translate game strings, IDs, model names, paths or persisted confirmation
 values as interface labels. Legacy diagnostics require compatibility tests before
 rewriting. The default interface language is English; changes apply on restart.
+
+Backend errors are English. A `Diagnostic` (a `ValueError`) carries its English
+template as the reason code and its `{p0}`-style parameters separately; a plain
+message that is a catalog key is its own code. The bridge sends a `Failure` with code,
+parameters, English text, command, request token and project ID, and the interface
+localizes it by code, falling back to the English text for uncatalogued details such
+as OS or server messages. Stored plain text is matched against current templates with at
+most two parameters and against legacy aliases, only up to 2,048 characters. Renaming a template requires a
+`resources/locales/legacy-messages.json` alias. That table maps messages written by
+earlier versions, which stored data keeps verbatim, to current templates, including
+patterned parameters; it never rewrites stored data. Source-rule tests reject
+non-English source text outside documented exemptions, and any exception message that
+is dynamic, uncatalogued or passes its template parameters indirectly. Generated Turkish pilot reports, their issue labels,
+linguistic patterns and the persisted approve-all confirmation phrase are not
+interface diagnostics and stay as they are.
 Project languages are independent. Tests may set `UNITYTRANSLATOR_UI_LANGUAGE` and
 `UNITYTRANSLATOR_CONFIG_HOME` to isolate locale/preferences.
 

@@ -3,7 +3,60 @@
 import argparse
 import tarfile
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+
+from release_rules import (
+    LANGUAGES,
+    SOURCE,
+    WHEEL,
+    private_entries,
+    project_version,
+    strip_archive_root,
+    unsafe_path,
+)
+
+
+def audit(archive: Path) -> list[str]:
+    """Return the archive entry names after checking privacy, links and layout."""
+    if archive.suffix == ".whl":
+        with zipfile.ZipFile(archive) as stream:
+            names = stream.namelist()
+        relative = names
+        profile = WHEEL
+    else:
+        with tarfile.open(archive, "r:gz") as tar:
+            names = tar.getnames()
+            if any(item.issym() or item.islnk() for item in tar.getmembers()):
+                raise ValueError("Source archives must not contain symbolic or hard links.")
+        # Every sdist entry must sit inside one root folder; a top-level file outside it
+        # would otherwise strip to an empty path and escape the privacy rules.
+        if len({PurePosixPath(name).parts[0] for name in names if name}) != 1:
+            raise ValueError(f"{archive.name} must contain exactly one top-level folder.")
+        relative = [strip_archive_root(name) for name in names]
+        profile = SOURCE
+    forbidden = [
+        name
+        for name, path in zip(names, relative, strict=True)
+        if path and (unsafe_path(path) or private_entries([path], profile))
+    ]
+    if forbidden:
+        raise ValueError(f"{archive.name} contains private or binary data: {forbidden[:5]}")
+    if not any(name.endswith("/resources/renpy-source-NOTICE.txt") for name in names):
+        raise ValueError("Missing Ren'Py source-behavior notice.")
+    if not any(name.endswith("/resources/renpy-additive.ps1") for name in names):
+        raise ValueError("Missing bundled Ren'Py additive installer.")
+    if not any(name.endswith("/resources/recipient-core.ps1") for name in names):
+        raise ValueError("Missing bundled recipient installer core.")
+    if not any(name.endswith("/locales/legacy-messages.json") for name in names):
+        raise ValueError("Missing legacy diagnostic message table.")
+    for code in LANGUAGES:
+        if not any(name.endswith("/locales/" + code + ".json") for name in names):
+            raise ValueError("Missing interface language: " + code)
+        if archive.suffix != ".whl" and not any(
+            name.endswith("/guide/" + code + ".md") for name in names
+        ):
+            raise ValueError("Missing user guide: " + code)
+    return names
 
 
 def main() -> int:
@@ -11,69 +64,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist-dir", type=Path, default=root / "dist")
     directory = parser.parse_args().dist_dir
+    version = project_version(root)
     archives = [*directory.glob("*.whl"), *directory.glob("*.tar.gz")]
-    if not archives:
-        raise ValueError("Build a wheel and sdist with uv build first.")
-    private = {
-        ".local",
-        ".cache",
-        ".python",
-        ".venv",
-        "deployment",
-        "obj",
-        "bin",
-        ".agents",
-        ".codex",
-        ".claude",
-        ".cursor",
-    }
-    private_names = {
-        "agents.md",
-        "claude.md",
-        "gemini.md",
-        "goal.md",
-        "technical_design.md",
-        "technical.design.md",
-        ".cursorrules",
-        ".windsurfrules",
-        "copilot-instructions.md",
-        ".env",
-    }
-    extensions = (
-        ".gguf", ".assets", ".sqlite3", ".ress", ".dll", ".rpa", ".rpyc", ".rpy", "_ren.py",
-    )
+    current = {archive.name for archive in archives}
+    if f"unitytranslator-{version}.tar.gz" not in current or not any(
+        name.startswith(f"unitytranslator-{version}-") and name.endswith(".whl") for name in current
+    ):
+        raise ValueError(f"Build a wheel and sdist for {version} with uv build first.")
     for archive in archives:
-        if archive.suffix == ".whl":
-            with zipfile.ZipFile(archive) as stream:
-                names = stream.namelist()
-        else:
-            with tarfile.open(archive, "r:gz") as tar:
-                names = tar.getnames()
-                if any(item.issym() or item.islnk() for item in tar.getmembers()):
-                    raise ValueError("Source archives must not contain symbolic or hard links.")
-        forbidden = [
-            name
-            for name in names
-            if (
-                any(part.casefold() in private for part in name.replace("\\", "/").split("/"))
-                or Path(name).name.casefold() in private_names
-                or Path(name).name.casefold().startswith(".env.")
-                or name.casefold().endswith(extensions)
-            )
-        ]
-        if forbidden:
-            raise ValueError(f"{archive.name} contains private or binary data: {forbidden[:5]}")
-        if not any(name.endswith("/resources/renpy-source-NOTICE.txt") for name in names):
-            raise ValueError("Missing Ren'Py source-behavior notice.")
-        if not any(name.endswith("/resources/renpy-additive.ps1") for name in names):
-            raise ValueError("Missing bundled Ren'Py additive installer.")
-        for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
-            if not any(name.endswith("/locales/" + code + ".json") for name in names):
-                raise ValueError("Missing interface language: " + code)
-            if archive.suffix != ".whl" and not any(
-                name.endswith("/guide/" + code + ".md") for name in names
-            ):
-                raise ValueError("Missing user guide: " + code)
+        names = audit(archive)
         print(f"{archive.name}: {len(names)} entries; no private game/model/cache data.")
     return 0
 

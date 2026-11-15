@@ -1,0 +1,573 @@
+{
+ "description": "Shared game-process vectors for game_process.classify_game_processes and the recipient core's GameProcessStatus. A synthetic layout holds {root} ('Game Root' with bin), {other} ('Other Install') and {sibling} ('Game Root Two'). Tokens: {root}, {root_upper}, {root_lower}, {root_posix}, {other}, {sibling}, {drive}, {x256}. names null means the executable walk failed. Python and the core always match 'expect'; a row may name an intentional core 'difference' only with the exact 'powershell' result.",
+ "differences": {
+  "python-casefold": {
+   "kind": "intentional",
+   "reason": "Python matches executable names with Unicode case folding, which also equates sharp s with SS; the core's OrdinalIgnoreCase does not, like NTFS. It only affects a process with an unreadable image whose name differs from every game EXE on NTFS; Python reports unknown and fails closed."
+  },
+  "image-is-root-folder": {
+   "kind": "intentional",
+   "reason": "A process image is a file and can never be the game folder itself. Python counts the folder as under the root; the core ignores the impossible row."
+  }
+ },
+ "cases": [
+  {
+   "id": "no-processes",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": []
+  },
+  {
+   "id": "game-image-under-root",
+   "expect": "running",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{root}\\Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "helper-under-root",
+   "expect": "running",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Helper.exe",
+     "image": "{root}\\bin\\Helper.exe"
+    }
+   ],
+   "note": "any image under the root counts, named or not"
+  },
+  {
+   "id": "root-case-variant-upper",
+   "expect": "running",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "GAME.EXE",
+     "image": "{root_upper}\\GAME.EXE"
+    }
+   ]
+  },
+  {
+   "id": "root-case-variant-lower",
+   "expect": "running",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Helper.exe",
+     "image": "{root_lower}\\bin\\Helper.exe"
+    }
+   ]
+  },
+  {
+   "id": "forward-slash-image",
+   "expect": "running",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{root_posix}/Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "image-is-root",
+   "expect": "running",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}"
+    }
+   ],
+   "difference": "image-is-root-folder",
+   "powershell": "closed"
+  },
+  {
+   "id": "same-name-other-folder",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{other}\\Game.exe"
+    }
+   ],
+   "note": "an identically named EXE in another installation is not the selected game"
+  },
+  {
+   "id": "same-name-sibling-prefix",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{sibling}\\Game.exe"
+    },
+    {
+     "name": "Helper.exe",
+     "image": "{sibling}\\Helper.exe"
+    }
+   ],
+   "note": "'Game Root Two' shares the root's text prefix but is not under it"
+  },
+  {
+   "id": "unreadable-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "game.EXE",
+     "image": null
+    }
+   ]
+  },
+  {
+   "id": "unreadable-unnamed",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Unrelated.exe",
+     "image": null
+    }
+   ]
+  },
+  {
+   "id": "unreadable-named-upper-list",
+   "expect": "unknown",
+   "names": [
+    "GAME.EXE"
+   ],
+   "snapshot": [
+    {
+     "name": "game.exe",
+     "image": null
+    }
+   ]
+  },
+  {
+   "id": "unreadable-non-ascii-case",
+   "expect": "unknown",
+   "names": [
+    "\u00d6l\u00e7\u00fc.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "\u00d6L\u00c7\u00dc.EXE",
+     "image": null
+    }
+   ]
+  },
+  {
+   "id": "unreadable-dotless-i",
+   "expect": "closed",
+   "names": [
+    "k\u0131l\u0131\u00e7.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "KILI\u00c7.EXE",
+     "image": null
+    }
+   ],
+   "note": "neither NTFS, OrdinalIgnoreCase nor case folding equate dotless i with I"
+  },
+  {
+   "id": "unreadable-sharp-s",
+   "expect": "unknown",
+   "names": [
+    "Stra\u00dfe.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "STRASSE.EXE",
+     "image": null
+    }
+   ],
+   "difference": "python-casefold",
+   "powershell": "closed"
+  },
+  {
+   "id": "relative-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Crash.exe",
+     "image": "Crash.exe"
+    }
+   ]
+  },
+  {
+   "id": "relative-unnamed",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "Tool.exe"
+    }
+   ]
+  },
+  {
+   "id": "relative-folder-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "bin\\Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "drive-relative-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{drive}Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "drive-relative-unnamed",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{drive}Tool.exe"
+    }
+   ]
+  },
+  {
+   "id": "traversal-under-root-unnamed",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\bin\\..\\Tool.exe"
+    }
+   ]
+  },
+  {
+   "id": "traversal-escape-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{root}\\..\\Other Install\\Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "device-other-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{other}\\NUL.exe"
+    }
+   ]
+  },
+  {
+   "id": "device-other-unnamed",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{other}\\NUL.exe"
+    }
+   ]
+  },
+  {
+   "id": "device-under-root-unnamed",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\CON.exe"
+    }
+   ]
+  },
+  {
+   "id": "unc-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "\\\\server\\share\\Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "unc-unnamed",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "\\\\server\\share\\Tool.exe"
+    }
+   ]
+  },
+  {
+   "id": "extended-prefix-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "\\\\?\\{root}\\Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "extended-prefix-unnamed",
+   "expect": "closed",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Helper.exe",
+     "image": "\\\\?\\{root}\\bin\\Helper.exe"
+    }
+   ],
+   "note": "the image query returns DOS paths; both sides ignore unnamed prefixed images"
+  },
+  {
+   "id": "stream-under-root-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{root}\\Game.exe:stream"
+    }
+   ]
+  },
+  {
+   "id": "reserved-character-under-root",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\a<b.exe"
+    }
+   ]
+  },
+  {
+   "id": "control-character-under-root",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\a\u0001b.exe"
+    }
+   ]
+  },
+  {
+   "id": "long-name-under-root",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\{x256}"
+    }
+   ]
+  },
+  {
+   "id": "trailing-dot-under-root-named",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{root}\\Game.exe."
+    }
+   ]
+  },
+  {
+   "id": "trailing-nbsp-under-root",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\Tool.exe\u00a0"
+    }
+   ]
+  },
+  {
+   "id": "trailing-nel-under-root",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\bin\\Tool.exe\u0085"
+    }
+   ]
+  },
+  {
+   "id": "superscript-device-under-root",
+   "expect": "unknown",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Tool.exe",
+     "image": "{root}\\COM\u00b9.exe"
+    }
+   ]
+  },
+  {
+   "id": "running-beats-unknown",
+   "expect": "running",
+   "names": [
+    "Game.exe",
+    "Crash.exe"
+   ],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": null
+    },
+    {
+     "name": "Helper.exe",
+     "image": "{root}\\bin\\Helper.exe"
+    }
+   ]
+  },
+  {
+   "id": "no-executable-names",
+   "expect": "unknown",
+   "names": [],
+   "snapshot": [
+    {
+     "name": "Game.exe",
+     "image": "{root}\\Game.exe"
+    }
+   ]
+  },
+  {
+   "id": "executable-names-unknown",
+   "expect": "unknown",
+   "names": null,
+   "snapshot": [],
+   "note": "null: the executable walk failed closed"
+  }
+ ]
+}

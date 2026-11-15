@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-LANGUAGES = ("en", "tr", "de", "fr", "es", "pt", "ru", "zh")
+from release_rules import LANGUAGES
 
 
 def check(root: Path) -> tuple[int, int]:

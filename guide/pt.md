@@ -37,6 +37,12 @@ destino do projeto.
    Escolha de 1 a 36 solicitações paralelas conforme o servidor. Minimizar a janela não
    interrompe a tradução. Pausar espera as solicitações em andamento; cancelar interrompe
    as tarefas do cliente.
+   Fechar o aplicativo ou abrir outro projeto pausa a tarefa em andamento; retome-a
+   explicitamente. Se o servidor do modelo continuar indisponível, a tarefa é pausada
+   sem gastar as tentativas dos registros.
+   Marcadores `%d`, `%s` ou `%(name)s` em textos de interface do Ren'Py devem ser
+   mantidos; projetos antigos ativam esta verificação ao extrair novamente com
+   `--format-rules renpy-text-v2`.
 6. **Revisão:** compare, edite, salve e aprove. Salvar um rascunho não é aprová-lo.
    A aprovação por página inclui apenas os registros aptos selecionados. Para aprovar
    todas as traduções, confirme primeiro a quantidade e os avisos; depois digite exatamente
@@ -68,7 +74,7 @@ Para a versão compatível de Krypta FM, escolha origem `en` e destino `tr`. O p
 
 Após revisar e aprovar, feche o jogo e confira em «Aplicar ao jogo» o plano dos dois arquivos novos: `winhttp.dll` e `doorstop_config.ini`. O runtime experimental fica no projeto separado; arquivos originais não são substituídos. Remova os acréscimos pelo mesmo projeto. A exportação de textos não é um instalador; ZIPs de instalação também aceitam a versão Krypta en→tr correspondente. O destinatário executa Install.cmd, revisa o plano e digita INSTALL; Uninstall.cmd remove apenas os acréscimos próprios sem alterações. A combinação portátil tem testes sintéticos; seu teste específico no jogo continua pendente. Foram observados início/menu, opções, entrada no jogo, pausa e legendas. Outras telas, troca de idioma e layout exigem revisão manual; um rótulo longo pode se sobrepor à explicação.
 
-Nas configurações avançadas, é possível desativar opcionalmente o raciocínio nas solicitações do LM Studio. Isso pode reservar mais tokens de saída para a tradução. O suporte depende do modelo e servidor; uma opção incompatível pode interromper o trabalho. Os padrões e as configurações globais do servidor são preservados.
+Nas configurações avançadas do modelo, "Raciocínio do modelo" controla a etapa de pensamento do modelo. "Padrão do servidor" mantém o comportamento do servidor. "Orçamento adaptativo (llama.cpp)" permite que o modelo pense proporcionalmente a cada registro: textos curtos de interface recebem um orçamento de pensamento pequeno, enquanto textos longos e diálogos vizinhos verificados recebem mais. Isso pode tornar os trabalhos muito mais rápidos sem desligar o raciocínio. "Desligado" desativa o pensamento para LM Studio e llama.cpp e pode diminuir a qualidade de textos dependentes de contexto. O suporte depende do modelo e servidor carregados; uma opção não suportada pode interromper o trabalho. O relatório piloto mostra quanto o modelo raciocinou. Alterar esta configuração exige um piloto revisado correspondente.
 
 ## Tradução Ren'Py
 

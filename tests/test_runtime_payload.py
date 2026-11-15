@@ -43,10 +43,10 @@ def export(repo):
 def test_only_current_human_approved_i2_terms_are_exported(repo) -> None:
     repository, _ = repo
     row = repository.page()[0]
-    with pytest.raises(ValueError, match="onaylı"):
+    with pytest.raises(ValueError, match="no current manually approved translations"):
         export(repository)
     repository.edit(row["unit_id"], row["version"], "Başla {0} · Iıİi çğöşü")
-    with pytest.raises(ValueError, match="onaylı"):
+    with pytest.raises(ValueError, match="no current manually approved translations"):
         export(repository)
     repository.approve(row["unit_id"], repository.page()[0]["version"])
     original = repository.paths.game / "Synthetic_Data/Managed/Assembly-CSharp.dll"
@@ -65,13 +65,13 @@ def test_changed_source_drops_approval_and_cannot_be_applied(repo) -> None:
     repository.edit(row["unit_id"], 0, "Başla {0}")
     repository.approve(row["unit_id"], repository.page()[0]["version"])
     repository.ingest([replace(units[0], context="new scene")], {})
-    with pytest.raises(ValueError, match="onaylı"):
+    with pytest.raises(ValueError, match="no current manually approved translations"):
         export(repository)
 
 
 def test_wrong_source_set_and_escaping_assembly_are_refused(repo) -> None:
     repository, _ = repo
-    with pytest.raises(ValueError, match="Assembly konumu"):
+    with pytest.raises(ValueError, match=r"assembly location must be Assembly-CSharp\.dll"):
         export_runtime_payload(
             repository,
             source_set="synthetic",
@@ -79,7 +79,7 @@ def test_wrong_source_set_and_escaping_assembly_are_refused(repo) -> None:
             assembly_relative="../Assembly-CSharp.dll",
             target_name="Türkçe",
         )
-    with pytest.raises(ValueError, match="onaylı"):
+    with pytest.raises(ValueError, match="no current manually approved translations"):
         export_runtime_payload(
             repository,
             source_set="other",

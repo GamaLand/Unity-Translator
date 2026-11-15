@@ -55,7 +55,7 @@ def test_approved_translation_and_changed_source_not_overwritten(repo: ProjectRe
     assert service.apply(value)["applied"] == 0
     assert repo.page()[0]["translation"] == "Başla"
     value.units[0].source_text = "Forged source"
-    with pytest.raises(ValueError, match="arşiviyle"):
+    with pytest.raises(ValueError, match="does not match the revision archive"):
         service.preview(value)
 
 
@@ -93,11 +93,11 @@ def test_duplicate_json_fields_and_nonstandard_numbers_rejected(repo, tmp_path: 
     text = value.model_dump_json()
     path = tmp_path / "duplicate.json"
     path.write_text(text[:-1] + ',"format_version":2}', encoding="utf-8")
-    with pytest.raises(ValueError, match="Yinelenen"):
+    with pytest.raises(ValueError, match="Duplicate JSON field"):
         service.read(path)
     value.units[0].translation.metadata = {"untrusted": float("nan")}
     path.write_text(json.dumps(value.model_dump()), encoding="utf-8")
-    with pytest.raises(ValueError, match="Standart"):
+    with pytest.raises(ValueError, match="Nonstandard JSON number"):
         service.read(path)
 
 
@@ -135,7 +135,7 @@ def test_complete_revision_history_restores_to_empty_project_without_local_appro
         assert (
             restored.db.execute("SELECT count(*) FROM translation_revisions").fetchone()[0] == count
         )
-        with pytest.raises(ValueError, match="boş projede"):
+        with pytest.raises(ValueError, match="only possible into an empty project"):
             target.restore(value)
 
 
@@ -143,7 +143,7 @@ def test_archive_collision_rolls_back_all_import_changes(repo: ProjectRepository
     service, value = translated_export(repo)
     value.history[0].translations[0].text = "Forged revision with same id"
     version = repo.page()[0]["version"]
-    with pytest.raises(ValueError, match="çakışıyor"):
+    with pytest.raises(ValueError, match="conflicts with an existing revision"):
         service.apply(value)
     assert repo.page()[0]["version"] == version
     assert repo.page()[0]["translation"] == "Başla"

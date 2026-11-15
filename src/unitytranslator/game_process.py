@@ -129,19 +129,36 @@ def classify_game_processes(
     return GameProcessStatus(status, tuple(sorted(running)), tuple(sorted(ambiguous)))
 
 
+def _raise(error: OSError) -> None:
+    raise error
+
+
+# Reasons for a game tree that cannot be inspected for executables, as opposed to a
+# process or game-root query failure.
+TREE_UNINSPECTABLE = frozenset({"game_entry_limit", "game_tree_uninspectable"})
+
+
 def inspect_game_processes(game: Path) -> GameProcessStatus:
     try:
         game = checked_path(game)
+        if not game.is_dir():
+            # A moved or missing game root is not a tree that failed inspection.
+            return GameProcessStatus("unknown", reason="no_executable_identity")
         names = set()
         entries = 0
-        for directory, subdirs, files in os.walk(game, followlinks=False):
-            for name in (*subdirs, *files):
-                path = checked_path(Path(directory) / name)
-                entries += 1
-                if entries > 100_000:
-                    return GameProcessStatus("unknown", reason="game_entry_limit")
-                if path.is_file() and path.suffix.casefold() == ".exe":
-                    names.add(path.name)
+        # An unreadable directory, link or reserved name hides executables, so the walk
+        # fails closed like the recipient installer core instead of skipping it.
+        try:
+            for directory, subdirs, files in os.walk(game, onerror=_raise, followlinks=False):
+                for name in (*subdirs, *files):
+                    path = checked_path(Path(directory) / name)
+                    entries += 1
+                    if entries > 100_000:
+                        return GameProcessStatus("unknown", reason="game_entry_limit")
+                    if path.is_file() and path.suffix.casefold() == ".exe":
+                        names.add(path.name)
+        except (OSError, ValueError):
+            return GameProcessStatus("unknown", reason="game_tree_uninspectable")
         if not names:
             return GameProcessStatus("unknown", reason="no_executable_identity")
         return classify_game_processes(game, names, windows_process_snapshot())

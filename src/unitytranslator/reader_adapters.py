@@ -7,6 +7,7 @@ from dataclasses import asdict, replace
 from hashlib import sha256
 from typing import Any
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.domain import TextUnitDraft
 from unitytranslator.filesystem import ProjectPaths, checked_path, hash_file
 from unitytranslator.source_contracts import (
@@ -72,6 +73,7 @@ class I2Reader:
             relative,
             timeout=context.timeout,
             source_language=context.source_language,
+            cancelled=context.cancelled,
         )
         source = replace(
             SourceDescriptor.legacy(relative, context.source_language),
@@ -91,7 +93,7 @@ class I2Reader:
     ) -> ReaderResult:
         if cancellation():
             raise ValueError("Source extraction was cancelled.")
-        probe = self.probe(context, relative)
+        probe = self.probe(replace(context, cancelled=cancellation), relative)
         if cancellation():
             raise ValueError("Source extraction was cancelled.")
         return result_from_report(probe.report)
@@ -261,33 +263,41 @@ class RenpyScriptReader:
 
     def probe(self, context: ReaderContext, relative: str) -> ReaderProbe:
         from unitytranslator.capabilities import discovery_capabilities
-        from unitytranslator.report_stream import MAX_REPORT_BYTES, report_digest
         from unitytranslator.worker_process import run_json_worker
-        from unitytranslator.workers.renpy_script_probe import probe
+        from unitytranslator.workers.renpy_script_probe import (
+            digest_summary,
+            probe,
+            valid_digest_summary,
+        )
 
         anchor = _renpy_source_anchor(context)
         worker = (
             [sys.executable, "--renpy-script-worker"] if getattr(sys, "frozen", False)
             else [sys.executable, "-m", "unitytranslator.workers.renpy_script_probe"]
         )
+        # The worker returns only a canonical digest and counts, never the report.
         received = run_json_worker(
             [*worker, str(context.game), relative, context.source_language,
-             *(["--anchor", anchor] if anchor else []), "--stream-report"],
-            timeout=context.timeout, cancelled=context.cancelled,
-            max_output=MAX_REPORT_BYTES, stream_report=True,
+             *(["--anchor", anchor] if anchor else []), "--digest-report"],
+            timeout=context.timeout, cancelled=context.cancelled, max_output=64 * 1024,
         )
+        if not valid_digest_summary(received):
+            raise ValueError("Ren'Py source worker returned an invalid digest result.")
         if context.cancelled():
             raise ValueError("Source extraction was cancelled.")
-        # Independently reconstruct the bounded data in the parent. A worker report
+        # Independently reconstruct the bounded data in the parent. A worker result
         # can never introduce a record, path, source descriptor or source byte.
-        expected_digest = report_digest(received)
-        del received  # Release the worker's complete object before reconstructing it locally.
         report = probe(
             context.game, relative, context.source_language,
             cancelled=context.cancelled, timeout=context.timeout, anchor=anchor,
         )
-        if expected_digest != report_digest(report):
-            raise ValueError("Ren'Py original-source report differs from verified local bytes.")
+        local = digest_summary(report)
+        if local != received:
+            raise Diagnostic(
+                "Ren'Py original-source report differs from verified local bytes "
+                "(worker {p0} records, local {p1}).",
+                p0=received["counts"]["records"], p1=local["counts"]["records"],
+            )
         if context.cancelled():
             raise ValueError("Source extraction was cancelled.")
         result = result_from_report(report, replace_source_set=True)

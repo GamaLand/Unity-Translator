@@ -8,99 +8,44 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 # Windows built-in PowerShell/.NET only; never starts the game or downloads code.
-Add-Type -TypeDefinition @'
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
-public static class PatchFileIdentity {
-  [StructLayout(LayoutKind.Sequential)] struct Info {
-    public uint Attributes; public System.Runtime.InteropServices.ComTypes.FILETIME Creation;
-    public System.Runtime.InteropServices.ComTypes.FILETIME Access, Write;
-    public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
-  }
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
-  static extern SafeFileHandle CreateFile(string p,uint a,uint s,IntPtr sec,uint c,uint f,IntPtr t);
-  [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetFileInformationByHandle(SafeFileHandle h,out Info i);
-  public static string Read(string p) {
-    using(var h=CreateFile(p,0,7,IntPtr.Zero,3,0x00200000,IntPtr.Zero)) {
-      return ReadHandle(h);
-    }
-  }
-  public static string ReadHandle(SafeFileHandle h) {
-    Info i; if(h.IsInvalid || !GetFileInformationByHandle(h,out i) || i.Links!=1 || (i.Attributes&0x400)!=0)
-      throw new IOException("File identity/link check failed");
-    return i.Volume.ToString("X8")+":"+i.IndexHigh.ToString("X8")+i.IndexLow.ToString("X8");
-  }
-}
-'@
+# The exporter replaces the next line with the shared recipient core.
+# UNITYTRANSLATOR-RECIPIENT-CORE
 
-function Checked([string]$Path) {
-    $full = [IO.Path]::GetFullPath($Path)
-    if ($full.StartsWith('\\') -or $full.StartsWith('//') -or $full.Substring(2).Contains(':')) { throw 'Local disk required.' }
-    $walk = $full
-    while ($walk) {
-        if (Test-Path -LiteralPath $walk) {
-            if (((Get-Item -LiteralPath $walk -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Reparse path refused.' }
-        }
-        $walk = [IO.Path]::GetDirectoryName($walk)
-    }
-    if (([IO.DriveInfo]::new([IO.Path]::GetPathRoot($full))).DriveType -eq [IO.DriveType]::Network) { throw 'Network disk refused.' }
-    return $full
-}
-function Confined([string]$Root,[string]$Relative) {
-    if (-not $Relative -or [IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':')) { throw 'Invalid relative path.' }
-    foreach ($part in ($Relative -split '[\\/]')) {
-        if (-not $part -or $part -eq '.' -or $part -eq '..' -or $part.EndsWith('.') -or $part.EndsWith(' ') -or $part -match '[<>:"|?*\x00-\x1f]' -or $part -match '^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$') { throw 'Invalid path component.' }
-    }
-    $full = Checked ([IO.Path]::Combine($Root,$Relative.Replace('/', '\')))
-    if (-not $full.StartsWith($Root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Path escaped root.' }
-    return $full
-}
-function Digest([string]$Path) {
-    # .NET hashing also works when PowerShell module auto-loading is unavailable.
-    $stream = [IO.File]::OpenRead($Path)
-    $algorithm = [Security.Cryptography.SHA256]::Create()
-    try { return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
-    finally { $algorithm.Dispose(); $stream.Dispose() }
-}
-function GameClosed {
-    $name = [IO.Path]::GetFileNameWithoutExtension($package.game_executable)
-    foreach ($process in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {
-        try { $image = $process.Path } catch { throw 'Game process identity unavailable; close the game.' }
-        if (-not $image -or [string]::Equals([IO.Path]::GetFullPath($image),(Confined $game $package.game_executable),[StringComparison]::OrdinalIgnoreCase)) { throw 'Close the game before install/remove.' }
-    }
-}
 function CheckGame {
-    GameClosed
+    GameClosed $game
     foreach ($property in $package.game_files.PSObject.Properties) {
         $path = Confined $game $property.Name
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Digest $path) -ne $property.Value) { throw ('Game version mismatch: '+$property.Name) }
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw ('Game version mismatch: '+$property.Name) }
+        try { $digest = Digest $path }
+        catch {
+            if ($_.Exception.GetBaseException().Message -ceq 'File identity/link check failed') { throw ('A game file is a hard link or link/reparse point; the patch cannot verify it: '+$property.Name) }
+            throw
+        }
+        if ($digest -ne $property.Value) { throw ('Game version mismatch: '+$property.Name) }
     }
 }
 function SaveReceipt {
     $temp = Confined $game ($package.patch_folder+'/.receipt-'+[Guid]::NewGuid().ToString('N')+'.tmp')
     [IO.File]::WriteAllText($temp,($receipt | ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false))
     if (Test-Path -LiteralPath $receiptPath) {
-        if ([PatchFileIdentity]::Read($receiptPath) -ne $script:receiptIdentity) { throw 'Receipt identity changed.' }
+        if ([RecipientIdentity]::Read($receiptPath) -ne $script:receiptIdentity) { throw 'Receipt identity changed.' }
         $backup = Confined $game ($package.patch_folder+'/.receipt-'+[Guid]::NewGuid().ToString('N')+'.bak')
         if (Test-Path -LiteralPath $backup) { throw 'Receipt backup collision.' }
         [IO.File]::Replace($temp,$receiptPath,$backup)
-        if ([PatchFileIdentity]::Read($backup) -eq $script:receiptIdentity) { [IO.File]::Delete($backup) }
+        if ([RecipientIdentity]::Read($backup) -eq $script:receiptIdentity) { [IO.File]::Delete($backup) }
     } else { [IO.File]::Move($temp,$receiptPath) }
-    $script:receiptIdentity = [PatchFileIdentity]::Read($receiptPath)
+    $script:receiptIdentity = [RecipientIdentity]::Read($receiptPath)
 }
 function RemoveOwned {
-    GameClosed
+    GameClosed $game
     $preserved = [Collections.Generic.List[string]]::new()
     foreach ($item in @($receipt.files | Sort-Object path -Descending)) {
         if (-not $allowed.ContainsKey($item.path.ToLowerInvariant())) { throw 'Unowned receipt target.' }
         $path = Confined $game $item.path
         if (-not (Test-Path -LiteralPath $path)) { continue }
-        GameClosed
-        try { $identity = [PatchFileIdentity]::Read($path) } catch { $preserved.Add($item.path); continue }
-        if ($identity -ne $item.identity -or (Digest $path) -ne $item.sha256) { $preserved.Add($item.path); continue }
-        [IO.File]::Delete($path)
+        GameClosed $game
+        # Identity, single link, hash and deletion use one exclusive handle.
+        try { if (-not [RecipientIdentity]::DeleteUnchanged($path,[string]$item.identity,[string]$item.sha256)) { $preserved.Add($item.path) } } catch { $preserved.Add($item.path) }
     }
     $receipt.status = if ($preserved.Count) { 'recovery_required' } else { 'removed' }
     SaveReceipt
@@ -113,7 +58,7 @@ function RemoveOwned {
             [void]$directories.Add($parent); $parent = [IO.Path]::GetDirectoryName($parent)
         }
     }
-    if ([PatchFileIdentity]::Read($receiptPath) -eq $script:receiptIdentity) { [IO.File]::Delete($receiptPath) }
+    if ([RecipientIdentity]::Read($receiptPath) -eq $script:receiptIdentity) { [IO.File]::Delete($receiptPath) }
     foreach ($directory in @($directories | Sort-Object Length -Descending)) {
         try { [IO.Directory]::Delete((Checked $directory),$false) } catch { }
     }
@@ -154,14 +99,13 @@ $preloader = Confined $game 'UnityTranslatorPatch/BepInEx/core/BepInEx.Preloader
 $ini = "; UnityTranslator portable experimental runtime`r`n[General]`r`nenabled=true`r`ntarget_assembly=`"$preloader`"`r`nredirect_output_log=false`r`nboot_config_override=`r`nignore_disable_switch=false`r`n[UnityMono]`r`ndll_search_path_override=`r`ndebug_enabled=false`r`ndebug_address=127.0.0.1:10000`r`ndebug_suspend=false`r`n"
 if ($preloader.IndexOfAny([char[]]"`r`n`0`"") -ge 0) { throw 'Invalid INI path.' }
 $iniBytes = [byte[]]([Text.Encoding]::Unicode.GetPreamble()+[Text.Encoding]::Unicode.GetBytes($ini))
-$sha = [Security.Cryptography.SHA256]::Create()
-try { $iniHash = [BitConverter]::ToString($sha.ComputeHash($iniBytes)).Replace('-','').ToLowerInvariant() } finally { $sha.Dispose() }
+$iniHash = BytesDigest $iniBytes
 $allowed['doorstop_config.ini'] = @{path='doorstop_config.ini';sha256=$iniHash;bytes=$iniBytes.Length}
 
 if ($Action -eq 'Remove') {
-    GameClosed
+    GameClosed $game
     if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) { throw 'No owned installation receipt.' }
-    $script:receiptIdentity = [PatchFileIdentity]::Read($receiptPath)
+    $script:receiptIdentity = [RecipientIdentity]::Read($receiptPath)
     if ((Get-Item -LiteralPath $receiptPath).Length -gt 4194304) { throw 'Receipt too large.' }
     $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($receipt.package_id -ne $package.package_id -or $receipt.game -ne $game) { throw 'Receipt belongs to a different package/game path.' }
@@ -181,9 +125,7 @@ foreach ($entry in $package.files) {
 $planFiles = @($package.files)+@(@{path='doorstop_config.ini';sha256=$iniHash;bytes=$iniBytes.Length})
 $planText = $game+"`n"+$package.package_id+"`n"
 foreach ($entry in $planFiles) { $planText += $entry.path+"`t"+$entry.sha256+"`t"+$entry.bytes+"`n" }
-$algorithm = [Security.Cryptography.SHA256]::Create()
-try { $planHash = [BitConverter]::ToString($algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($planText))).Replace('-','').ToLowerInvariant() }
-finally { $algorithm.Dispose() }
+$planHash = BytesDigest ([Text.Encoding]::UTF8.GetBytes($planText))
 $plan = @{format_version=1;game=$game;package_id=$package.package_id;files=$planFiles;receipt=$receiptPath;sha256=$planHash}
 if ($ReviewOnly) { Write-Output ($plan | ConvertTo-Json -Depth 8); exit 0 }
 if ($ReviewedPlanSha256) {
@@ -196,8 +138,13 @@ if ($ReviewedPlanSha256) {
     Write-Output ('Plan SHA-256: '+$planHash)
     Write-Output 'Experimental runtime. The game will not be started.'
     if ((Read-Host 'Review this exact file plan. Type INSTALL to proceed') -cne 'INSTALL') { throw 'Installation was not approved; no game files were written.' }
+    ForgetGameCheck
 }
 CheckGame
+if ((Test-Path -LiteralPath $patchRoot) -or (Test-Path -LiteralPath $iniPath) -or (Test-Path -LiteralPath (Confined $game 'winhttp.dll'))) { throw 'A destination appeared after review; nothing overwritten.' }
+foreach ($entry in $package.files) {
+    if (Test-Path -LiteralPath (Confined $game $entry.path)) { throw 'A destination appeared after review; nothing overwritten.' }
+}
 $receipt = @{format_version=1;package_id=$package.package_id;game=$game;status='installing';files=@()}
 [void][IO.Directory]::CreateDirectory($patchRoot)
 $script:receiptIdentity = ''
@@ -205,13 +152,13 @@ SaveReceipt
 try {
     $entries = @($package.files)+@(@{path='doorstop_config.ini';sha256=$iniHash;bytes=$iniBytes.Length})
     foreach ($entry in $entries) {
-        GameClosed
-        $target = Confined $game $entry.path
-        [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target))
-        $target = Confined $game $entry.path
-        $output = [IO.File]::Open($target,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        GameClosed $game
+        $destination = Confined $game $entry.path
+        [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination))
+        $destination = Confined $game $entry.path
+        $output = [IO.File]::Open($destination,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         try {
-            $receipt.files += @{path=$entry.path;sha256=$entry.sha256;identity=[PatchFileIdentity]::ReadHandle($output.SafeFileHandle)}
+            $receipt.files += @{path=$entry.path;sha256=$entry.sha256;identity=[RecipientIdentity]::ReadHandle($output.SafeFileHandle)}
             SaveReceipt
             if ($entry.path -eq 'doorstop_config.ini') { $output.Write($iniBytes,0,$iniBytes.Length) }
             else {
@@ -220,7 +167,7 @@ try {
             }
             $output.Flush($true)
         } finally { $output.Dispose() }
-        if ((Digest $target) -ne $entry.sha256) { throw 'Copied file hash mismatch.' }
+        if ((Digest $destination) -ne $entry.sha256) { throw 'Copied file hash mismatch.' }
         SaveReceipt
     }
     CheckGame

@@ -3,13 +3,16 @@
 import json
 import os
 import zipfile
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from test_recipient_scripts import carries_core
 from test_renpy_package import package as legacy_package  # noqa: F401
 from test_renpy_package import run_ps
 
 from unitytranslator.filesystem import hash_file
+from unitytranslator.recipient_scripts import installer_bytes
 from unitytranslator.renpy_package import export_install_package
 from unitytranslator.repository import ProjectRepository
 
@@ -56,6 +59,12 @@ def test_additive_zip_and_readme_describe_one_folder_and_no_game_copy(patch):
     assert "folder once" in readme and "game is NOT copied" in readme
     assert "not replaced" in readme and "normal saves" in readme.lower()
     assert "automatic removal stops BEFORE" in readme
+    script = (root / "renpy-copy.ps1").read_bytes()
+    addon = (root / "renpy-additive.ps1").read_bytes()
+    assert script == installer_bytes("renpy-copy.ps1") and carries_core(script)
+    assert addon == installer_bytes("renpy-additive.ps1")
+    assert manifest["installer_sha256"] == sha256(script).hexdigest()
+    assert manifest["addon_sha256"] == sha256(addon).hexdigest()
     assert len(originals) == len([p for p in paths.game.rglob("*") if p.is_file()])
     unchanged(patch)
 

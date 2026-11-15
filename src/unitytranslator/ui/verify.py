@@ -6,9 +6,10 @@ import struct
 from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from unitytranslator.discovery import probe_source
 from unitytranslator.domain import TextUnitDraft
@@ -18,6 +19,8 @@ from unitytranslator.game_process import windows_process_snapshot
 from unitytranslator.i2 import extract_i2
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.runtime_kit import CORE_NAMES, PortableRuntimeKit, RuntimeKit
+from unitytranslator.ui.components import table_item
+from unitytranslator.ui.pages.base import Page
 from unitytranslator.ui.window import (
     BatchReviewDialog,
     InstallationReviewDialog,
@@ -39,7 +42,7 @@ def verify_worker_launch(paths: ProjectPaths) -> bool:
     source.write_bytes(data)
     worker_paths = ProjectPaths(game, paths.output("verification-worker/project"))
     if os.name != "nt":
-        return probe_source(worker_paths, source.name)["counts"]["records"] == 0
+        return bool(probe_source(worker_paths, source.name)["counts"]["records"] == 0)
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.GetStdHandle.argtypes = [wintypes.DWORD]
     kernel.GetStdHandle.restype = wintypes.HANDLE
@@ -136,14 +139,14 @@ def verify_installation(paths: ProjectPaths, app: QApplication) -> bool:
         if isinstance(dialog, QMessageBox):
             dialog.button(QMessageBox.StandardButton.Yes).click()
         else:
-            errors.append(("remove_dialog", "Kaldırma incelemesi açılamadı."))
+            errors.append(("remove_dialog", "The removal review could not be opened."))
 
     def poll():
         state["ticks"] += 1
         dialog = app.activeModalWidget()
         if isinstance(dialog, InstallationReviewDialog):
             if dialog.install.isEnabled() or (game / "winhttp.dll").exists():
-                errors.append(("install_consent", "Onay öncesi dosya oluşturuldu."))
+                errors.append(("install_consent", "A file was created before consent."))
                 dialog.reject()
             else:
                 dialog.reviewed.setChecked(True)
@@ -153,7 +156,7 @@ def verify_installation(paths: ProjectPaths, app: QApplication) -> bool:
             window.close()
         elif state["step"] == 0 and window.prepare_installation.isEnabled():
             state["step"] = 1
-            window.tabs.setCurrentIndex(7)
+            window.tabs.setCurrentIndex(Page.INSTALLATION)
             window.prepare_installation.click()
         elif (
             state["step"] == 1 and window.deployment and window.deployment["status"] == "installed"
@@ -177,9 +180,11 @@ def verify_installation(paths: ProjectPaths, app: QApplication) -> bool:
         if not errors and window.backend_closed:
             from unitytranslator import shareable
 
-            previous_portable = shareable.PortableRuntimeKit
+            # Replace the kit class for this synthetic export only; Any permits the swap.
+            patched: Any = shareable
+            previous_portable = patched.PortableRuntimeKit
             try:
-                shareable.PortableRuntimeKit = lambda: RuntimeKit(kit)
+                patched.PortableRuntimeKit = lambda: RuntimeKit(kit)
                 with ProjectRepository(ProjectPaths(game, project)) as repo:
                     shared = shareable.export_shareable_patch(repo)
                 shareable_verified = (
@@ -189,7 +194,7 @@ def verify_installation(paths: ProjectPaths, app: QApplication) -> bool:
                     and Path(shared["path"]).is_file()
                 )
             finally:
-                shareable.PortableRuntimeKit = previous_portable
+                patched.PortableRuntimeKit = previous_portable
     finally:
         runtime_kit.trusted_catalog, runtime_kit.bundled_kit_root = previous_catalog, previous_root
     return bool(
@@ -266,22 +271,24 @@ def verify_runtime_export(paths: ProjectPaths, app: QApplication) -> bool:
     def choose():
         dialog = app.activeModalWidget()
         if not isinstance(dialog, RuntimeSelectionDialog) or dialog.table.rowCount() != 1:
-            errors.append(("runtime_selection", "Sentetik kayıt seçimi açılamadı."))
-            if dialog is not None:
+            errors.append(
+                ("runtime_selection", "The synthetic record selection could not be opened.")
+            )
+            if isinstance(dialog, QDialog):
                 dialog.reject()
             return
-        dialog.table.item(0, 0).setCheckState(Qt.CheckState.Checked)
+        table_item(dialog.table, 0, 0).setCheckState(Qt.CheckState.Checked)
         dialog.prepare.click()
 
     def choose_batch():
         dialog = app.activeModalWidget()
         if not isinstance(dialog, BatchReviewDialog) or len(dialog.rows) != 2:
-            errors.append(("batch_review", "Grup incelemesi açılamadı."))
-            if dialog is not None:
+            errors.append(("batch_review", "The group review could not be opened."))
+            if isinstance(dialog, QDialog):
                 dialog.reject()
             return
         if dialog.records() or dialog.confirm.isEnabled():
-            errors.append(("batch_consent", "İnceleme seçimi başlangıçta boş olmalı."))
+            errors.append(("batch_consent", "The review selection must start empty."))
             dialog.reject()
             return
         dialog.select_records(True)
@@ -295,12 +302,14 @@ def verify_runtime_export(paths: ProjectPaths, app: QApplication) -> bool:
             window.close()
         elif not state["submitted"] and window.review_model.rowCount() == 3:
             state["submitted"] = True
-            window.tabs.setCurrentIndex(6)
+            window.tabs.setCurrentIndex(Page.EXPORT)
             QTimer.singleShot(0, choose)
             window.runtime_export_button.click()
         elif results and not state.get("batch_submitted"):
             if not window.grab().save(str(paths.output("reports/runtime-export.png"))):
-                errors.append(("runtime_screenshot", "Deneme veri görüntüsü kaydedilemedi."))
+                errors.append(
+                    ("runtime_screenshot", "The trial data screenshot could not be saved.")
+                )
             state["batch_submitted"] = True
             QTimer.singleShot(0, choose_batch)
             window.approve_page()
@@ -310,7 +319,7 @@ def verify_runtime_export(paths: ProjectPaths, app: QApplication) -> bool:
         elif backups:
             timer.stop()
             if not window.grab().save(str(paths.output("reports/project-backup.png"))):
-                errors.append(("backup_screenshot", "Yedek görüntüsü kaydedilemedi."))
+                errors.append(("backup_screenshot", "The backup screenshot could not be saved."))
             window.close()
 
     timer.timeout.connect(poll)
@@ -336,9 +345,9 @@ def verify_runtime_export(paths: ProjectPaths, app: QApplication) -> bool:
 def verify_ui(game: str, project: str) -> int:
     paths = ProjectPaths(Path(game), Path(project))
     if paths.project.exists():
-        raise ValueError("UI doğrulaması yeni ve boş bir proje yolu gerektirir.")
+        raise ValueError("UI verification requires a new, empty project path.")
     if any(paths.game.iterdir()):
-        raise ValueError("UI doğrulaması yalnızca boş sentetik oyun klasöründe çalışır.")
+        raise ValueError("UI verification runs only in an empty synthetic game folder.")
     source = "Start {0}\r\nNext\u00a0line"
     plain_target = "Başla {0} · Iıİi çğöşü\r\nSonraki\u00a0satır"
     plural_source = "{[N]} turns[i2p_One]{[N]} turn[i2p_Zero]No turns"
@@ -361,7 +370,8 @@ def verify_ui(game: str, project: str) -> int:
             ],
             {"kind": "synthetic_ui_verification"},
         )
-    app = QApplication.instance() or QApplication([])
+    existing = QApplication.instance()
+    app = existing if isinstance(existing, QApplication) else QApplication([])
     window = MainWindow()
     errors = []
     process_results = []
@@ -382,8 +392,8 @@ def verify_ui(game: str, project: str) -> int:
     def fill_plural_dialog():
         dialog = app.activeModalWidget()
         if not isinstance(dialog, PluralEditorDialog):
-            errors.append(("plural_editor", "Çoğul düzenleyici açılmadı."))
-            if dialog is not None:
+            errors.append(("plural_editor", "The plural editor did not open."))
+            if isinstance(dialog, QDialog):
                 dialog.reject()
             return
         for form, text in {"Plural": "{[N]} tur", "One": "{[N]} tur", "Zero": "Tur yok"}.items():
@@ -392,11 +402,11 @@ def verify_ui(game: str, project: str) -> int:
         output = paths.output("reports/plural-editor.png")
         output.parent.mkdir(parents=True, exist_ok=True)
         if not dialog.grab().save(str(output)):
-            errors.append(("plural_screenshot", "Çoğul görüntüsü kaydedilemedi."))
+            errors.append(("plural_screenshot", "The plural screenshot could not be saved."))
         if dialog.transfer.isEnabled():
             dialog.transfer.click()
         else:
-            errors.append(("plural_format", "Sentetik çoğul taslağı kontrolü geçmedi."))
+            errors.append(("plural_format", "The synthetic plural draft check failed."))
             dialog.reject()
 
     def poll():
@@ -412,8 +422,10 @@ def verify_ui(game: str, project: str) -> int:
         elif state["step"] == 10 and process_results:
             observed = process_results[-1]
             if observed["status"] != "unknown" or observed["reason"] != "no_executable_identity":
-                errors.append(("game_process", "Boş sentetik oyunun durumu belirsiz olmalı."))
-            window.tabs.setCurrentIndex(5)
+                errors.append(
+                    ("game_process", "The empty synthetic game's status must be unknown.")
+                )
+            window.tabs.setCurrentIndex(Page.REVIEW)
             window.table.selectRow(0)
             window.translation_editor.setPlainText(plain_target)
             window.save_edit()
@@ -428,22 +440,29 @@ def verify_ui(game: str, project: str) -> int:
             QTimer.singleShot(0, fill_plural_dialog)
             window.plural_button.click()
             if window.translation_editor.toPlainText() != plural_target:
-                errors.append(("plural_transfer", "Çoğul taslağı aktarılamadı."))
+                errors.append(("plural_transfer", "The plural draft could not be transferred."))
             else:
                 window.save_edit()
             state["step"] = 4
         elif state["step"] == 4 and rows and rows[1]["translation"] == plural_target:
             if rows[1]["status"] != "needs_review" or rows[0]["status"] != "approved":
-                errors.append(("plural_approval", "Onay/dal inceleme durumu eşleşmiyor."))
+                errors.append(
+                    ("plural_approval", "The approval or branch review status does not match.")
+                )
             prompt_present = (
                 files("unitytranslator.resources").joinpath("translate-plural-v2.txt").is_file()
             )
             if not prompt_present:
-                errors.append(("plural_prompt", "Çoğul istem kaynağı pakette bulunamadı."))
+                errors.append(
+                    (
+                        "plural_prompt",
+                        "The plural prompt resource was not found in the package.",
+                    )
+                )
             output = paths.output("reports/ui.png")
             output.parent.mkdir(parents=True, exist_ok=True)
             if not window.grab().save(str(output)):
-                errors.append(("screenshot", "Arayüz görüntüsü kaydedilemedi."))
+                errors.append(("screenshot", "The interface screenshot could not be saved."))
             paths.write_json(
                 "reports/ui-verification.json",
                 {

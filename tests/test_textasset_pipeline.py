@@ -520,7 +520,7 @@ def test_model_cannot_insert_a_line_break_into_literal_payload():
         )
 
     provider = LocalProvider("lm-studio", "http://127.0.0.1:1234", httpx.MockTransport(handler))
-    with pytest.raises(ProviderError, match="değişken|etiket"):
+    with pytest.raises(ProviderError, match="did not preserve a variable or tag"):
         asyncio.run(
             provider.translate_record(
                 "synthetic",

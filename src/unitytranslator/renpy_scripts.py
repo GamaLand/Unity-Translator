@@ -14,6 +14,7 @@ from dataclasses import dataclass, replace
 from hashlib import md5, sha256
 from typing import Any
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.renpy_format import tokens
 from unitytranslator.renpy_python import (
     PYTHON_BLOCKS_V1,
@@ -51,8 +52,27 @@ _SKIP_BLOCK = {
 _NON_SAY = {
     "jump", "return", "scene", "show", "hide", "with", "play", "stop", "queue",
     "window", "pause", "camera", "define", "default", "menu", "if", "elif",
-    "else", "while", "for", "pass", "extend",
+    "else", "while", "for", "pass",
 }
+NATIVE_ID_ALLOCATION = "excluded-say-serials-v1"
+_ESCAPE = re.compile(r"\\(u([0-9a-fA-F]{1,4})|.)", re.S)
+
+
+def _squash(value: str) -> str:
+    return re.sub(r"\s+", "", value)
+
+
+def _say_candidates(raw: str) -> set[str]:
+    """Over-approximate texts the engine may read from one literal (whitespace-insensitive)."""
+    width = 3 if raw[:3] in ('"""', "'''", "```") else 1
+    body = raw[width:-width]
+    decoded = _ESCAPE.sub(lambda m: chr(int(m[2], 16)) if m[2] else {
+        "n": "\n", "{": "{{", "[": "[[", "%": "%%"}.get(m[1], m[1]), body)
+    parts = {body, decoded}
+    for value in (body, decoded):
+        parts.update(re.split(r"\n\s*\n", value))
+        parts.update(value.split("\n"))
+    return {item for item in map(_squash, parts) if item}
 
 
 @dataclass(frozen=True)
@@ -199,7 +219,7 @@ class ScriptDocument:
         )
         metadata = {
             **base.metadata, "logical_id": logical, "parser_version": PARSER_VERSION,
-            "syntax_version": SYNTAX_VERSION,
+            "syntax_version": SYNTAX_VERSION, "native_id_allocation": NATIVE_ID_ALLOCATION,
             "input_kind": "original_source", "original_members": list(self.members),
             "locations": list(self.locations), "exclusions": self.exclusions,
         }
@@ -223,6 +243,7 @@ def parse_scripts(
     ids: set[str] = set()
     strings: dict[str, int] = {}
     view: PythonSourceView | None = None
+    suspects: dict[tuple[object, ...], str] = {}
 
     def add(
         kind: str, block: str, speaker: str, value: str, token: Lexeme, member: str,
@@ -467,6 +488,62 @@ def parse_scripts(
             if literal_index < 0:
                 pending_translatable = False
                 continue
+            literal_token = statement[literal_index]
+            raw_prefix = text[statement[0].start:literal_token.start]
+            if literal_index and statement[literal_index - 1].raw in ("r", "R") and (
+                statement[literal_index - 1].end == literal_token.start
+            ):
+                raw_prefix = raw_prefix[:-1]
+            suffix_key = _squash(text[literal_token.end:statement[-1].end])
+            explicit_nointeract = suffix_key.startswith("nointeract")
+            if explicit_nointeract:
+                suffix_key = suffix_key.removeprefix("nointeract")
+            # Effective nointeract: explicit, or implied for a speaker's say inside a menu.
+            say_key = (label.replace(".", "_"), _squash(raw_prefix), suffix_key,
+                       explicit_nointeract or (direct_menu_item and bool(_squash(raw_prefix))))
+
+            def suspect(
+                key: tuple[object, ...] = say_key, token: Lexeme = literal_token,
+                where: str = member + ":" + str(literal_token.line),
+                grouped: bool = pending_translatable or (
+                    direct_menu_item and menus[-1].pending_group
+                ),
+            ) -> None:
+                # Engine still allocates an ID here; its base may equal an accepted one.
+                # A voice/nvl group hashes the whole group's code, so its base differs.
+                if grouped:
+                    return
+                if key[0]:
+                    for candidate in _say_candidates(token.raw):
+                        suspects.setdefault((*key, candidate), where)
+
+            if head == "extend":
+                exclusions["extend_say"] += 1
+                suspect()
+                pending_translatable = False
+                extend_tail = statement[literal_index + 1:]
+                extend_nointeract = bool(extend_tail and extend_tail[0].raw == "nointeract")
+                if extend_nointeract:
+                    extend_tail = extend_tail[1:]
+                try:
+                    if (not label or literal_token.kind != "string" or extend_tail
+                            or text[literal_token.start - 1] != " "):
+                        raise ValueError("Not a computable continuation.")
+                    rest = symbolic_prefix(re.sub(r"\s+", " ", ("x" + raw_prefix.strip()[6:])))
+                    extend_value = say_literal(literal_token.raw)
+                except ValueError:
+                    continue
+                # The engine allocates continuation IDs like any other say.
+                extend_base = native_identifier(
+                    label, "extend", extend_value, attributes=rest.attributes,
+                    temporary_attributes=rest.temporary_attributes,
+                    nointeract=extend_nointeract or (direct_menu_item and True),
+                )
+                extend_digest = extend_base.rsplit("_", 1)[-1]
+                ids.add(unique(extend_base))
+                if alternate:
+                    ids.add(unique(alternate.replace(".", "_") + "_" + extend_digest))
+                continue
             try:
                 if literal_index and text[statement[literal_index].start - 1] != " ":
                     raise ValueError("Missing say separator.")
@@ -480,20 +557,24 @@ def parse_scripts(
                     raise ValueError("Reserved image attribute for the source dialect.")
                 if "__" in prefix:
                     exclusions["private_name_munging"] += 1
+                    suspect()
                     pending_translatable = False
                     continue
             except ValueError:
                 exclusions["unsupported_say_prefix"] += 1
+                suspect()
                 pending_translatable = False
                 continue
             speaker = shape.speaker
             literal = statement[literal_index]
             if literal.kind != "string":
                 # Plain non-translatable statements terminate voice/nvl groups.
+                suspect()
                 pending_translatable = False
                 continue
             if speaker == "r" and statement[0].end == literal.start:
                 exclusions["raw_say_literal"] += 1
+                suspect()
                 continue
             tail = statement[literal_index + 1:]
             nointeract = bool(tail and tail[0].raw == "nointeract")
@@ -505,20 +586,26 @@ def parse_scripts(
                 explicit_id = tail[1].raw
                 if "__" in explicit_id:
                     exclusions["private_name_munging"] += 1
+                    suspect()
                     pending_translatable = False
                     continue
                 if explicit_id in {"strings", "python", "style", "default", "None"}:
                     exclusions["unsupported_explicit_identifier"] += 1
+                    suspect()
+                    # An excluded say still closes a voice/nvl group upstream.
+                    pending_translatable = False
                     continue
                 tail = []
             try:
                 value = say_literal(literal.raw)
             except ValueError:
                 exclusions["unsupported_say_literal"] += 1
+                suspect()
                 pending_translatable = False
                 continue
             if "__" in value:
                 exclusions["private_name_munging"] += 1
+                suspect()
                 pending_translatable = False
                 continue
             if not speaker and not nointeract and not explicit_id and direct_menu_item and (
@@ -547,7 +634,17 @@ def parse_scripts(
                 exclusions["unsupported_say_suffix" if tail else (
                     "say_without_label" if not label else "say_in_voice_or_nvl_group"
                 )] += 1
+                if tail:
+                    # Voice/nvl groups hash the whole group's code, so their base cannot
+                    # equal a plain say's base; only suffix exclusions stay suspects.
+                    suspect()
             else:
+                where = suspects.get((*say_key, _squash(value)))
+                if where is not None:
+                    raise Diagnostic(
+                        "An excluded say statement at {p0} may share the native "
+                        "dialogue ID base of a later statement; serials are ambiguous.", p0=where,
+                    )
                 if direct_menu_item:
                     menus[-1].say_seen = True
                 base = native_identifier(

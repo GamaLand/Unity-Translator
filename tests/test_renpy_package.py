@@ -11,11 +11,13 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from test_recipient_scripts import carries_core
 from test_renpy_scripts import approve, fixture
 
 from unitytranslator.application import ApplicationSession
 from unitytranslator.discovery import extract_to_project
 from unitytranslator.filesystem import hash_file
+from unitytranslator.recipient_scripts import installer_bytes
 from unitytranslator.renpy_package import export_copy_package
 from unitytranslator.renpy_templates import quoted_literal, say_quoted_literal
 from unitytranslator.repository import ProjectRepository
@@ -82,6 +84,8 @@ def test_package_contains_only_reviewed_text_and_fixed_installer(package):
     assert result["records"] == 1
     assert len(manifest["copy_omissions"]) == 4
     assert any(entry["path"] == "renpy/vendor_module.pyc" for entry in manifest["copy_files"])
+    # New projects use renpy-text-v2; the recipient enforces it for string keys.
+    assert manifest["format_rules"] == "renpy-text-v2"
     with zipfile.ZipFile(result["path"]) as archive:
         for name in archive.namelist():
             raw = archive.read(name)
@@ -92,6 +96,9 @@ def test_package_contains_only_reviewed_text_and_fixed_installer(package):
             assert b"Voice group is excluded." not in raw
         assert not any(name.endswith(".exe") for name in archive.namelist())
     assert json.loads((root / "native-manifest.json").read_bytes())["selection"]
+    script = (root / "renpy-copy.ps1").read_bytes()
+    assert script == installer_bytes("renpy-copy.ps1") and carries_core(script)
+    assert manifest["installer_sha256"] == sha256(script).hexdigest()
     assert originals == {p.relative_to(paths.game).as_posix(): hash_file(p)
                          for p in paths.game.rglob("*") if p.is_file()}
 
@@ -462,3 +469,22 @@ def test_sharded_package_installs_only_reviewed_new_files_and_preserves_original
     assert all(not (target / item["path"]).exists() for item in manifest["payloads"])
     assert originals == {p.relative_to(paths.game).as_posix(): hash_file(p)
                          for p in paths.game.rglob("*") if p.is_file()}
+
+
+def test_renpy_text_v1_package_has_no_rule_key_and_still_reviews(tmp_path):
+    paths, _ = fixture(tmp_path)
+    (paths.game / "Synthetic.exe").write_bytes(b"Synthetic EXE; must never execute")
+    extract_to_project(paths, "game/script.rpy", format_rules="renpy-text-v1")
+    with ProjectRepository(paths) as repo:
+        approve(repo, "Display", "Ekran")
+        result = export_copy_package(repo, "turkish")
+    root = tmp_path / "v1-package"
+    with zipfile.ZipFile(result["path"]) as archive:
+        archive.extractall(root)  # Our fixed exporter-generated synthetic ZIP only.
+    manifest = json.loads((root / "package.json").read_bytes())
+    assert "format_rules" not in manifest
+    output = tmp_path / "v1 output"
+    output.mkdir()
+    review = run_ps(root, "-GameFolder", paths.game, "-OutputParent", output, "-ReviewOnly")
+    assert review.returncode == 0, review.stderr
+    assert list(output.iterdir()) == []

@@ -166,7 +166,8 @@ def test_changed_review_runtime_or_revision_blocks_install(trial, changed):
     assert not (repo.paths.game / "winhttp.dll").exists()
 
 
-def test_experimental_plan_cannot_use_normal_activation(trial):
+@pytest.mark.parametrize("action,reviewed", [(True, False), (False, True), (True, "true")])
+def test_experimental_plan_requires_the_separate_trial_choice(trial, action, reviewed):
     repo, _, service, review = trial
     from unitytranslator.deployment import DeploymentPlan, PayloadFile
 
@@ -178,8 +179,12 @@ def test_experimental_plan_cannot_use_normal_activation(trial):
         value["fingerprint"],
         tuple(PayloadFile(**item) for item in value["files"]),
     )
-    with pytest.raises(ValueError):
-        service.activate(plan, user_action=True, adapter_verified=True)
+    with pytest.raises(ValueError, match="separate, explicit user trial choice"):
+        service.install_experimental_trial(
+            plan, user_action=action, experimental_trial_reviewed=reviewed
+        )
+    assert not (repo.paths.game / "winhttp.dll").exists()
+    assert not repo.paths.output("artifacts/deployment.json").exists()
 
 
 def test_ready_ui_adapter_uses_the_same_review_receipt_and_removal(trial, monkeypatch):

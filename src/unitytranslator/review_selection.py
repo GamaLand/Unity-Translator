@@ -10,9 +10,9 @@ def approve_selection(
     repo: ProjectRepository, records: list[dict[str, Any]], *, user_action: bool, reviewed: bool
 ) -> int:
     if user_action is not True or reviewed is not True:
-        raise ValueError("Grup onayı açık kullanıcı seçimi ve insan incelemesi gerektirir.")
+        raise ValueError("Group approval requires an explicit user selection and human review.")
     if not 1 <= len(records) <= 200 or len({r["unit_id"] for r in records}) != len(records):
-        raise ValueError("Bir sayfadan 1–200 farklı kayıt seçin.")
+        raise ValueError("Select 1–200 distinct records from a page.")
     return _approve_records(repo, records)
 
 
@@ -47,10 +47,12 @@ def approve_all(
     repo: ProjectRepository, preview: dict[str, Any], *, user_action: bool, confirmation: str
 ) -> int:
     if user_action is not True or confirmation != canonical_all_confirmation(preview["count"]):
-        raise ValueError("Bütün çeviriler için iki adımlı açık onay gerekli.")
+        raise ValueError("Approving all translations requires explicit two-step confirmation.")
     with repo.transaction():
         if all_approval_preview(repo) != preview or not preview["records"]:
-            raise ValueError("Çeviri listesi değişti; bütün çeviriler onayını yeniden açın.")
+            raise ValueError(
+                "The translation list changed; open the approve-all confirmation again."
+            )
         return _approve_records(repo, preview["records"])
 
 
@@ -87,8 +89,8 @@ def _approve_records(repo: ProjectRepository, records: list[dict[str, Any]]) -> 
                 ).fetchone()
             ):
                 raise ValueError(
-                    "Seçimde değişmiş, taslaklı veya onaya uygun olmayan kayıt var; "
-                    "listeyi yenileyin."
+                    "The selection contains changed, drafted or ineligible records; "
+                    "refresh the list."
                 )
         for frozen in records:
             repo.approve(frozen["unit_id"], frozen["version"])

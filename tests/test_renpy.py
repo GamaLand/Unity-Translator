@@ -286,8 +286,13 @@ def test_existing_pilot_queue_translates_renpy_sources_without_granting_approval
         assert len(seen) == 2
         assert all("Ren'Py" in value["context"] for value in seen)
         assert all(row["translation"] and row["status"] != "approved" for row in repo.page())
-        for row in repo.db.execute("SELECT metadata_json FROM translation_revisions"):
-            assert json.loads(row[0])["protected_format_version"] == RENPY_FORMAT
+        # New projects use renpy-text-v2: dialogue keeps v1, string keys add printf.
+        for row in repo.db.execute(
+            "SELECT t.metadata_json,u.original_key FROM translation_revisions t "
+            "JOIN source_revisions s ON s.id=t.source_revision JOIN text_units u USING(unit_id)"
+        ):
+            expected = "renpy-text-v2" if row[1].startswith("string/") else RENPY_FORMAT
+            assert json.loads(row[0])["protected_format_version"] == expected
 
 
 def test_desktop_scans_selects_and_extracts_native_templates(tmp_path):
@@ -322,7 +327,11 @@ def test_desktop_scans_selects_and_extracts_native_templates(tmp_path):
         next(button for button in window.findChildren(QPushButton)
              if button.text() == tr("Read the source and extract text")).click()
         wait_for(app, lambda: window.review_model.rowCount() == 2)
-        assert all(row["format_rules"] == RENPY_FORMAT for row in window.review_model.rows)
+        assert all(
+            row["format_rules"] == ("renpy-text-v2" if row["original_key"].startswith("string/")
+                                    else RENPY_FORMAT)
+            for row in window.review_model.rows
+        )
         assert not errors
         window.tabs.setCurrentIndex(1)
         assert window.grab().save(str(tmp_path / "native-template-discovery.png"))

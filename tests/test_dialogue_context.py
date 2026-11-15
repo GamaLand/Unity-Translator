@@ -6,6 +6,16 @@ import sqlite3
 
 import httpx
 import pytest
+from test_frozen_projects import (
+    NAMES,
+    PROJECTS,
+    assert_rows_preserved,
+    connect,
+    dump,
+    failing_step,
+    frozen_copy,
+    table_rows,
+)
 
 from unitytranslator.dialogue_context import (
     DialogueContextStore,
@@ -299,41 +309,41 @@ def test_context_injection_cannot_add_an_output_record_or_token():
     from unitytranslator.providers import ProviderError
 
     provider = LocalProvider("lm-studio", "http://localhost:1234", httpx.MockTransport(handler))
-    with pytest.raises(ProviderError, match="korunmadı"):
+    with pytest.raises(ProviderError, match="did not preserve a variable or tag"):
         asyncio.run(provider.translate_record(
             "synthetic", "Target.", "only-target", "en", "tr", context_tokens=8192,
             format_rules="renpy-text-v1", dialogue_context=context,
         ))
 
 
-def test_schema6_backup_and_reopen_preserve_approvals_drafts_and_old_jobs(project_paths):
-    with ProjectRepository(project_paths) as repo:
-        snapshot = ingest(repo)
-        store = JobStore(repo)
-        job = store.create([snapshot.units[1].unit_id], profile(False))
-        first, second = repo.page()[:2]
-        repo.edit(first["unit_id"], first["version"], first["source_text"])
-        first = next(r for r in repo.page() if r["unit_id"] == first["unit_id"])
-        repo.approve(first["unit_id"], first["version"])
-        draft_store = EditorDraftStore(repo)
-        draft_store.put(second["unit_id"], second["source_revision"],
-                         second["version"], "Draft.", 0)
-        before = [tuple(r) for r in repo.db.execute("SELECT * FROM work_items ORDER BY unit_id")]
-        repo.db.execute("DROP TABLE job_context_sources")
-        repo.db.execute("DELETE FROM schema_migrations WHERE version=6")
-        repo.db.execute("PRAGMA user_version=5")
-    with ProjectRepository(project_paths) as repo:
-        assert repo.db.execute("PRAGMA user_version").fetchone()[0] == 6
-        assert [tuple(r) for r in repo.db.execute(
-            "SELECT * FROM work_items ORDER BY unit_id",
-        )] == before
-        assert EditorDraftStore(repo).get(second["unit_id"])["text"] == "Draft."
-        assert "dialogue_context" not in json.loads(JobStore(repo).job(job)["profile_json"])
-        assert ProjectRepository.existing_paths(project_paths.project).game == project_paths.game
-    backups = list((project_paths.project / "backups").glob("schema-5-*.sqlite3"))
-    assert backups
-    assert any(sqlite3.connect(path).execute("SELECT count(*) FROM work_items").fetchone()[0] == 3
-               for path in backups)
+# Frozen schema-5 Ren'Py projects written by 0.5.0 releases (tests/fixtures/legacy-projects)
+# replace rebuilding schema 5 by dropping schema-6 and schema-7 objects from a current project.
+SCHEMA5_RENPY = [
+    name for name in NAMES if PROJECTS[name]["schema"] == 5 and PROJECTS[name]["recipe"] == "renpy"
+]
+
+
+@pytest.mark.parametrize("name", SCHEMA5_RENPY)
+def test_schema6_backup_and_reopen_preserve_approvals_drafts_and_old_jobs(tmp_path, name):
+    expect = PROJECTS[name]["expect"]
+    # The frozen project holds approvals, an editor draft and jobs from before schema 6.
+    assert any(item[0] == "approved" for item in expect["work_items"].values())
+    assert expect["drafts"] and expect["jobs"]
+    paths = frozen_copy(tmp_path, name)
+    with connect(paths.project / "project.sqlite3") as db:
+        before = table_rows(db)
+    with ProjectRepository(paths) as repo:
+        assert repo.db.execute("PRAGMA user_version").fetchone()[0] == 7
+        assert_rows_preserved(repo.db, {"work_items": before["work_items"]})
+        for unit, value in expect["drafts"].items():
+            assert EditorDraftStore(repo).get(unit)["text"] == value["text"]
+        for job in expect["jobs"]:
+            assert "dialogue_context" not in json.loads(JobStore(repo).job(job)["profile_json"])
+        assert ProjectRepository.existing_paths(paths.project).game == paths.game
+    (backup,) = (paths.project / "backups").glob("schema-5-*.sqlite3")
+    with connect(backup) as db:
+        count = db.execute("SELECT count(*) FROM work_items").fetchone()[0]
+    assert count == expect["counts"]["work_items"]
 
 
 def test_templates_only_link_slots_within_one_verified_block():
@@ -452,34 +462,20 @@ def test_ordered_review_paging_and_filters_do_not_redefine_neighbours(project_pa
         ).fetchone()[0] == 0
 
 
-def test_schema6_failure_rolls_back_and_preserves_consistent_backup(project_paths, monkeypatch):
-    import unitytranslator.repository as module
-
-    with ProjectRepository(project_paths) as repo:
-        ingest(repo)
-        repo.db.execute("DROP TABLE job_context_sources")
-        repo.db.execute("DELETE FROM schema_migrations WHERE version=6")
-        repo.db.execute("PRAGMA user_version=5")
-        before = list(repo.db.iterdump())
-    real_files = module.files
-
-    class BadSql:
-        def read_text(self):
-            return "CREATE TABLE partial(value TEXT); INVALID SQL;"
-
-    class Resources:
-        def joinpath(self, name):
-            return BadSql() if name == "schema-v6.sql" else real_files(
-                "unitytranslator.resources",
-            ).joinpath(name)
-
-    monkeypatch.setattr(module, "files", lambda _: Resources())
+@pytest.mark.parametrize("name", SCHEMA5_RENPY)
+def test_schema6_failure_rolls_back_and_preserves_consistent_backup(tmp_path, name, monkeypatch):
+    paths = frozen_copy(tmp_path, name)
+    database = paths.project / "project.sqlite3"
+    before = dump(database)
+    failing_step(monkeypatch, 6)
     with pytest.raises(sqlite3.DatabaseError):
-        ProjectRepository(project_paths)
-    with sqlite3.connect(project_paths.project / "project.sqlite3") as db:
+        ProjectRepository(paths)
+    with connect(database) as db:
         assert list(db.iterdump()) == before
         assert db.execute("PRAGMA user_version").fetchone()[0] == 5
         assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    (backup,) = (paths.project / "backups").glob("schema-5-*.sqlite3")
+    assert dump(backup) == before
 
 
 def test_actual_reader_snapshot_and_approved_export_keep_identity_and_output(tmp_path):

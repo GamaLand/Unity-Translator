@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.deployment import DeploymentService, VolatileFile
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.engines import engine_evidence
 from unitytranslator.filesystem import checked_path, hash_file
 from unitytranslator.i2_activation import install_reviewed_trial, prepare_activation_review
@@ -67,7 +68,9 @@ class InstallationSession:
             )
             available, reason = kit.root.is_dir(), ""
             if not available:
-                reason = "Bu pakette runtime dosyaları eksik. Tam Windows paketini kullanın."
+                reason = (
+                    "Runtime files are missing from this package. Use the full Windows package."
+                )
             else:
                 if self.adapter_kind() == "krypta":
                     assembly_relative = load_profile()["assembly"]["path"]
@@ -76,7 +79,7 @@ class InstallationSession:
                         self.repo.paths.game.glob("*_Data/Managed/Assembly-CSharp.dll")
                     )
                     if len(candidates) != 1:
-                        raise ValueError("Bu oyun yapısıyla eşleşen uygulama adaptörü bulunmuyor.")
+                        raise ValueError("No application adapter matches this game layout.")
                     assembly_relative = candidates[0].relative_to(self.repo.paths.game).as_posix()
                 kit.check_game(self.repo, assembly_relative)
                 if self.adapter_kind() == "krypta":
@@ -89,7 +92,7 @@ class InstallationSession:
         except OSError:
             available, reason = (
                 False,
-                "Oyunun çalışma dosyaları okunamadı veya adaptörle eşleşmiyor.",
+                "The game's runtime files could not be read or do not match the adapter.",
             )
         return {
             "project_id": self.repo.project_id,
@@ -117,7 +120,7 @@ class InstallationSession:
             if progress:
                 progress(message)
 
-        notify("Onaylı çeviriler ve uygulama bileşenleri kontrol ediliyor…")
+        notify("Checking approved translations and application components…")
         service = DeploymentService(self.repo)
         if service.read_baseline() is None and log_file:
             service = DeploymentService(
@@ -126,17 +129,21 @@ class InstallationSession:
                     VolatileFile(
                         path=log_file,
                         kind="log",
-                        reason="Kullanıcı bu günlük dosyasını ayrı izlemeyi seçti.",
+                        reason="The user chose to track this log file separately.",
                     ),
                 ),
                 exclusions_reviewed=log_reviewed,
             )
         elif log_file:
-            raise ValueError("Önceki özgün envanter korunur; yeni dışlama eklenemez.")
+            raise ValueError(
+                "The previous original inventory is kept; a new exclusion cannot be added."
+            )
         service.require_game_closed()
         manifest = service.read_manifest()
         if manifest and manifest["status"] != "removed":
-            raise ValueError("Önce mevcut ekleri kaldırın veya yarım kurulumu kurtarın.")
+            raise ValueError(
+                "Remove the existing additions or recover the partial installation first."
+            )
         # Check before staging or capturing the original inventory: another project's
         # loader must never become an 'original game file' in this project.
         conflicts = [
@@ -145,12 +152,12 @@ class InstallationSession:
             if checked_path(self.repo.paths.game / name).exists()
         ]
         if conflicts:
-            raise ValueError(
-                "Oyun klasöründe mevcut yükleyici dosyaları var: "
-                + ", ".join(conflicts)
-                + ". Üzerlerine yazılmaz. Önce bu kurulumu oluşturan projeyi açıp "
-                "Oyuna uygula bölümünden sahiplik kontrolüyle kaldırın. Dosyalar başka "
-                "bir moda aitse o modun kaldırma yöntemini kullanın."
+            raise Diagnostic(
+                "Existing loader files in the game folder: {p0}. They will not be "
+                "overwritten. Open the project that owns this installation and remove its "
+                "additions through Apply to game. If the files belong to another mod, use "
+                "its removal procedure.",
+                p0=", ".join(conflicts),
             )
         records = [
             dict(row)
@@ -192,7 +199,7 @@ class InstallationSession:
         self.check_sources(context["source_fingerprints"])
         kit = RuntimeKit()
         staged = kit.stage(self.repo, context["assembly_relative"])
-        notify("Özgün dosyaların SHA-256 envanteri kontrol ediliyor. Büyük oyunlarda bu sürebilir…")
+        notify("Checking the original SHA-256 inventory. This may take a while for large games…")
         baseline = service.baseline()
         trial = prepare_i2_trial(
             self.repo,
@@ -229,7 +236,7 @@ class InstallationSession:
     ) -> dict[str, Any]:
         if user_action is not True or experimental_reviewed is not True:
             raise ValueError(
-                "Kurulum açık kullanıcı seçimi ve deneysel kapsam incelemesi gerektirir."
+                "Installation requires an explicit user choice and an experimental scope review."
             )
         pending = self.pending
         if (
@@ -238,7 +245,7 @@ class InstallationSession:
             or hash_file(self.repo.paths.output(pending["review_relative"]))
             != pending["review_sha256"]
         ):
-            raise ValueError("Kurulum incelemesi eski veya değişmiş; yeniden hazırlayın.")
+            raise ValueError("The installation review is outdated or changed; prepare it again.")
         if pending.get("adapter_kind") == "krypta":
             self.require_installation_adapter()
             result_krypta = install_krypta_review(
@@ -266,7 +273,7 @@ class InstallationSession:
 
     def check_sources(self, fingerprints: dict[str, str | None]) -> None:
         if not fingerprints:
-            raise ValueError("Kaynak doğrulaması eksik; metinleri yeniden çıkarın.")
+            raise ValueError("Source verification is missing; extract the text again.")
         for relative, expected in fingerprints.items():
             source = checked_path(self.repo.paths.game / relative)
             if (
@@ -274,15 +281,15 @@ class InstallationSession:
                 or not source.is_relative_to(self.repo.paths.game)
                 or hash_file(source) != expected
             ):
-                raise ValueError("Oyun kaynağı değişmiş veya eski; metinleri yeniden çıkarın.")
+                raise ValueError("The game source changed or is outdated; extract the text again.")
 
     def remove(self, plan_id: str, *, user_action: bool) -> dict[str, Any]:
         if user_action is not True:
-            raise ValueError("Kaldırma açık kullanıcı işlemi gerektirir.")
+            raise ValueError("Removal requires an explicit user action.")
         service = DeploymentService(self.repo)
         manifest = service.read_manifest()
         if not manifest or manifest["plan_id"] != plan_id:
-            raise ValueError("Kaldırma planı değişmiş; durumu yenileyin.")
+            raise ValueError("The removal plan changed; refresh the status.")
         result = service.uninstall(user_action=True)
         self.pending = None
         return result

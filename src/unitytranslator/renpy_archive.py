@@ -5,14 +5,18 @@ lists, tuples, dictionaries and memo references are accepted. Object/global/call
 opcodes are rejected, never resolved. This is not a compiled-script reader.
 """
 
+import os
 import pickletools
 import re
+import threading
 import zlib
-from dataclasses import dataclass
+from collections import OrderedDict
+from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.filesystem import checked_path
 from unitytranslator.source_contracts import validate_relative_source
 
@@ -22,6 +26,9 @@ MAX_OPERATIONS = 200000
 MAX_MEMBERS = 20000
 MAX_STACK = 4096
 MAX_MEMBER = 8 * 1024 * 1024
+# Enough for one complete source probe (128 archives, 200,000 aggregate entries).
+INDEX_CACHE_SIZE = 128
+INDEX_CACHE_MEMBERS = 200_000
 _MARK = object()
 _HEADER = re.compile(rb"RPA-3\.0 ([0-9a-fA-F]{16}) ([0-9a-fA-F]{8})\n")
 
@@ -117,7 +124,7 @@ def literal_index(raw: bytes) -> dict[str, Any]:
                     raise ValueError("Ambiguous RPA literal index result.")
                 stopped = True
             else:
-                raise ValueError("Unsupported non-literal RPA index opcode: " + name)
+                raise Diagnostic("Unsupported non-literal RPA index opcode: {p0}", p0=name)
     except (IndexError, OverflowError, UnicodeError) as exc:
         raise ValueError("Malformed RPA literal index.") from exc
     if not stopped:
@@ -134,6 +141,10 @@ class ArchiveMember:
     prefix: bytes
 
 
+def _identity(status: os.stat_result) -> tuple[int, int, int, int]:
+    return status.st_dev, status.st_ino, status.st_size, status.st_mtime_ns
+
+
 @dataclass(frozen=True)
 class ArchiveIndex:
     path: Path
@@ -141,29 +152,96 @@ class ArchiveIndex:
     size: int
     index_sha256: str
     members: tuple[ArchiveMember, ...]
+    identity: tuple[int, int, int, int] = (0, 0, 0, 0)
+    _by_name: dict[str, ArchiveMember] = field(
+        init=False, repr=False, compare=False, default_factory=dict,
+    )
+
+    def __post_init__(self) -> None:
+        self._by_name.update((member.name, member) for member in self.members)
+
+    def _verified_stream(self) -> BinaryIO | None:
+        """Open the indexed file and verify device, file ID, size and index-region hash.
+
+        The path policy is checked before every open. Equal header and
+        compressed-index bytes at an equal size parse to the same index, so the
+        hash check is equivalent to re-parsing it; file IDs alone are not trusted,
+        because some filesystems reuse them. A modification time change alone does
+        not invalidate the index. Concurrent in-place rewrites of member data are
+        outside this check; source probes hash whole containers before and after
+        reading.
+        """
+        stream = checked_path(self.path).open("rb")
+        try:
+            if _identity(os.fstat(stream.fileno()))[:3] == self.identity[:3]:
+                header = stream.readline(128)
+                stream.seek(self.index_offset)
+                region = stream.read(self.size - self.index_offset)  # Identity fixed the size.
+                if sha256(header + region).hexdigest() == self.index_sha256:
+                    return stream
+        except BaseException:
+            stream.close()
+            raise
+        stream.close()
+        return None
+
+    def unchanged(self) -> bool:
+        stream = self._verified_stream()
+        if stream is None:
+            return False
+        stream.close()
+        return True
 
     def read_member(self, name: str, *, limit: int = MAX_MEMBER) -> bytes:
         """Return one bounded member as bytes, never write an archive-selected path."""
         if not 0 < limit <= MAX_MEMBER:
             raise ValueError("Invalid RPA member read limit.")
-        candidates = [member for member in self.members if member.name == name]
-        if len(candidates) != 1 or candidates[0].length > limit:
+        member = self._by_name.get(name)
+        if member is None or member.length > limit:
             raise ValueError("RPA member missing, ambiguous or oversized.")
-        if read_index(self.path).index_sha256 != self.index_sha256:
+        stream = self._verified_stream()
+        if stream is None:
             raise ValueError("RPA index changed before member reading.")
-        member = candidates[0]
-        with checked_path(self.path).open("rb") as stream:
+        with stream:
             stream.seek(member.offset)
             payload = stream.read(member.length - len(member.prefix))
-        result = member.prefix + payload
-        if len(result) != member.length or self.path.stat().st_size != self.size:
-            raise ValueError("RPA member truncated or archive size changed.")
+            result = member.prefix + payload
+            if len(result) != member.length or os.fstat(stream.fileno()).st_size != self.size:
+                raise ValueError("RPA member truncated or archive size changed.")
         return result
 
 
+_CACHE: OrderedDict[tuple[str, int, int, int, int], ArchiveIndex] = OrderedDict()
+_CACHE_LOCK = threading.Lock()
+
+
 def read_index(path: Path) -> ArchiveIndex:
+    """Parse once per verified archive identity; a cache hit re-checks the index region."""
     path = checked_path(path)
-    size = path.stat().st_size
+    key = (str(path), *_identity(path.stat()))
+    with _CACHE_LOCK:
+        cached = _CACHE.pop(key, None)
+    if cached is not None and cached.unchanged():
+        with _CACHE_LOCK:
+            _CACHE[key] = cached
+            _CACHE.move_to_end(key)
+        return cached
+    index = _parse_index(path)
+    with _CACHE_LOCK:
+        for stale in [other for other in _CACHE if other[0] == key[0]]:
+            del _CACHE[stale]
+        _CACHE[(str(path), *index.identity)] = index
+        while len(_CACHE) > INDEX_CACHE_SIZE or (
+            len(_CACHE) > 1
+            and sum(len(item.members) for item in _CACHE.values()) > INDEX_CACHE_MEMBERS
+        ):
+            _CACHE.popitem(last=False)
+    return index
+
+
+def _parse_index(path: Path) -> ArchiveIndex:
+    status = path.stat()
+    size = status.st_size
     with path.open("rb") as stream:
         header = stream.readline(128)
         match = _HEADER.fullmatch(header)
@@ -206,9 +284,12 @@ def read_index(path: Path) -> ArchiveIndex:
         ):
             raise ValueError("RPA member points outside its data region.")
         members.append(ArchiveMember(name, start, length, prefix))
-    if path.stat().st_size != size:
+    if _identity(path.stat()) != _identity(status):
         raise ValueError("RPA archive changed during index reading.")
-    return ArchiveIndex(path, offset, size, sha256(header + compressed).hexdigest(), tuple(members))
+    return ArchiveIndex(
+        path, offset, size, sha256(header + compressed).hexdigest(), tuple(members),
+        _identity(status),
+    )
 
 
 def inspect_archive(path: Path) -> dict[str, Any]:

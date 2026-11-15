@@ -2,6 +2,8 @@
 
 import re
 
+from unitytranslator.diagnostics import Diagnostic
+
 # Editable suggestions, not a support allowlist.
 LANGUAGE_NAMES = {
     "en": "English",
@@ -108,7 +110,9 @@ def language_index(languages: list[object], code: str) -> int:
         if (candidate == code.split("-")[0] if "-" in code else candidate.split("-")[0] == code)
     ]
     if len(matches) != 1:
-        raise ValueError(f"Source language {code} is missing or ambiguous in this I2 source.")
+        raise Diagnostic(
+            "Source language {p0} is missing or ambiguous in this I2 source.", p0=code
+        )
     return matches[0]
 
 

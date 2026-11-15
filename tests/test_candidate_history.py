@@ -38,7 +38,7 @@ def test_history_selection_requires_explicit_approval_replacement(repo) -> None:
     assert len(history["revisions"]) == 2
     model = next(row for row in history["revisions"] if row["origin"] == "model")
     version = history["current"]["version"]
-    with pytest.raises(ValueError, match="açık aday seçimi"):
+    with pytest.raises(ValueError, match="requires an explicit candidate selection"):
         repo.select_candidate("UI/start", version, model["id"])
     assert repo.page()[0]["translation"] == "Elle onay"
     assert repo.page()[0]["status"] == "approved"
@@ -59,10 +59,10 @@ def test_old_source_and_stale_user_version_cannot_replace_current_text(repo) -> 
     history = repo.history("UI/start")
     model = next(row for row in history["revisions"] if row["origin"] == "model")
     version = history["current"]["version"]
-    with pytest.raises(ValueError, match="değişti"):
+    with pytest.raises(ValueError, match="candidate or source changed"):
         repo.select_candidate("UI/start", version - 1, model["id"], replace_approved=True)
     repo.ingest([replace(draft(), context="new scene")], {})
-    with pytest.raises(ValueError, match="değişti"):
+    with pytest.raises(ValueError, match="candidate or source changed"):
         repo.select_candidate(
             "UI/start", repo.page()[0]["version"], model["id"], replace_approved=True
         )

@@ -26,9 +26,9 @@ def export_runtime_payload(
     max_records: int | None = None,
 ) -> dict[str, Any]:
     if selected_unit_ids is not None and not selected_unit_ids:
-        raise ValueError("Deneme kayıt seçimi boş olamaz.")
+        raise ValueError("The trial record selection cannot be empty.")
     if max_records is not None and (type(max_records) is not int or max_records < 1):
-        raise ValueError("Geçersiz deneme kayıt sınırı.")
+        raise ValueError("Invalid trial record limit.")
     source_language = normalize_language(repository.source_language)
     target_language = normalize_language(repository.target_language)
     if source_language == target_language:
@@ -38,13 +38,17 @@ def export_runtime_payload(
         or not target_name
         or not re.fullmatch(r"2017\.\d+\.\d+[abfp]\d+", unity_version)
     ):
-        raise ValueError("Doğrulanmış I2 kaynak kümesi, hedef adı ve Unity 2017 sürümü gerekli.")
+        raise ValueError(
+            "A verified I2 source set, target name and Unity 2017 version are required."
+        )
     part = Path(assembly_relative)
     if part.is_absolute() or part.drive or ".." in part.parts or part.name != "Assembly-CSharp.dll":
-        raise ValueError("Assembly konumu oyun köküne göreli Assembly-CSharp.dll olmalı.")
+        raise ValueError(
+            "The assembly location must be Assembly-CSharp.dll relative to the game root."
+        )
     assembly = checked_path(repository.paths.game / part)
     if not assembly.is_relative_to(repository.paths.game) or not assembly.is_file():
-        raise ValueError("Oyun assembly'si bulunamadı.")
+        raise ValueError("The game assembly was not found.")
     entries = []
     reviewed = []
     payload_bytes = 4096
@@ -55,7 +59,7 @@ def export_runtime_payload(
         "JOIN work_items w USING(unit_id) JOIN translation_revisions t "
         "ON t.id=w.translation_revision WHERE u.active=1 AND w.status='approved' "
         "AND w.approved_source=u.source_revision AND w.approved_translation=w.translation_revision "
-        "ORDER BY u.original_key"
+        "ORDER BY +u.original_key"
     ):
         identity = sha256(
             "\0".join(("i2-v1", source_set, row["original_key"])).encode()
@@ -65,7 +69,9 @@ def export_runtime_payload(
         if selected_unit_ids is not None and row["unit_id"] not in selected_unit_ids:
             continue
         if format_issues(row["source_text"], row["text"]):
-            raise ValueError("Onaylı metin korumalı biçim kontrolünü geçmedi; paket oluşturulmadı.")
+            raise ValueError(
+                "Approved text failed the protected format check; no package was created."
+            )
         entries.append(
             {
                 "source_set": source_set,
@@ -78,7 +84,7 @@ def export_runtime_payload(
         payload_bytes += len(encoded.encode("utf-8")) + 4 * (encoded.count("\n") + 1) + 2
         if payload_bytes > MAX_PAYLOAD_BYTES:
             raise ValueError(
-                "Çeviri paketi 64 MiB veri sınırını aşıyor; daha küçük bir seçim yapın."
+                "The translation package exceeds the 64 MiB data limit; choose a smaller selection."
             )
         reviewed.append(
             {
@@ -87,11 +93,11 @@ def export_runtime_payload(
             }
         )
     if not entries:
-        raise ValueError("Bu I2 kaynak kümesinde güncel elle onaylı çeviri bulunmuyor.")
+        raise ValueError("This I2 source set has no current manually approved translations.")
     if selected_unit_ids is not None and {row["unit_id"] for row in reviewed} != selected_unit_ids:
-        raise ValueError("Seçilen kayıtların tamamı güncel insan onaylı I2 metni değil.")
+        raise ValueError("Not all selected records are current human-approved I2 text.")
     if max_records is not None and len(entries) > max_records:
-        raise ValueError("Deneme kayıt sınırı aşıldı; daha küçük bir seçim gerekli.")
+        raise ValueError("The trial record limit was exceeded; a smaller selection is required.")
     value = {
         "format_version": 2,
         "source_language": source_language,

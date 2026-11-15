@@ -123,7 +123,7 @@ def test_completed_records_not_retranslated_and_run_persisted(paths: ProjectPath
         assert result["counts"] == {"completed": 1}
         assert repo.page()[0]["translation"] == "Başla"
         assert repo.db.execute("SELECT status FROM translation_runs").fetchone()[0] == "accepted"
-        with pytest.raises(ValueError, match="bekleyen"):
+        with pytest.raises(ValueError, match="no pending records to translate"):
             store.create(["UI/start"], profile())
         assert fake.requests == ["Start"]
 
@@ -325,5 +325,5 @@ def test_pilot_acknowledgement_does_not_approve_records_and_gate_is_source_bound
         store.acknowledge_pilot(job)
         assert repo.page()[0]["status"] == "translated"
         repo.ingest([replace(draft(), context="changed")], {})
-        with pytest.raises(ValueError, match="Kaynak"):
+        with pytest.raises(ValueError, match="source changed; a new pilot evaluation"):
             store.acknowledge_pilot(job)

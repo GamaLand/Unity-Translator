@@ -12,74 +12,14 @@ $script:nativeBlocks = [Collections.Generic.Dictionary[string,bool]]::new([Strin
 $script:nativeKeys = [Collections.Generic.Dictionary[string,bool]]::new([StringComparer]::Ordinal)
 
 # Fixed bundled installer. Manifest values are data, never PowerShell expressions.
-# Shared path, identity and native-grammar checks for additive and legacy copy packages.
+# The exporter replaces the next line with the shared recipient core (identity, paths,
+# digests, process check and create-new writers).
+# UNITYTRANSLATOR-RECIPIENT-CORE
+
+# Ren'Py native-grammar checks shared by additive and legacy copy packages.
 Add-Type -TypeDefinition @'
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
-public static class RenpyCopyIdentity {
-  [StructLayout(LayoutKind.Sequential)] struct Info {
-    public uint Attributes; public System.Runtime.InteropServices.ComTypes.FILETIME Creation;
-    public System.Runtime.InteropServices.ComTypes.FILETIME Access, Write;
-    public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
-  }
-  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
-  static extern SafeFileHandle CreateFile(string p,uint a,uint s,IntPtr sec,uint c,uint f,IntPtr t);
-  [DllImport("kernel32.dll", SetLastError=true)] static extern bool GetFileInformationByHandle(SafeFileHandle h,out Info i);
-  [DllImport("kernel32.dll", SetLastError=true)]
-  static extern bool SetFileTime(SafeFileHandle h,IntPtr creation,IntPtr access,ref System.Runtime.InteropServices.ComTypes.FILETIME write);
-  [StructLayout(LayoutKind.Sequential)] struct Disposition { [MarshalAs(UnmanagedType.U1)] public bool DeleteFile; }
-  [DllImport("kernel32.dll", SetLastError=true)]
-  static extern bool SetFileInformationByHandle(SafeFileHandle h,int kind,ref Disposition info,uint size);
-  [DllImport("kernel32.dll", EntryPoint="CreateDirectoryW", CharSet=CharSet.Unicode, SetLastError=true)]
-  static extern bool CreateDirectoryNative(string p,IntPtr security);
-  public static string ReadHandle(SafeFileHandle h) {
-    Info i;
-    if(h.IsInvalid || !GetFileInformationByHandle(h,out i) || i.Links!=1 || (i.Attributes&0x400)!=0)
-      throw new IOException("File identity/link check failed");
-    return i.Volume.ToString("X8")+":"+i.IndexHigh.ToString("X8")+i.IndexLow.ToString("X8");
-  }
-  public static string Read(string p) {
-    using(var h=CreateFile(p,0,7,IntPtr.Zero,3,0x00200000,IntPtr.Zero)) return ReadHandle(h);
-  }
-  public static SafeFileHandle HoldDirectory(string p) {
-    var h=CreateFile(p,0,3,IntPtr.Zero,3,0x02200000,IntPtr.Zero);
-    Info i;
-    if(h.IsInvalid || !GetFileInformationByHandle(h,out i) || (i.Attributes&0x400)!=0 || (i.Attributes&0x10)==0) {
-      h.Dispose(); throw new IOException("Directory identity/link check failed");
-    }
-    return h;
-  }
-  public static void NewDirectory(string p) {
-    if(!CreateDirectoryNative(p,IntPtr.Zero)) throw new IOException("A new independent output directory is required");
-  }
-  public static bool DeleteEmptyDirectory(string p,string identity) {
-    using(var h=CreateFile(p,0x10000,0,IntPtr.Zero,3,0x02200000,IntPtr.Zero)) {
-      if(ReadHandle(h)!=identity) return false;
-      var disposition=new Disposition { DeleteFile=true };
-      return SetFileInformationByHandle(h,4,ref disposition,1);
-    }
-  }
-  public static void CopyWriteTime(SafeFileHandle source,SafeFileHandle target) {
-    Info i;
-    if(!GetFileInformationByHandle(source,out i) || !SetFileTime(target,IntPtr.Zero,IntPtr.Zero,ref i.Write))
-      throw new IOException("Copy timestamp verification failed");
-  }
-  public static bool DeleteUnchanged(string p,string identity,string digest) {
-    using(var h=CreateFile(p,0x80010000,0,IntPtr.Zero,3,0x00200000,IntPtr.Zero)) {
-      if(ReadHandle(h)!=identity) return false;
-      using(var stream=new FileStream(h,FileAccess.Read))
-      using(var sha=System.Security.Cryptography.SHA256.Create()) {
-        var actual=BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
-        if(actual!=digest) return false;
-        var disposition=new Disposition { DeleteFile=true };
-        if(!SetFileInformationByHandle(h,4,ref disposition,1)) throw new IOException("Owned-file deletion failed");
-        return true;
-      }
-    }
-  }
-}
 public static class RenpyCopyFormat {
   public static string Literal(string value) { return Literal(value,false); }
   public static string Literal(string value,bool say) {
@@ -100,9 +40,12 @@ public static class RenpyCopyFormat {
     }
     return result.ToString();
   }
-  static bool In(string value,string names) { return (" "+names+" ").Contains(" "+value+" "); }
+  static bool In(string value,string names) { return Array.IndexOf(names.Split(' '),value)>=0; }
   static bool Match(string value,string pattern) { return System.Text.RegularExpressions.Regex.IsMatch(value,"\\A(?:"+pattern+")\\z",System.Text.RegularExpressions.RegexOptions.CultureInvariant); }
-  static System.Collections.Generic.List<string> Tokens(string text) {
+  // renpy-text-v2 string keys: Python %-conversions, without the space flag.
+  static readonly System.Text.RegularExpressions.Regex Printf=new System.Text.RegularExpressions.Regex("\\G%(?:\\([A-Za-z_][A-Za-z0-9_]{0,127}\\))?[#0+\\-]{0,8}(?:\\*|[0-9]{1,4})?(?:\\.(?:\\*|[0-9]{1,4}))?[hlL]?[diouxXeEfFgGcrsa]",System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+  public static System.Collections.Generic.List<string> Tokens(string text) { return Tokens(text,false); }
+  public static System.Collections.Generic.List<string> Tokens(string text,bool printf) {
     if(text.Length>1000000 || text.Contains("__UT_")) throw new IOException("Invalid native text bounds");
     for(int j=0;j<text.Length;j++) {
       char c=text[j];
@@ -158,68 +101,42 @@ public static class RenpyCopyFormat {
           if(tags.Count>32) throw new IOException("Native tag nesting exceeded");
         }
         i=end+1;
+      } else if(printf && c=='%' && Printf.Match(text,i).Success) {
+        i+=Printf.Match(text,i).Length;
       } else { i++; continue; }
       result.Add(text.Substring(start,i-start));
     }
     if(tags.Count!=0) throw new IOException("Native tags must close explicitly");
     return result;
   }
-  public static void Compare(string source,string target) {
-    var left=Tokens(source); var right=Tokens(target);
+  public static void Compare(string source,string target) { Compare(source,target,false); }
+  static int Stray(string text,System.Collections.Generic.List<string> tokens) {
+    int count=0; foreach(char c in text) if(c=='%') count++;
+    foreach(string token in tokens) foreach(char c in token) if(c=='%') count--;
+    return count;
+  }
+  static void Same(System.Collections.Generic.List<string> left,System.Collections.Generic.List<string> right) {
     if(left.Count!=right.Count) throw new IOException("Native protected tokens changed");
     for(int i=0;i<left.Count;i++) if(left[i]!=right[i]) throw new IOException("Native protected tokens changed");
+  }
+  static System.Collections.Generic.List<string> Conversions(System.Collections.Generic.List<string> tokens) {
+    var result=new System.Collections.Generic.List<string>();
+    foreach(string token in tokens) if(token.StartsWith("%",StringComparison.Ordinal) && token!="%%") result.Add(token);
+    return result;
+  }
+  public static void Compare(string source,string target,bool printf) {
+    Same(Tokens(source,false),Tokens(target,false));
+    if(!printf) return;
+    // Conversions keep their order; '%%' may move, as in Turkish '%50'.
+    var left=Tokens(source,true); var right=Tokens(target,true);
+    Same(Conversions(left),Conversions(right));
+    // Same definition as the exporter: a conversion or an escaped '%%' marks a template.
+    bool template=Conversions(left).Count>0 || left.Contains("%%");
+    if(template && Stray(source,left)!=Stray(target,right)) throw new IOException("Native format template changed");
   }
 }
 '@
 
-function Checked([string]$Path) {
-    $full = [IO.Path]::GetFullPath($Path)
-    if ($full.StartsWith('\\') -or $full.StartsWith('//') -or $full.Substring(2).Contains(':')) { throw 'Local disk required.' }
-    $walk = $full
-    while ($walk) {
-        if (Test-Path -LiteralPath $walk) {
-            if (((Get-Item -LiteralPath $walk -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Reparse path refused.' }
-        }
-        $walk = [IO.Path]::GetDirectoryName($walk)
-    }
-    if (([IO.DriveInfo]::new([IO.Path]::GetPathRoot($full))).DriveType -eq [IO.DriveType]::Network) { throw 'Network disk refused.' }
-    if ($full.Length -eq [IO.Path]::GetPathRoot($full).Length) { return $full }
-    return $full.TrimEnd('\')
-}
-function Confined([string]$Root,[string]$Relative) {
-    if (-not $Relative -or [IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':')) { throw 'Invalid relative path.' }
-    foreach ($part in ($Relative -split '[\\/]')) {
-        if (-not $part -or $part -eq '.' -or $part -eq '..' -or $part.EndsWith('.') -or $part.EndsWith(' ') -or $part -match '[<>:"|?*\x00-\x1f]' -or $part -match '^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\..*)?$') { throw 'Invalid path component.' }
-    }
-    $full = Checked ([IO.Path]::Combine($Root,$Relative.Replace('/', '\')))
-    if (-not $full.StartsWith($Root.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Path escaped root.' }
-    return $full
-}
-function Overlaps([string]$Left,[string]$Right) {
-    return $Left.Equals($Right,[StringComparison]::OrdinalIgnoreCase) -or $Left.StartsWith($Right.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase) -or $Right.StartsWith($Left.TrimEnd('\')+'\',[StringComparison]::OrdinalIgnoreCase)
-}
-function BytesDigest([byte[]]$Bytes) {
-    $sha = [Security.Cryptography.SHA256]::Create()
-    try { return [BitConverter]::ToString($sha.ComputeHash($Bytes)).Replace('-','').ToLowerInvariant() }
-    finally { $sha.Dispose() }
-}
-function Digest([string]$Path) {
-    $stream = [IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
-    try {
-        $null = [RenpyCopyIdentity]::ReadHandle($stream.SafeFileHandle)
-        $sha = [Security.Cryptography.SHA256]::Create()
-        try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','').ToLowerInvariant() }
-        finally { $sha.Dispose() }
-    } finally { $stream.Dispose() }
-}
-function GameClosed([string]$Root) {
-    $expected = Confined $Root $package.game_executable
-    $name = [IO.Path]::GetFileNameWithoutExtension($package.game_executable)
-    foreach ($process in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {
-        try { $image = $process.Path } catch { throw 'Game process identity unavailable; close the game.' }
-        if (-not $image -or [string]::Equals([IO.Path]::GetFullPath($image),$expected,[StringComparison]::OrdinalIgnoreCase)) { throw 'Close the game before changing translation files.' }
-    }
-}
 function SelectFolder([string]$Description) {
     Add-Type -AssemblyName System.Windows.Forms
     $dialog = [Windows.Forms.FolderBrowserDialog]::new()
@@ -291,69 +208,23 @@ function CheckNative([string]$Path) {
             $translation = [RenpyCopyFormat]::Literal($targetSay.Groups['literal'].Value,$true)
         }
         if (-not $translation.Trim()) { throw 'Native translation is empty.' }
-        [RenpyCopyFormat]::Compare($pending,$translation)
+        [RenpyCopyFormat]::Compare($pending,$translation,($script:printfRules -and $block -ceq 'strings'))
         $pending = $null; $records++; $blockRecords++
         if ($records -gt 10000) { throw 'Native record limit exceeded.' }
     }
     if ($null -ne $pending -or $records -eq 0 -or $blockRecords -eq 0) { throw 'Incomplete native translation payload.' }
 }
-function NeedDirectory([string]$Path) {
-    $full = Checked $Path
-    if ($script:directoryGuards.ContainsKey($full)) { return }
-    $parent = [IO.Path]::GetDirectoryName($full)
-    if (-not (Test-Path -LiteralPath $full)) {
-        if ($parent -and $full -ne $target) { NeedDirectory $parent }
-        [void][IO.Directory]::CreateDirectory($full)
-    }
-    $script:directoryGuards[$full] = [RenpyCopyIdentity]::HoldDirectory((Checked $full))
-}
-function WriteNew([string]$Relative,[byte[]]$Bytes) {
-    $path = Confined $target $Relative
-    NeedDirectory ([IO.Path]::GetDirectoryName($path))
-    $path = Confined $target $Relative
-    $output = [IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
-    try {
-        $identity = [RenpyCopyIdentity]::ReadHandle($output.SafeFileHandle)
-        Journal @{path=$Relative;sha256=(BytesDigest $Bytes);identity=$identity}
-        $output.Write($Bytes,0,$Bytes.Length); $output.Flush($true)
-    } finally { $output.Dispose() }
-    if ((Digest $path) -cne (BytesDigest $Bytes)) { throw 'Written file integrity check failed.' }
-    return @{path=$Relative;sha256=(BytesDigest $Bytes);identity=$identity}
-}
-function CopyNew([string]$Root,$Entry) {
-    $source = Confined $Root $Entry.path
-    $destination = Confined $target $Entry.path
-    NeedDirectory ([IO.Path]::GetDirectoryName($destination))
-    $inputFile = [IO.File]::Open($source,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
-    try {
-        $null = [RenpyCopyIdentity]::ReadHandle($inputFile.SafeFileHandle)
-        if ($inputFile.Length -ne $Entry.bytes) { throw 'Source file size changed.' }
-        $output = [IO.File]::Open((Confined $target $Entry.path),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
-        try {
-            $identity = [RenpyCopyIdentity]::ReadHandle($output.SafeFileHandle)
-            Journal @{path=$Entry.path;sha256=$Entry.sha256;identity=$identity}
-            $inputFile.CopyTo($output); $output.Flush($true)
-            [RenpyCopyIdentity]::CopyWriteTime($inputFile.SafeFileHandle,$output.SafeFileHandle)
-        } finally { $output.Dispose() }
-    } finally { $inputFile.Dispose() }
-    if ((Digest $destination) -cne $Entry.sha256 -or (Digest $source) -cne $Entry.sha256) { throw 'Copy integrity check failed.' }
-    return @{path=$Entry.path;sha256=$Entry.sha256;identity=$identity}
-}
-function Journal($Record) {
-    if ($null -eq $script:journalStream) { return }
-    $raw = [Text.UTF8Encoding]::new($false).GetBytes(($Record | ConvertTo-Json -Compress)+"`n")
-    $script:journalStream.Write($raw,0,$raw.Length)
-    $script:journalStream.Flush($true)
-}
 
 $packageRoot = Checked $PSScriptRoot
-$script:directoryGuards = @{}
-$script:journalStream = $null
 $manifestPath = Confined $packageRoot 'package.json'
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or (Get-Item -LiteralPath $manifestPath).Length -gt 33554432) { throw 'Missing or oversized package manifest.' }
 $manifestBytes = [IO.File]::ReadAllBytes($manifestPath)
 $manifestHash = BytesDigest $manifestBytes
 $package = [Text.Encoding]::UTF8.GetString($manifestBytes) | ConvertFrom-Json
+# Absent means renpy-text-v1; renpy-text-v2 also protects printf in string keys.
+$rulesProperty = $package.PSObject.Properties['format_rules']
+if ($null -ne $rulesProperty -and ($rulesProperty.Value -isnot [string] -or $rulesProperty.Value -cne 'renpy-text-v2')) { throw 'Unsupported native text rules.' }
+$script:printfRules = $null -ne $rulesProperty
 if ($package.format_version -eq 3 -and $package.purpose -ceq 'unitytranslator-renpy-additive') {
     $addonPath = Confined $packageRoot 'renpy-additive.ps1'
     if ((Digest $PSCommandPath) -cne $package.installer_sha256 -or (Digest $addonPath) -cne $package.addon_sha256) { throw 'Bundled installer hash mismatch.' }
@@ -386,7 +257,7 @@ foreach ($entry in $package.payloads) {
 if ($payloadBytes -gt 67108864) { throw 'Native payload size limit exceeded.' }
 
 if ($Action -eq 'Launch') {
-    $target = Checked ([IO.Path]::Combine($packageRoot,'../..'))
+    $target = Checked ([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($packageRoot)))
     if ([IO.Path]::GetFileName($target) -cne $package.copy_folder) { throw 'Installed copy identity mismatch.' }
     $receiptPath = Confined $target ($package.metadata_folder+'/receipt.json')
     $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -420,7 +291,8 @@ if ($Action -eq 'Remove') {
     if (-not $InstallFolder) { $InstallFolder = SelectFolder 'Select the translated copy to remove' }
     $target = Checked $InstallFolder
     if ([IO.Path]::GetFileName($target) -cne $package.copy_folder) { throw 'Wrong translated-copy folder.' }
-    GameClosed $target
+    $copyExecutable = @([IO.Path]::GetFileName($package.game_executable))
+    GameClosed $target $copyExecutable
     $receiptPath = Confined $target ($package.metadata_folder+'/receipt.json')
     if ((Get-Item -LiteralPath $receiptPath).Length -gt 16777216) { throw 'Receipt too large.' }
     $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -453,16 +325,17 @@ if ($Action -eq 'Remove') {
     } else {
         Write-Output ($plan | ConvertTo-Json -Depth 12)
         if ((Read-Host 'Only unchanged owned COPY files are removed. Type REMOVE') -cne 'REMOVE') { throw 'Removal not approved.' }
+        ForgetGameCheck
     }
     $preserved = [Collections.Generic.List[string]]::new()
     NeedDirectory $target
     foreach ($entry in @($receipt.files | Sort-Object path -Descending)) {
-        GameClosed $target
+        GameClosed $target $copyExecutable
         $path = Confined $target $entry.path
         if (-not (Test-Path -LiteralPath $path)) { continue }
         try {
             NeedDirectory ([IO.Path]::GetDirectoryName($path))
-            if (-not [RenpyCopyIdentity]::DeleteUnchanged((Confined $target $entry.path),$entry.identity,$entry.sha256)) { $preserved.Add($entry.path) }
+            if (-not [RecipientIdentity]::DeleteUnchanged((Confined $target $entry.path),$entry.identity,$entry.sha256)) { $preserved.Add($entry.path) }
         } catch { $preserved.Add($entry.path) }
     }
     $report = @{status='owned_files_removed_runtime_data_retained';target=$target;changed_files_preserved=@($preserved);runtime_files_preserved=$true;original_game_modified=$false;reviewed_plan_sha256=$planHash;removal_receipt=$removalRelative}
@@ -506,18 +379,19 @@ if ($ReviewedPlanSha256) {
     Write-Output ($plan | ConvertTo-Json -Depth 12)
     Write-Output ('Copy plan SHA-256: '+$planHash)
     if ((Read-Host 'Review every new copy file above. Type INSTALL') -cne 'INSTALL') { throw 'Copy installation not approved; nothing written.' }
+    ForgetGameCheck
 }
 CheckBuild $game
 if (Test-Path -LiteralPath $target) { throw 'Copy target appeared after review; nothing overwritten.' }
 $script:receipt = @{format_version=1;package_id=$package.package_id;manifest_sha256=$manifestHash;original_game=$game;target=$target;status='installing';reviewed_plan_sha256=$planHash;reviewed_plan_file_sha256=(BytesDigest $planRaw);files=@()}
 try {
     NeedDirectory $parent
-    [RenpyCopyIdentity]::NewDirectory((Checked $target))
-    $script:directoryGuards[$target] = [RenpyCopyIdentity]::HoldDirectory((Checked $target))
+    [RecipientIdentity]::NewDirectory((Checked $target))
+    $script:directoryGuards[$target] = [RecipientIdentity]::HoldDirectory((Checked $target))
     NeedDirectory (Confined $target $package.metadata_folder)
     $journalPath = Confined $target ($package.metadata_folder+'/install-journal.jsonl')
     $script:journalStream = [IO.File]::Open($journalPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
-    $journalIdentity = [RenpyCopyIdentity]::ReadHandle($script:journalStream.SafeFileHandle)
+    $journalIdentity = [RecipientIdentity]::ReadHandle($script:journalStream.SafeFileHandle)
     $startRaw = [Text.UTF8Encoding]::new($false).GetBytes(($script:receipt | ConvertTo-Json -Depth 12))
     $script:receipt.installation_start_sha256 = BytesDigest $startRaw
     $script:receipt.files += WriteNew ($package.metadata_folder+'/install-start.json') $startRaw

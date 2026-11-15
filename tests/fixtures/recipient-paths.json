@@ -1,0 +1,575 @@
+{
+ "description": "Shared recipient path vectors. 'relative' entries run against the recipient core's Confined and Python's checked_relative (expect), and against deployment.target and ProjectPaths.output (expect unless 'legacy' names an intentional difference). 'roots' run against the core's Checked and Python's checked_path. A synthetic root holds a junction named 'linked' to a folder outside it. Tokens: {root}, {root_posix}, {drive}, {x255}, {x256}, {emoji127}, {emoji128}. Python and the core always match 'expect'; a row may name an intentional core 'difference' only with the exact 'powershell' result.",
+ "differences": {
+  "legacy-normalizes": {
+   "kind": "intentional",
+   "reason": "deployment.target and ProjectPaths.output receive paths through pathlib, which collapses '.', empty components and trailing separators before the check. They resolve to the normalised target inside the root, so nothing escapes. checked_relative is the reference for the recipient core's stricter Confined rule; Python production targets keep the normalising rule so existing deployment receipts stay readable."
+  }
+ },
+ "relative": [
+  {
+   "path": "a.txt",
+   "expect": "accept",
+   "target": "a.txt"
+  },
+  {
+   "path": "dir/a.txt",
+   "expect": "accept",
+   "target": "dir/a.txt"
+  },
+  {
+   "path": "dir\\a.txt",
+   "expect": "accept",
+   "target": "dir/a.txt"
+  },
+  {
+   "path": "Dir/Sub\\File.TXT",
+   "expect": "accept",
+   "target": "Dir/Sub/File.TXT",
+   "note": "mixed separators"
+  },
+  {
+   "path": "DIR/A.TXT",
+   "expect": "accept",
+   "target": "DIR/A.TXT",
+   "note": "case variant"
+  },
+  {
+   "path": ".hidden",
+   "expect": "accept",
+   "target": ".hidden"
+  },
+  {
+   "path": "a..b",
+   "expect": "accept",
+   "target": "a..b"
+  },
+  {
+   "path": "a b/c d.txt",
+   "expect": "accept",
+   "target": "a b/c d.txt"
+  },
+  {
+   "path": " a",
+   "expect": "accept",
+   "target": " a",
+   "note": "leading space is kept by Windows and .NET"
+  },
+  {
+   "path": "COM0.txt",
+   "expect": "accept",
+   "target": "COM0.txt"
+  },
+  {
+   "path": "LPT10",
+   "expect": "accept",
+   "target": "LPT10"
+  },
+  {
+   "path": "CONSOLE.txt",
+   "expect": "accept",
+   "target": "CONSOLE.txt"
+  },
+  {
+   "path": "nul_file.txt",
+   "expect": "accept",
+   "target": "nul_file.txt"
+  },
+  {
+   "path": "\u00fc.txt",
+   "expect": "accept",
+   "target": "\u00fc.txt"
+  },
+  {
+   "path": "a\u200b",
+   "expect": "accept",
+   "target": "a\u200b"
+  },
+  {
+   "path": "a\u3000",
+   "expect": "accept",
+   "target": "a\u3000"
+  },
+  {
+   "path": "\u00a0a",
+   "expect": "accept",
+   "target": "\u00a0a"
+  },
+  {
+   "path": "a\u007fb",
+   "expect": "accept",
+   "target": "a\u007fb"
+  },
+  {
+   "path": "{x255}",
+   "expect": "accept",
+   "target": "{x255}",
+   "note": "255 UTF-16 units"
+  },
+  {
+   "path": "{emoji127}x",
+   "expect": "accept",
+   "target": "{emoji127}x",
+   "note": "255 UTF-16 units"
+  },
+  {
+   "path": "",
+   "expect": "refuse"
+  },
+  {
+   "path": ".",
+   "expect": "refuse"
+  },
+  {
+   "path": "..",
+   "expect": "refuse"
+  },
+  {
+   "path": "../x",
+   "expect": "refuse"
+  },
+  {
+   "path": "a/../b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a/..",
+   "expect": "refuse"
+  },
+  {
+   "path": "./a",
+   "expect": "refuse",
+   "target": "a",
+   "legacy": "legacy-normalizes"
+  },
+  {
+   "path": "a/./b",
+   "expect": "refuse",
+   "target": "a/b",
+   "legacy": "legacy-normalizes"
+  },
+  {
+   "path": "a//b",
+   "expect": "refuse",
+   "target": "a/b",
+   "legacy": "legacy-normalizes"
+  },
+  {
+   "path": "a/",
+   "expect": "refuse",
+   "target": "a",
+   "legacy": "legacy-normalizes"
+  },
+  {
+   "path": "a\\",
+   "expect": "refuse",
+   "target": "a",
+   "legacy": "legacy-normalizes"
+  },
+  {
+   "path": "/a",
+   "expect": "refuse"
+  },
+  {
+   "path": "\\a",
+   "expect": "refuse"
+  },
+  {
+   "path": "C:\\a",
+   "expect": "refuse"
+  },
+  {
+   "path": "C:a",
+   "expect": "refuse",
+   "note": "drive-relative"
+  },
+  {
+   "path": "C:/a",
+   "expect": "refuse"
+  },
+  {
+   "path": "\\\\server\\share\\a",
+   "expect": "refuse",
+   "note": "UNC"
+  },
+  {
+   "path": "//server/share/a",
+   "expect": "refuse",
+   "note": "UNC"
+  },
+  {
+   "path": "\\\\?\\C:\\a",
+   "expect": "refuse"
+  },
+  {
+   "path": "\\\\.\\C:\\a",
+   "expect": "refuse"
+  },
+  {
+   "path": "a:stream",
+   "expect": "refuse",
+   "note": "alternate data stream"
+  },
+  {
+   "path": "a.txt::$DATA",
+   "expect": "refuse",
+   "note": "alternate data stream"
+  },
+  {
+   "path": "dir/a:b",
+   "expect": "refuse",
+   "note": "alternate data stream"
+  },
+  {
+   "path": "a.",
+   "expect": "refuse"
+  },
+  {
+   "path": "a ",
+   "expect": "refuse"
+  },
+  {
+   "path": "dir./x",
+   "expect": "refuse"
+  },
+  {
+   "path": "dir /x",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\u0085",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\u00a0",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\u00a0/b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\u0085/b",
+   "expect": "refuse"
+  },
+  {
+   "path": "CON",
+   "expect": "refuse"
+  },
+  {
+   "path": "con",
+   "expect": "refuse"
+  },
+  {
+   "path": "Con/a.txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "nul.txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "NUL.tar.gz",
+   "expect": "refuse"
+  },
+  {
+   "path": "COM1",
+   "expect": "refuse"
+  },
+  {
+   "path": "com1.log",
+   "expect": "refuse"
+  },
+  {
+   "path": "COM1 ",
+   "expect": "refuse"
+  },
+  {
+   "path": "LPT9",
+   "expect": "refuse"
+  },
+  {
+   "path": "AUX",
+   "expect": "refuse"
+  },
+  {
+   "path": "PRN.x",
+   "expect": "refuse"
+  },
+  {
+   "path": "CONIN$",
+   "expect": "refuse"
+  },
+  {
+   "path": "CONOUT$",
+   "expect": "refuse"
+  },
+  {
+   "path": "conin$.txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "COM\u00b9",
+   "expect": "refuse"
+  },
+  {
+   "path": "lpt\u00b2.txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "nul .txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "aux .x",
+   "expect": "refuse"
+  },
+  {
+   "path": "COM\u00b3.txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "CONOUT$ .log",
+   "expect": "refuse"
+  },
+  {
+   "path": "a<b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a>b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\"b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a|b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a?b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a*b",
+   "expect": "refuse"
+  },
+  {
+   "path": "dir/*",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\u0000b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\u0001b",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\tb",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\nb",
+   "expect": "refuse"
+  },
+  {
+   "path": "a\u001fb",
+   "expect": "refuse"
+  },
+  {
+   "path": "{x256}",
+   "expect": "refuse",
+   "note": "256 UTF-16 units"
+  },
+  {
+   "path": "d/{x256}",
+   "expect": "refuse"
+  },
+  {
+   "path": "{emoji128}",
+   "expect": "refuse",
+   "note": "256 UTF-16 units from 128 code points"
+  },
+  {
+   "path": "linked/a.txt",
+   "expect": "refuse",
+   "note": "junction to a folder outside the root"
+  },
+  {
+   "path": "linked",
+   "expect": "refuse",
+   "note": "junction to a folder outside the root"
+  },
+  {
+   "path": "CON\u0131N$",
+   "expect": "accept",
+   "target": "CON\u0131N$",
+   "note": "dotless i: Windows matches device names in ASCII only"
+  },
+  {
+   "path": "con\u0131n$.txt",
+   "expect": "accept",
+   "target": "con\u0131n$.txt",
+   "note": "dotless i: Windows matches device names in ASCII only"
+  }
+ ],
+ "roots": [
+  {
+   "path": "{root}",
+   "expect": "accept"
+  },
+  {
+   "path": "{root}\\",
+   "expect": "accept",
+   "note": "trailing separator is trimmed"
+  },
+  {
+   "path": "{root_posix}",
+   "expect": "accept"
+  },
+  {
+   "path": "{root}\\new\\folder",
+   "expect": "accept",
+   "note": "missing folders are allowed"
+  },
+  {
+   "path": "{root}\\\u00a0a",
+   "expect": "accept",
+   "note": "leading NBSP is kept"
+  },
+  {
+   "path": "\\\\server\\share\\x",
+   "expect": "refuse",
+   "note": "UNC"
+  },
+  {
+   "path": "//server/share/x",
+   "expect": "refuse",
+   "note": "UNC"
+  },
+  {
+   "path": "\\\\?\\{root}",
+   "expect": "refuse",
+   "note": "extended-length prefix"
+  },
+  {
+   "path": "\\\\?\\UNC\\server\\share",
+   "expect": "refuse"
+  },
+  {
+   "path": "\\\\.\\{root}",
+   "expect": "refuse",
+   "note": "device namespace"
+  },
+  {
+   "path": "{root}:ads",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a:b",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a<b",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a?b",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a|b",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a\u0001b",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\{x256}",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\linked",
+   "expect": "refuse",
+   "note": "junction"
+  },
+  {
+   "path": "{root}\\linked\\x",
+   "expect": "refuse",
+   "note": "below a junction"
+  },
+  {
+   "path": "{drive}x",
+   "expect": "refuse",
+   "note": "drive-relative"
+  },
+  {
+   "path": "{root}\\..\\x",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\CON",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\nul.txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\CONIN$",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a.",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a ",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a\u00a0",
+   "expect": "refuse"
+  },
+  {
+   "path": "{drive}",
+   "expect": "refuse",
+   "note": "drive-relative"
+  },
+  {
+   "path": "{root}\\x\\..",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\COM\u00b9",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\nul .txt",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a\u0085",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\a\u0085\\b",
+   "expect": "refuse"
+  },
+  {
+   "path": "{root}\\.\\x",
+   "expect": "accept",
+   "note": "'.' component is collapsed"
+  },
+  {
+   "path": "{root}\\\\x",
+   "expect": "accept",
+   "note": "empty component is collapsed"
+  }
+ ]
+}

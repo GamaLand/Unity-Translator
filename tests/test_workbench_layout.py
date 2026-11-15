@@ -19,7 +19,7 @@ from unitytranslator.ui.window import MainWindow
 
 class Bridge(QObject):
     completed = Signal(str, object)
-    failed = Signal(str, str)
+    failed = Signal(str, object)
     progress = Signal(object)
     stopped = Signal()
     def submit(self, *args):

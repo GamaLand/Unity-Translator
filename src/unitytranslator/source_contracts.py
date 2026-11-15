@@ -40,7 +40,9 @@ class SourceDescriptor:
 
     def __post_init__(self) -> None:
         validate_relative_source(self.source_file)
-        if self.format_rules not in ("protected-i2-v4", "literal-lines-v1", "renpy-text-v1"):
+        if self.format_rules not in (
+            "protected-i2-v4", "literal-lines-v1", "renpy-text-v1", "renpy-text-v2",
+        ):
             raise ValueError("Unknown built-in source format rules.")
         for value in (
             self.logical_id,

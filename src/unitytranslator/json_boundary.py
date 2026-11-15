@@ -9,11 +9,14 @@ def strict_json(raw: str | bytes) -> Any:
         result: dict[str, Any] = {}
         for key, value in pairs:
             if key in result:
-                raise ValueError("Yinelenen JSON alanı.")
+                raise ValueError("Duplicate JSON field.")
             result[key] = value
         return result
 
     def invalid_number(value: str) -> Any:
-        raise ValueError("Standart dışı JSON sayısı.")
+        raise ValueError("Nonstandard JSON number.")
 
-    return json.loads(raw, object_pairs_hook=fields, parse_constant=invalid_number)
+    try:
+        return json.loads(raw, object_pairs_hook=fields, parse_constant=invalid_number)
+    except RecursionError as exc:
+        raise ValueError("JSON nesting limit exceeded.") from exc

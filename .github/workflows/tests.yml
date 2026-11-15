@@ -8,15 +8,69 @@ on:
 permissions:
   contents: read
 
+# A newer push cancels an older run on branches and pull requests. On main every run gets
+# its own group (a concurrency group keeps only one pending run), so each merged commit
+# gets a complete result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
-  synthetic:
+  python:
     runs-on: windows-latest
-    timeout-minutes: 20
+    # The full pytest suite (about 1,500 tests) takes 18-21 minutes on a local Windows
+    # machine. Its step limit allows a slower hosted runner; the job limit adds a cold
+    # dependency cache and packaging. A hung test ends sooner through the per-test timeout
+    # in tests/conftest.py (default 120 s; the slowest test measured 23 s).
+    timeout-minutes: 75
     env:
       QT_QPA_PLATFORM: offscreen
+      UV_CACHE_DIR: .cache/uv
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        id: python
+        with:
+          python-version: "3.12"
+      - name: Restore locked dependency cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/uv
+          key: uv-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-
+      - name: Install locked development environment
+        timeout-minutes: 15
+        shell: pwsh
+        run: |
+          python -m pip install uv==0.12.10
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv sync --locked --extra ui --python 3.12
+      - name: Ruff, mypy and pytest
+        timeout-minutes: 45
+        run: uv run --locked --extra ui python tools/check.py --python-only
+      - name: Check documentation and guide layout
+        timeout-minutes: 5
+        run: uv run --locked --extra ui python tools/check_documentation.py
+      - name: Build source packages
+        timeout-minutes: 10
+        run: uv build
+      - name: Inspect source packages for private data
+        timeout-minutes: 5
+        run: uv run --locked --extra ui python tools/check_distribution.py
+
+  csharp:
+    runs-on: windows-latest
+    # Five small synthetic console projects; a warm local build and run takes seconds.
+    timeout-minutes: 15
+    env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_GENERATE_ASPNET_CERTIFICATE: "false"
-      UV_CACHE_DIR: .cache/uv
+      DOTNET_NOLOGO: "1"
+      # tools/check.py needs only the standard library and the in-tree path rules.
+      PYTHONPATH: src
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,17 +81,8 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: "10.0.401"
-      - name: Install locked development environment
-        shell: pwsh
-        run: |
-          python -m pip install uv==0.12.10
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv sync --locked --extra ui --python 3.12
-      - name: Synthetic Python and C# checks
-        run: uv run --locked --extra ui python tools/check.py --with-dotnet
-      - name: Check documentation and guide layout
-        run: uv run --locked --extra ui python tools/check_documentation.py
-      - name: Build source packages
-        run: uv build
-      - name: Inspect source packages for private data
-        run: uv run --locked --extra ui python tools/check_distribution.py
+      # The test projects have no package references and three disable restore sources,
+      # so a NuGet package cache would hold nothing to reuse.
+      - name: Synthetic C# checks
+        timeout-minutes: 10
+        run: python tools/check.py --dotnet-only

@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.validation import (
     PROTECTED_FORMAT_VERSION,
     REVIEW_CHECKS_VERSION,
@@ -21,10 +22,40 @@ from unitytranslator.validation import (
     review_issues,
 )
 
+REASONING_MODES = ("default", "none", "adaptive")
+ADAPTIVE_REASONING_POLICY = "adaptive-v1"
+ADAPTIVE_REASONING_BASE = 64
+ADAPTIVE_REASONING_PER_REFERENCE = 64
+ADAPTIVE_REASONING_MAX = 1024
 
-class ProviderError(ValueError):
-    def __init__(self, code: str, message: str, diagnostics: dict[str, int | str] | None = None):
-        super().__init__(message)
+
+def adaptive_reasoning_budget(source: str, references: list[dict[str, Any]]) -> int:
+    """A thinking-token budget that grows with the record and its dialogue references.
+
+    Short interface text gets a small budget; longer text and verified neighbouring
+    dialogue get more, so context-dependent records keep room to reason. One token per
+    source character is a deliberately generous estimate; the cap bounds slow requests.
+    """
+    size = len(source) + sum(len(r["source"]) for r in references) // 2
+    budget = ADAPTIVE_REASONING_BASE + size + ADAPTIVE_REASONING_PER_REFERENCE * len(references)
+    return min(ADAPTIVE_REASONING_MAX, budget)
+
+
+def reasoning_supported(provider: str, mode: str) -> bool:
+    """LM Studio accepts only `none`; llama.cpp also caps thinking per request."""
+    return mode == "default" or (mode == "none" and provider in ("lm-studio", "llama-cpp")) or (
+        mode == "adaptive" and provider == "llama-cpp"
+    )
+
+
+class ProviderError(Diagnostic):
+    """`code` is the provider failure class; the English template is the reason code."""
+
+    def __init__(
+        self, code: str, message: str, diagnostics: dict[str, int | str] | None = None,
+        **params: object,
+    ):
+        super().__init__(message, **params)
         self.code = code
         self.diagnostics = diagnostics or {}
 
@@ -42,6 +73,9 @@ def response_diagnostics(result: dict[str, Any]) -> dict[str, int | str]:
             details["response_content_bytes"] = len(
                 message["content"].encode("utf-8", errors="replace")
             )
+        if isinstance(message, dict) and isinstance(message.get("reasoning_content"), str):
+            # Only the size of separately returned reasoning is kept, never its text.
+            details["reasoning_characters"] = len(message["reasoning_content"])
     usage = result.get("usage")
     if isinstance(usage, dict):
         for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
@@ -68,12 +102,12 @@ def local_endpoint(address: str) -> str:
         or parsed.path not in ("", "/", "/v1", "/v1/")
     ):
         raise ProviderError(
-            "unsafe_endpoint", "Bu prototip yalnızca yerel model adresi kabul eder."
+            "unsafe_endpoint", "This prototype accepts only a local model address."
         )
     try:
         _ = parsed.port
     except ValueError as exc:
-        raise ProviderError("unsafe_endpoint", "Sunucu portu geçersiz.") from exc
+        raise ProviderError("unsafe_endpoint", "The server port is invalid.") from exc
     return f"{parsed.scheme}://{parsed.netloc}/v1"
 
 
@@ -115,15 +149,15 @@ class LocalProvider:
                     root = self.endpoint.removesuffix("/v1") if native else self.endpoint
                     async with client.stream(method, root + route, json=payload) as reply:
                         if reply.status_code in (401, 403):
-                            raise ProviderError("unauthorized", "Sunucu erişim izni vermedi.")
+                            raise ProviderError("unauthorized", "The server denied access.")
                         if reply.status_code == 404:
-                            raise ProviderError("not_found", "Uç nokta veya model bulunamadı.")
+                            raise ProviderError("not_found", "The endpoint or model was not found.")
                         data = bytearray()
                         async for block in reply.aiter_bytes():
                             data.extend(block)
                             if len(data) > 1024 * 1024:
                                 raise ProviderError(
-                                    "invalid_response", "Sunucu cevabı fazla büyük."
+                                    "invalid_response", "The server response is too large."
                                 )
                         if not 200 <= reply.status_code < 300:
                             message = bytes(data).decode("utf-8", errors="replace").casefold()
@@ -137,45 +171,57 @@ class LocalProvider:
                             ):
                                 raise ProviderError(
                                     "out_of_memory",
-                                    "Model sunucusunda bellek yetersiz; model/bağlam ve "
-                                    "diğer GPU süreçlerini kontrol edin.",
+                                    "The model server is out of memory; check the "
+                                    "model/context and other GPU processes.",
                                 )
                             if "context" in message and any(
                                 term in message for term in ("exceed", "length", "too long")
                             ):
                                 raise ProviderError(
                                     "context",
-                                    "Model sunucusunun bağlam sınırı aşıldı; metin kesilmedi.",
+                                    "The model server context limit was exceeded; "
+                                    "the text was not truncated.",
                                 )
                             if "model" in message and any(
                                 term in message for term in ("not loaded", "not found", "no model")
                             ):
                                 raise ProviderError(
                                     "not_found",
-                                    "Seçilen model sunucuda yüklü/kullanılabilir değil.",
+                                    "The selected model is not loaded or available on the server.",
                                 )
                             if "unsupported" in message or "unknown parameter" in message:
                                 raise ProviderError(
                                     "unsupported_option",
-                                    "Sunucu istenen üretim seçeneğini desteklemiyor.",
+                                    "The server does not support the requested generation option.",
+                                )
+                            if reply.status_code == 429 or reply.status_code >= 500:
+                                # Loading models, rate limits and restarts are transient.
+                                raise ProviderError(
+                                    "server_unavailable",
+                                    "The local model server is temporarily unavailable "
+                                    "(HTTP {p0}).",
+                                    p0=reply.status_code,
                                 )
                             raise ProviderError(
-                                "http_error", f"Sunucu HTTP {reply.status_code} döndürdü."
+                                "http_error", "The server returned HTTP {p0}.",
+                                p0=reply.status_code,
                             )
                         result = json.loads(data)
                         if not isinstance(result, dict):
                             raise ProviderError(
-                                "invalid_response", "Sunucu JSON nesnesi döndürmedi."
+                                "invalid_response", "The server did not return a JSON object."
                             )
                         return result
         except (TimeoutError, httpx.TimeoutException) as exc:
-            raise ProviderError("timeout", "Yerel sunucu isteği zaman aşımına uğradı.") from exc
+            raise ProviderError("timeout", "Local server request timed out.") from exc
         except httpx.HTTPError as exc:
-            raise ProviderError("connection", "Yerel sunucuya bağlanılamadı.") from exc
+            raise ProviderError("connection", "Could not connect to the local server.") from exc
         except (ValueError, UnicodeError) as exc:
             if isinstance(exc, ProviderError):
                 raise
-            raise ProviderError("invalid_response", "Sunucu cevabı geçerli JSON değil.") from exc
+            raise ProviderError(
+                "invalid_response", "The server response is not valid JSON."
+            ) from exc
 
     async def list_models(self) -> list[str]:
         result = await self.request("GET", "/models")
@@ -183,7 +229,7 @@ class LocalProvider:
         if not isinstance(data, list) or any(
             not isinstance(item, dict) or not isinstance(item.get("id"), str) for item in data
         ):
-            raise ProviderError("invalid_response", "Model listesi çözülemedi.")
+            raise ProviderError("invalid_response", "The model list could not be parsed.")
         return [item["id"] for item in data]
 
     async def inspect_models(self) -> list[dict[str, Any]]:
@@ -192,7 +238,7 @@ class LocalProvider:
         if not isinstance(data, list) or any(
             not isinstance(item, dict) or not isinstance(item.get("id"), str) for item in data
         ):
-            raise ProviderError("invalid_response", "Model listesi çözülemedi.")
+            raise ProviderError("invalid_response", "The model list could not be parsed.")
         models: list[dict[str, Any]] = [
             {"id": item["id"], "loaded": "unknown", "context_tokens": None, "quantization": None}
             for item in data
@@ -274,15 +320,16 @@ class LocalProvider:
         dialogue_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if prompt_version not in ("sample-v1", "translate-v1"):
-            raise ProviderError("unsupported_option", "İstem sürümü desteklenmiyor.")
-        if reasoning_effort not in ("default", "none") or (
-            reasoning_effort == "none" and self.provider != "lm-studio"
+            raise ProviderError("unsupported_option", "The prompt version is not supported.")
+        if reasoning_effort not in REASONING_MODES or not reasoning_supported(
+            self.provider, reasoning_effort
         ):
             raise ProviderError("unsupported_option", "Unsupported provider reasoning option.")
         if not 128 <= output_tokens <= 8192 or not 512 <= context_tokens <= 1_048_576:
-            raise ProviderError("context", "Bağlam/çıkış token sınırı geçersiz.")
+            raise ProviderError("context", "The context or output token limit is invalid.")
         branches = (
-            {"Plural": text} if format_rules in ("literal-lines-v1", "renpy-text-v1")
+            {"Plural": text}
+            if format_rules in ("literal-lines-v1", "renpy-text-v1", "renpy-text-v2")
             else plural_branches(text)
         )
         protected = {form: mask(branch, rules=format_rules) for form, branch in branches.items()}
@@ -334,6 +381,11 @@ class LocalProvider:
         }
         if reasoning_effort == "none":
             payload["reasoning_effort"] = "none"
+            if self.provider == "llama-cpp":
+                # Chat templates such as Gemma's switch thinking on for any system prompt.
+                payload["chat_template_kwargs"] = {"enable_thinking": False}
+        reasoning_budget = 0
+        reasoning_reduced = 0
         if self.structured_output:
             schema = Envelope.model_json_schema()
             schema["properties"]["translations"].update(
@@ -404,6 +456,7 @@ class LocalProvider:
                     "their tokens. Do not invent missing context."
                 )
                 payload["messages"][1]["content"] = json.dumps(input_data, ensure_ascii=False)
+                # References come first; an adaptive thinking budget fits around them.
                 size = len(json.dumps(context_payload, ensure_ascii=False).encode()) + output_tokens
                 if size <= int(context_tokens * 0.8):
                     break
@@ -423,13 +476,28 @@ class LocalProvider:
                     input_data.get("dialogue_reference"), sort_keys=True, ensure_ascii=False,
                 ).encode()).hexdigest(),
             }
+        if reasoning_effort == "adaptive":
+            final_references = (input_data.get("dialogue_reference") or {}).get("utterances", [])
+            wanted = adaptive_reasoning_budget(text, final_references)
+            available = (
+                int(context_tokens * 0.8) - output_tokens
+                - len(json.dumps(context_payload, ensure_ascii=False).encode("utf-8"))
+            )
+            # Never drop verified references or overrun the context for thinking room.
+            reasoning_budget = max(0, min(wanted, available))
+            reasoning_reduced = wanted - reasoning_budget
+            # Thinking gets its own budget so it cannot consume the answer's output budget.
+            payload["thinking_budget_tokens"] = reasoning_budget
+            payload["max_tokens"] = output_tokens + reasoning_budget
         estimated = (
-            len(json.dumps(context_payload, ensure_ascii=False).encode("utf-8")) + output_tokens
+            len(json.dumps(context_payload, ensure_ascii=False).encode("utf-8"))
+            + output_tokens + reasoning_budget
         )
         if estimated > int(context_tokens * 0.8):
             raise ProviderError(
                 "context",
-                "İstem ve çıktı şeması güvenli bağlam bütçesine sığmıyor; metin kesilmedi.",
+                "The prompt and output schema exceed the safe context budget; "
+                "the text was not truncated.",
             )
         result = await self.request("POST", "/chat/completions", payload, generation=True)
         diagnostics: dict[str, Any] = dict(response_diagnostics(result))
@@ -445,11 +513,16 @@ class LocalProvider:
         )
         if dialogue_metadata is not None:
             diagnostics["dialogue_context"] = dialogue_metadata
+        if reasoning_effort == "adaptive":
+            diagnostics["reasoning_policy"] = ADAPTIVE_REASONING_POLICY
+            diagnostics["reasoning_budget_tokens"] = reasoning_budget
+            if reasoning_reduced:
+                diagnostics["reasoning_budget_reduced"] = reasoning_reduced
         try:
             choice = result["choices"][0]
             message = choice["message"]
             if not isinstance(choice, dict) or not isinstance(message, dict):
-                raise ValueError("Cevap choice/message nesnesi değil.")
+                raise ValueError("The response choice or message is not an object.")
             if (
                 message.get("tool_calls")
                 or message.get("function_call")
@@ -457,27 +530,27 @@ class LocalProvider:
             ):
                 raise ProviderError(
                     "unexpected_tool_call",
-                    "Model araç çağrısı döndürdü; çalıştırılmadı.",
+                    "The model returned a tool call; it was not executed.",
                     diagnostics,
                 )
             if choice.get("finish_reason") == "length":
                 raise ProviderError(
                     "output_truncated",
-                    "Model cevabı çıkış token sınırında kesildi; "
-                    "çeviri kabul edilmedi. Çıkış bütçesini ve modelin üretim ayarlarını "
-                    "kontrol edin.",
+                    "The model response was cut off at the output token limit; the "
+                    "translation was not accepted. Check the output budget and the model's "
+                    "generation settings.",
                     diagnostics,
                 )
             raw = message["content"]
             if not isinstance(raw, str):
-                raise ValueError("Son metin bulunamadı.")
+                raise ValueError("No final text was found.")
             candidates = parse_reply(raw, set(ids.values()))
         except ProviderError:
             raise
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise ProviderError(
                 "response_schema_error",
-                "Model cevabının JSON yapısı veya kayıt kimliği geçersiz.",
+                "The model response has an invalid JSON structure or record ID.",
                 diagnostics,
             ) from exc
         try:
@@ -487,7 +560,7 @@ class LocalProvider:
         except ValueError as exc:
             raise ProviderError(
                 "protected_content_error",
-                "Model cevabındaki değişken veya etiket korunmadı.",
+                "The model response did not preserve a variable or tag.",
                 diagnostics,
             ) from exc
         issues = review_issues(
@@ -529,4 +602,12 @@ class LocalProvider:
                 "estimated": estimated,
             },
             "usage": result.get("usage"),
+            "reasoning": {
+                "mode": reasoning_effort,
+                **({"policy": ADAPTIVE_REASONING_POLICY, "budget_tokens": reasoning_budget}
+                   if reasoning_effort == "adaptive" else {}),
+                **({"budget_reduced": reasoning_reduced} if reasoning_reduced else {}),
+                **{key: diagnostics[key] for key in ("reasoning_characters", "reasoning_tokens")
+                   if key in diagnostics},
+            },
         }

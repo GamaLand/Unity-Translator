@@ -66,7 +66,7 @@ def test_invalid_or_changed_review_selection_is_not_exported(selected, change):
 def test_legacy_missing_source_name_requires_reextraction(selected):
     repo, units, records = selected
     repo.ingest(units, {"source": units[0].source_file, "unity_versions": ["2017.4.19f1"]})
-    with pytest.raises(ValueError, match="yeniden çıkarın"):
+    with pytest.raises(ValueError, match="extract the text again"):
         export_selected_runtime(repo, records)
     assert repo.page()[0]["status"] == "approved"
 
@@ -75,7 +75,7 @@ def test_application_runtime_export_requires_same_project_and_returns_request_id
     repo, _, records = selected
     session = ApplicationSession()
     session.repository = repo
-    with pytest.raises(ValueError, match="proje kimliği"):
+    with pytest.raises(ValueError, match="Trial request project identity does not match"):
         asyncio.run(session.dispatch("runtime_export", {"project_id": "other", "records": records}))
     result = asyncio.run(
         session.dispatch(

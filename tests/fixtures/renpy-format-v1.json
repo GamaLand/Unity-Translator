@@ -1,0 +1,971 @@
+{
+ "format_rules": "renpy-text-v1",
+ "cases": [
+  {
+   "source": "Hello [name!q]",
+   "target": "Hello [name!q]",
+   "accepted": true,
+   "tokens": [
+    "[name!q]"
+   ]
+  },
+  {
+   "source": "Hello [items['name'][0]!q]",
+   "target": "Hello [items['name'][0]!q]",
+   "accepted": true,
+   "tokens": [
+    "[items['name'][0]!q]"
+   ]
+  },
+  {
+   "source": "[mapping[']']!s:.2f]",
+   "target": "[mapping[']']!s:.2f]",
+   "accepted": true,
+   "tokens": [
+    "[mapping[']']!s:.2f]"
+   ]
+  },
+  {
+   "source": "[calculate({'key': values[2]})!q]",
+   "target": "[calculate({'key': values[2]})!q]",
+   "accepted": true,
+   "tokens": [
+    "[calculate({'key': values[2]})!q]"
+   ]
+  },
+  {
+   "source": "[a\\]]",
+   "target": "[a\\]]",
+   "accepted": true,
+   "tokens": [
+    "[a\\]]"
+   ]
+  },
+  {
+   "source": "[a\"]\"]",
+   "target": "[a\"]\"]",
+   "accepted": true,
+   "tokens": [
+    "[a\"]\"]"
+   ]
+  },
+  {
+   "source": "[a['b]']]",
+   "target": "[a['b]']]",
+   "accepted": true,
+   "tokens": [
+    "[a['b]']]"
+   ]
+  },
+  {
+   "source": "[x {b}]",
+   "target": "[x {b}]",
+   "accepted": true,
+   "tokens": [
+    "[x {b}]"
+   ]
+  },
+  {
+   "source": "[x:>10]",
+   "target": "[x:>10]",
+   "accepted": true,
+   "tokens": [
+    "[x:>10]"
+   ]
+  },
+  {
+   "source": "[[literal] {{braces} 100%%",
+   "target": "[[literal] {{braces} 100%%",
+   "accepted": true,
+   "tokens": [
+    "[[",
+    "{{",
+    "%%"
+   ]
+  },
+  {
+   "source": "{{b}}",
+   "target": "{{b}}",
+   "accepted": true,
+   "tokens": [
+    "{{"
+   ]
+  },
+  {
+   "source": "]] and }}",
+   "target": "]] and }}",
+   "accepted": true,
+   "tokens": []
+  },
+  {
+   "source": "%%%",
+   "target": "%%%",
+   "accepted": true,
+   "tokens": [
+    "%%"
+   ]
+  },
+  {
+   "source": "%%%%",
+   "target": "%%%%",
+   "accepted": true,
+   "tokens": [
+    "%%",
+    "%%"
+   ]
+  },
+  {
+   "source": "%",
+   "target": "%",
+   "accepted": true,
+   "tokens": []
+  },
+  {
+   "source": "%s and %(name)s",
+   "target": "%s and %(name)s",
+   "accepted": true,
+   "tokens": [],
+   "note": "renpy-text-v1 does not protect printf"
+  },
+  {
+   "source": "A\r\nB",
+   "target": "A\r\nB",
+   "accepted": true,
+   "tokens": [
+    "\r\n"
+   ]
+  },
+  {
+   "source": "\r\r\n",
+   "target": "\r\r\n",
+   "accepted": true,
+   "tokens": [
+    "\r",
+    "\r\n"
+   ]
+  },
+  {
+   "source": "\n",
+   "target": "\n",
+   "accepted": true,
+   "tokens": [
+    "\n"
+   ]
+  },
+  {
+   "source": "{b}Bold {i}italic{/i}{/b}",
+   "target": "{b}Bold {i}italic{/i}{/b}",
+   "accepted": true,
+   "tokens": [
+    "{b}",
+    "{i}",
+    "{/i}",
+    "{/b}"
+   ]
+  },
+  {
+   "source": "{color=#ff00aa}Text{/color}{w=0.5}{nw}",
+   "target": "{color=#ff00aa}Text{/color}{w=0.5}{nw}",
+   "accepted": true,
+   "tokens": [
+    "{color=#ff00aa}",
+    "{/color}",
+    "{w=0.5}",
+    "{nw}"
+   ]
+  },
+  {
+   "source": "{outlinecolor=#12345678}x{/outlinecolor}",
+   "target": "{outlinecolor=#12345678}x{/outlinecolor}",
+   "accepted": true
+  },
+  {
+   "source": "{size=+10}x{/size}",
+   "target": "{size=+10}x{/size}",
+   "accepted": true
+  },
+  {
+   "source": "{alpha=.5}x{/alpha}",
+   "target": "{alpha=.5}x{/alpha}",
+   "accepted": true
+  },
+  {
+   "source": "{cps=*2}x{/cps}",
+   "target": "{cps=*2}x{/cps}",
+   "accepted": true
+  },
+  {
+   "source": "{k=-1.5}x{/k}",
+   "target": "{k=-1.5}x{/k}",
+   "accepted": true
+  },
+  {
+   "source": "{w}",
+   "target": "{w}",
+   "accepted": true,
+   "tokens": [
+    "{w}"
+   ]
+  },
+  {
+   "source": "{p=1}",
+   "target": "{p=1}",
+   "accepted": true
+  },
+  {
+   "source": "{fast}",
+   "target": "{fast}",
+   "accepted": true
+  },
+  {
+   "source": "{done}",
+   "target": "{done}",
+   "accepted": true
+  },
+  {
+   "source": "{a=jump:start}Link{/a}{image=heart.png}",
+   "target": "{a=jump:start}Link{/a}{image=heart.png}",
+   "accepted": true
+  },
+  {
+   "source": "{space=10}",
+   "target": "{space=10}",
+   "accepted": true
+  },
+  {
+   "source": "{font=x.ttf}x{/font}",
+   "target": "{font=x.ttf}x{/font}",
+   "accepted": true
+  },
+  {
+   "source": "{alt}x{/alt}",
+   "target": "{alt}x{/alt}",
+   "accepted": true
+  },
+  {
+   "source": "{noalt}x{/noalt}",
+   "target": "{noalt}x{/noalt}",
+   "accepted": true
+  },
+  {
+   "source": "Start{#menu}",
+   "target": "Start{#menu}",
+   "accepted": true,
+   "tokens": [
+    "{#menu}"
+   ]
+  },
+  {
+   "source": "Emoji 😀",
+   "target": "Emoji 😀",
+   "accepted": true,
+   "tokens": []
+  },
+  {
+   "source": "{w}a",
+   "target": "a{w}",
+   "accepted": true
+  },
+  {
+   "source": "Hello [name!q]",
+   "target": "Merhaba [name!q]",
+   "accepted": true
+  },
+  {
+   "source": "Hello %s",
+   "target": "Merhaba",
+   "accepted": true,
+   "note": "renpy-text-v1 does not protect printf"
+  },
+  {
+   "source": "Hi",
+   "target": "Hi %s",
+   "accepted": true,
+   "note": "renpy-text-v1 does not protect printf"
+  },
+  {
+   "source": [
+    [
+     "{#",
+     1
+    ],
+    [
+     "a",
+     1023
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "{#",
+     1
+    ],
+    [
+     "a",
+     1023
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "accepted": true
+  },
+  {
+   "source": [
+    [
+     "[",
+     1
+    ],
+    [
+     "a",
+     8191
+    ],
+    [
+     "]",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "[",
+     1
+    ],
+    [
+     "a",
+     8191
+    ],
+    [
+     "]",
+     1
+    ]
+   ],
+   "accepted": true
+  },
+  {
+   "source": [
+    [
+     "{image=",
+     1
+    ],
+    [
+     "a",
+     8185
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "{image=",
+     1
+    ],
+    [
+     "a",
+     8185
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "accepted": true
+  },
+  {
+   "source": [
+    [
+     "[a",
+     32
+    ],
+    [
+     "]",
+     32
+    ]
+   ],
+   "target": [
+    [
+     "[a",
+     32
+    ],
+    [
+     "]",
+     32
+    ]
+   ],
+   "accepted": true
+  },
+  {
+   "source": [
+    [
+     "{b}",
+     32
+    ],
+    [
+     "x",
+     1
+    ],
+    [
+     "{/b}",
+     32
+    ]
+   ],
+   "target": [
+    [
+     "{b}",
+     32
+    ],
+    [
+     "x",
+     1
+    ],
+    [
+     "{/b}",
+     32
+    ]
+   ],
+   "accepted": true
+  },
+  {
+   "source": "[name",
+   "target": "[name",
+   "accepted": false
+  },
+  {
+   "source": "[]",
+   "target": "[]",
+   "accepted": false
+  },
+  {
+   "source": "[ ]",
+   "target": "[ ]",
+   "accepted": false
+  },
+  {
+   "source": "[　]",
+   "target": "[　]",
+   "accepted": false
+  },
+  {
+   "source": "[ ]",
+   "target": "[ ]",
+   "accepted": false
+  },
+  {
+   "source": "[ ]",
+   "target": "[ ]",
+   "accepted": false
+  },
+  {
+   "source": "[a'b]",
+   "target": "[a'b]",
+   "accepted": false
+  },
+  {
+   "source": "[a\nb]",
+   "target": "[a\nb]",
+   "accepted": false
+  },
+  {
+   "source": "{unknown}Text",
+   "target": "{unknown}Text",
+   "accepted": false
+  },
+  {
+   "source": "{b}open",
+   "target": "{b}open",
+   "accepted": false
+  },
+  {
+   "source": "{/b}",
+   "target": "{/b}",
+   "accepted": false
+  },
+  {
+   "source": "{b}{i}X{/b}{/i}",
+   "target": "{b}{i}X{/b}{/i}",
+   "accepted": false
+  },
+  {
+   "source": "{w=expression}",
+   "target": "{w=expression}",
+   "accepted": false
+  },
+  {
+   "source": "{w=}",
+   "target": "{w=}",
+   "accepted": false
+  },
+  {
+   "source": "{color=red}X{/color}",
+   "target": "{color=red}X{/color}",
+   "accepted": false
+  },
+  {
+   "source": "{a=[url]}X{/a}",
+   "target": "{a=[url]}X{/a}",
+   "accepted": false
+  },
+  {
+   "source": "{nw=1}",
+   "target": "{nw=1}",
+   "accepted": false
+  },
+  {
+   "source": "{size=abc}X{/size}",
+   "target": "{size=abc}X{/size}",
+   "accepted": false
+  },
+  {
+   "source": "{size=1e3}x{/size}",
+   "target": "{size=1e3}x{/size}",
+   "accepted": false
+  },
+  {
+   "source": "{space=x}",
+   "target": "{space=x}",
+   "accepted": false
+  },
+  {
+   "source": "{vspace=}",
+   "target": "{vspace=}",
+   "accepted": false
+  },
+  {
+   "source": "{image}",
+   "target": "{image}",
+   "accepted": false
+  },
+  {
+   "source": "{#}",
+   "target": "{#}",
+   "accepted": false
+  },
+  {
+   "source": "{b",
+   "target": "{b",
+   "accepted": false
+  },
+  {
+   "source": "{b\\}",
+   "target": "{b\\}",
+   "accepted": false
+  },
+  {
+   "source": "{[x]}",
+   "target": "{[x]}",
+   "accepted": false
+  },
+  {
+   "source": "{b}x{/b }",
+   "target": "{b}x{/b }",
+   "accepted": false
+  },
+  {
+   "source": "{ b}x{/ b}",
+   "target": "{ b}x{/ b}",
+   "accepted": false
+  },
+  {
+   "source": "{B}x{/B}",
+   "target": "{B}x{/B}",
+   "accepted": false
+  },
+  {
+   "source": "{rb}x{/rb}{rt}y{/rt}",
+   "target": "{rb}x{/rb}{rt}y{/rt}",
+   "accepted": false
+  },
+  {
+   "source": "〖ruby〗",
+   "target": "〖ruby〗",
+   "accepted": false
+  },
+  {
+   "source": "\u0000",
+   "target": "\u0000",
+   "accepted": false
+  },
+  {
+   "source": "\u0001",
+   "target": "\u0001",
+   "accepted": false
+  },
+  {
+   "source": "\t",
+   "target": "\t",
+   "accepted": false
+  },
+  {
+   "source": "",
+   "target": "",
+   "accepted": false
+  },
+  {
+   "source": " ",
+   "target": " ",
+   "accepted": false
+  },
+  {
+   "source": " ",
+   "target": " ",
+   "accepted": false
+  },
+  {
+   "source": "__UT_fake__",
+   "target": "__UT_fake__",
+   "accepted": false
+  },
+  {
+   "source": "{b i}x{/b i}",
+   "target": "{b i}x{/b i}",
+   "accepted": false
+  },
+  {
+   "source": "{color outlinecolor=#fff}x{/color outlinecolor}",
+   "target": "{color outlinecolor=#fff}x{/color outlinecolor}",
+   "accepted": false
+  },
+  {
+   "source": "{w p}",
+   "target": "{w p}",
+   "accepted": false
+  },
+  {
+   "source": "{image space=1}",
+   "target": "{image space=1}",
+   "accepted": false
+  },
+  {
+   "source": [
+    [
+     "{#",
+     1
+    ],
+    [
+     "a",
+     1024
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "{#",
+     1
+    ],
+    [
+     "a",
+     1024
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "accepted": false
+  },
+  {
+   "source": [
+    [
+     "[",
+     1
+    ],
+    [
+     "a",
+     8192
+    ],
+    [
+     "]",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "[",
+     1
+    ],
+    [
+     "a",
+     8192
+    ],
+    [
+     "]",
+     1
+    ]
+   ],
+   "accepted": false
+  },
+  {
+   "source": [
+    [
+     "{image=",
+     1
+    ],
+    [
+     "a",
+     8186
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "{image=",
+     1
+    ],
+    [
+     "a",
+     8186
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "accepted": false
+  },
+  {
+   "source": [
+    [
+     "[a",
+     33
+    ],
+    [
+     "]",
+     33
+    ]
+   ],
+   "target": [
+    [
+     "[a",
+     33
+    ],
+    [
+     "]",
+     33
+    ]
+   ],
+   "accepted": false
+  },
+  {
+   "source": [
+    [
+     "{b}",
+     33
+    ],
+    [
+     "x",
+     1
+    ],
+    [
+     "{/b}",
+     33
+    ]
+   ],
+   "target": [
+    [
+     "{b}",
+     33
+    ],
+    [
+     "x",
+     1
+    ],
+    [
+     "{/b}",
+     33
+    ]
+   ],
+   "accepted": false
+  },
+  {
+   "source": "Hi",
+   "target": "Hi [execute()]",
+   "accepted": false
+  },
+  {
+   "source": "Hi [name]",
+   "target": "Hi [name!q]",
+   "accepted": false
+  },
+  {
+   "source": "{b}One{/b}",
+   "target": "{b}Bir{/i}",
+   "accepted": false
+  },
+  {
+   "source": "[a] [b]",
+   "target": "[b] [a]",
+   "accepted": false
+  },
+  {
+   "source": "{b}A{/b} [x]",
+   "target": "[x] {b}A{/b}",
+   "accepted": false
+  },
+  {
+   "source": "100%% sure",
+   "target": "yüzde 100 emin",
+   "accepted": false
+  },
+  {
+   "source": "One\r\nTwo",
+   "target": "Bir\nİki",
+   "accepted": false
+  },
+  {
+   "source": "{#ctx}One",
+   "target": "{#other}Bir",
+   "accepted": false
+  },
+  {
+   "source": "[[x",
+   "target": "[x",
+   "accepted": false
+  },
+  {
+   "source": "Hello [name]",
+   "target": "Merhaba [name][injected()]",
+   "accepted": false
+  },
+  {
+   "source": "Hello [name]",
+   "target": "Merhaba [name]{a=jump:evil}Click{/a}",
+   "accepted": false
+  },
+  {
+   "source": "Hello [name]",
+   "target": "Merhaba [name]{nw}",
+   "accepted": false
+  },
+  {
+   "source": "[x〖]",
+   "target": "[x〖]",
+   "accepted": true,
+   "recipient": false,
+   "note": "recipient rejects 〖〗 anywhere"
+  },
+  {
+   "source": "{#〖}",
+   "target": "{#〖}",
+   "accepted": true,
+   "recipient": false,
+   "note": "recipient rejects 〖〗 anywhere"
+  },
+  {
+   "source": "{image=〗}",
+   "target": "{image=〗}",
+   "accepted": true,
+   "recipient": false,
+   "note": "recipient rejects 〖〗 anywhere"
+  },
+  {
+   "source": [
+    [
+     "[",
+     1
+    ],
+    [
+     "😀",
+     4096
+    ],
+    [
+     "]",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "[",
+     1
+    ],
+    [
+     "😀",
+     4096
+    ],
+    [
+     "]",
+     1
+    ]
+   ],
+   "accepted": true,
+   "recipient": false,
+   "note": "recipient counts UTF-16"
+  },
+  {
+   "source": [
+    [
+     "{#",
+     1
+    ],
+    [
+     "😀",
+     512
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "{#",
+     1
+    ],
+    [
+     "😀",
+     512
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "accepted": true,
+   "recipient": false,
+   "note": "recipient counts UTF-16"
+  },
+  {
+   "source": [
+    [
+     "{image=",
+     1
+    ],
+    [
+     "😀",
+     4100
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "target": [
+    [
+     "{image=",
+     1
+    ],
+    [
+     "😀",
+     4100
+    ],
+    [
+     "}",
+     1
+    ]
+   ],
+   "accepted": true,
+   "recipient": false,
+   "note": "recipient counts UTF-16"
+  }
+ ]
+}

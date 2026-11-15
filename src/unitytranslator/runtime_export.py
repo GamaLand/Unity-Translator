@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.json_boundary import strict_json
 from unitytranslator.language import language_name
 from unitytranslator.repository import ProjectRepository
@@ -21,7 +22,7 @@ def export_selected_runtime(
         or not 1 <= len(records) <= record_limit
         or len({r["unit_id"] for r in records}) != len(records)
     ):
-        raise ValueError(f"1–{record_limit} farklı onaylı kayıt seçin.")
+        raise Diagnostic("Select 1–{p0} distinct approved records.", p0=record_limit)
     adapters = set()
     for frozen in records:
         descriptor = repo.db.execute(
@@ -62,7 +63,7 @@ def export_selected_runtime(
             or row["approved_translation"] != row["translation_revision"]
         ):
             raise ValueError(
-                "Seçilen kayıt değişti veya güncel insan onayı yok; listeyi yenileyin."
+                "A selected record changed or lacks current human approval; refresh the list."
             )
         snapshot = repo.db.execute(
             "SELECT s.metadata_json FROM source_snapshots s JOIN snapshot_units u "
@@ -71,7 +72,7 @@ def export_selected_runtime(
             (row["unit_id"], row["source_revision"]),
         ).fetchone()
         if snapshot is None or len(snapshot[0].encode("utf-8")) > 4 * 1024 * 1024:
-            raise ValueError("Kaynak çıkarma bilgisi eksik; metinleri yeniden çıkarın.")
+            raise ValueError("Source extraction information is missing; extract the text again.")
         metadata = strict_json(snapshot[0])
         before, after = metadata.get("sha256_before"), metadata.get("sha256_after")
         fingerprint = after if isinstance(after, str) and before == after else None
@@ -96,7 +97,9 @@ def export_selected_runtime(
             or len(source.parts) < 2
             or not source.parts[0].endswith("_Data")
         ):
-            raise ValueError("Deneme kaynak bilgisi belirsiz veya eski; metinleri yeniden çıkarın.")
+            raise ValueError(
+                "Trial source information is ambiguous or stale; extract the text again."
+            )
         contexts.add(
             (
                 candidates[0]["source_set"],
@@ -105,7 +108,7 @@ def export_selected_runtime(
             )
         )
     if len(contexts) != 1:
-        raise ValueError("Bir denemede aynı I2 kaynak kümesindeki kayıtları seçin.")
+        raise ValueError("Select records from the same I2 source set for one trial.")
     source_set, version, assembly_relative = contexts.pop()
     result = export_runtime_payload(
         repo,

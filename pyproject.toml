@@ -4,8 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "unitytranslator"
-version = "0.7.0"
-description = "Local AI translation and review for supported Unity games"
+# The single version source is src/unitytranslator/__init__.py (see [tool.hatch.version]).
+dynamic = ["version"]
+description = "Local AI translation and review for supported Unity and Ren'Py games"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
 dependencies = [
@@ -49,9 +50,23 @@ python_version = "3.12"
 strict = true
 packages = ["unitytranslator"]
 
+# UI modules written before strict typing: semantics are checked, annotations are added
+# gradually. New UI modules (such as unitytranslator.ui.pages) use the strict defaults.
 [[tool.mypy.overrides]]
-module = ["unitytranslator.ui.*"]
-ignore_errors = true
+module = [
+    "unitytranslator.ui.bridge",
+    "unitytranslator.ui.components",
+    "unitytranslator.ui.drafts",
+    "unitytranslator.ui.verify",
+    "unitytranslator.ui.window",
+]
+check_untyped_defs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+
+[tool.hatch.version]
+path = "src/unitytranslator/__init__.py"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
@@ -63,6 +78,8 @@ exclude = [
     "**/__pycache__", "**/*.sqlite3*", "**/*.gguf", "**/*.dll", "**/*.exe",
     ".env", ".env.*", "*.pem", "*.key", "*.pfx", "*.safetensors",
     "**/*.rpa", "**/*.rpyc", "**/*.rpy", "**/*_ren.py",
+    # Reviewed synthetic fixtures only; tools/release_rules.py audits the same exact trees.
+    "!/tests/fixtures/legacy-projects/**/*.sqlite3",
 ]
 
 [tool.hatch.build.targets.wheel.force-include]

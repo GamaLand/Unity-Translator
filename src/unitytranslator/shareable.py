@@ -3,7 +3,6 @@
 import json
 import zipfile
 from hashlib import sha256
-from importlib.resources import files
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -12,6 +11,7 @@ from unitytranslator.deployment import DeploymentService
 from unitytranslator.filesystem import hash_file
 from unitytranslator.krypta_profile import load_profile
 from unitytranslator.krypta_runtime import KryptaRuntimeKit
+from unitytranslator.recipient_scripts import installer_bytes
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.runtime_configuration import bepinex_config_text
 from unitytranslator.runtime_export import export_selected_runtime
@@ -128,7 +128,7 @@ def export_shareable_patch(repo: ProjectRepository) -> dict[str, Any]:
                                kit.catalog["files"][name]))
     for relative, expected in context["source_fingerprints"].items():
         if expected is None or hash_file(repo.paths.game / relative) != expected:
-            raise ValueError("Oyun kaynağı değişmiş; yeniden çıkarın.")
+            raise ValueError("The game source has changed; extract again.")
     identifier = uuid4().hex
     folder = repo.paths.output("exports/shareable-" + identifier)
     folder.mkdir(parents=True)
@@ -198,8 +198,7 @@ def export_shareable_patch(repo: ProjectRepository) -> dict[str, Any]:
     (folder / "package.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    resources = files("unitytranslator.resources")
-    script = resources.joinpath("patch-installer.ps1").read_bytes()
+    script = installer_bytes("patch-installer.ps1")
     (folder / "patch.ps1").write_bytes(b"\xef\xbb\xbf" + script.removeprefix(b"\xef\xbb\xbf"))
     for filename, action in (
         ("Install.cmd", "Install"),
@@ -241,7 +240,7 @@ def export_shareable_patch(repo: ProjectRepository) -> dict[str, Any]:
                 archive.write(path, path.relative_to(folder).as_posix())
     with zipfile.ZipFile(pending) as archive:
         if archive.testzip() is not None:
-            raise ValueError("Dağıtım ZIP kontrolü başarısız.")
+            raise ValueError("The distribution ZIP check failed.")
     kit.check_game(repo, assembly_relative)
     for relative, expected in game_files.items():
         if hash_file(repo.paths.game / relative) != expected:

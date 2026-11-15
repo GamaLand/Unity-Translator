@@ -3,8 +3,10 @@
 from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
+from unitytranslator.diagnostics import Diagnostic
 
-class OperationCancelled(ValueError):
+
+class OperationCancelled(Diagnostic):
     """A cooperative local operation stopped before publishing its result."""
 
 
@@ -33,7 +35,8 @@ class GenerationProfile:
     glossary_version: str | None = None
     style_version: str | None = None
     prompt_version: str = "translate-v1"
-    reasoning_effort: Literal["default", "none"] = "default"
+    # default: server behaviour; none: thinking off; adaptive: per-record thinking budget.
+    reasoning_effort: Literal["default", "none", "adaptive"] = "default"
     dialogue_context: Literal["none", "source-window-v1"] = "none"
 
     def to_dict(self) -> dict[str, Any]:

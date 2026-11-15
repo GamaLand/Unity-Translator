@@ -410,12 +410,13 @@ def test_unknown_version_and_partial_source_selection_cannot_activate(tmp_path):
 def test_worker_cannot_supply_different_source_records(tmp_path, monkeypatch):
     from unitytranslator.reader_adapters import RenpyScriptReader
     from unitytranslator.source_contracts import ReaderContext
-    from unitytranslator.workers.renpy_script_probe import probe
+    from unitytranslator.workers.renpy_script_probe import digest_summary, probe
 
     paths, _ = fixture(tmp_path)
     report = probe(paths.game, "game/script.rpy", "en")
     report["units"][0]["source_text"] = "Injected"
-    monkeypatch.setattr("unitytranslator.worker_process.run_json_worker", lambda *a, **k: report)
+    summary = digest_summary(report)
+    monkeypatch.setattr("unitytranslator.worker_process.run_json_worker", lambda *a, **k: summary)
     reader = RenpyScriptReader()
     context = ReaderContext(paths.game, paths.project, "en")
     with pytest.raises(ValueError, match="differs"):

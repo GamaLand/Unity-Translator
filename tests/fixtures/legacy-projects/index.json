@@ -1,0 +1,1899 @@
+{
+  "format_version": 1,
+  "synthetic_only": true,
+  "game_path_placeholder": "<synthetic-game>",
+  "fixtures": [
+    {
+      "name": "schema1-9ba9495-unity",
+      "revision": "9ba9495",
+      "package_version": "0.1.0",
+      "tags": [
+        "v0.1.0-rc.6"
+      ],
+      "recipe": "unity",
+      "build": "stepwise",
+      "schema": 1,
+      "database": "schema1-9ba9495-unity.sqlite3",
+      "database_sha256": "41ef6e938332419b7b71d6dcea55386be30d4a32bb53e4a41f02360833e4647b",
+      "manifest": "schema1-9ba9495-unity.project.json",
+      "manifest_sha256": "c20baabc643f8e34a27814a0689efcac56b71c1ad025e36095c2df9d4670dcff",
+      "expect": {
+        "project_id": "2fed4fe8f3d84f6f82995b76cae1bd2f",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "UI/options",
+            "source_revision": "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            "status": "needs_review",
+            "version": 4,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "UI/quit",
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "status": "translated",
+            "version": 1,
+            "translation_revision": "73ad6bde708647c3f27abae9d48c13549a67e2bd0781ebb0f0f4c9d3a317cff3",
+            "translation": "Çık"
+          },
+          {
+            "unit_id": "UI/start",
+            "source_revision": "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "status": "approved",
+            "version": 2,
+            "translation_revision": "2d4545fcfdba35cb9500e6ddbda6bdffda5340b4121f08a8a742b4cd32ec40f2",
+            "translation": "Başla"
+          }
+        ],
+        "history": {
+          "UI/credits": [
+            "8fc4f665b5bfdab698a52dbae2acff5f0911d5aaca8a50409d7f9ff4684d4a44"
+          ],
+          "UI/options": [
+            "e8d50f0f26493a0e6050621b0449cbd691cf3dbb9771a91b42732864e44cc869",
+            "e358c1ec0de88b6ca00ab8ae8540722b049bc276303d2255698e672e1dd0cb62"
+          ],
+          "UI/quit": [
+            "73ad6bde708647c3f27abae9d48c13549a67e2bd0781ebb0f0f4c9d3a317cff3"
+          ],
+          "UI/start": [
+            "2d4545fcfdba35cb9500e6ddbda6bdffda5340b4121f08a8a742b4cd32ec40f2"
+          ]
+        },
+        "drafts": {},
+        "jobs": {},
+        "user_version": 1,
+        "migrations": [
+          1
+        ],
+        "counts": {
+          "project": 1,
+          "schema_migrations": 1,
+          "snapshot_units": 7,
+          "source_revisions": 5,
+          "source_snapshots": 2,
+          "text_units": 4,
+          "translation_revisions": 5,
+          "work_items": 4
+        },
+        "text_units": {
+          "UI/credits": [
+            "0e5224eb975eda713c8596da71301ba4feafc09bce770e62e9ee706c334eaa21",
+            0
+          ],
+          "UI/options": [
+            "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            1
+          ],
+          "UI/quit": [
+            "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            1
+          ],
+          "UI/start": [
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            1
+          ]
+        },
+        "work_items": {
+          "UI/credits": [
+            "translated",
+            1,
+            "8fc4f665b5bfdab698a52dbae2acff5f0911d5aaca8a50409d7f9ff4684d4a44",
+            null,
+            null
+          ],
+          "UI/options": [
+            "needs_review",
+            4,
+            null,
+            null,
+            null
+          ],
+          "UI/quit": [
+            "translated",
+            1,
+            "73ad6bde708647c3f27abae9d48c13549a67e2bd0781ebb0f0f4c9d3a317cff3",
+            null,
+            null
+          ],
+          "UI/start": [
+            "approved",
+            2,
+            "2d4545fcfdba35cb9500e6ddbda6bdffda5340b4121f08a8a742b4cd32ec40f2",
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "2d4545fcfdba35cb9500e6ddbda6bdffda5340b4121f08a8a742b4cd32ec40f2"
+          ]
+        },
+        "glossary_versions": [],
+        "source_descriptors": [],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema2-9ba9495-unity",
+      "revision": "9ba9495",
+      "package_version": "0.1.0",
+      "tags": [
+        "v0.1.0-rc.6"
+      ],
+      "recipe": "unity",
+      "build": "stepwise",
+      "schema": 2,
+      "database": "schema2-9ba9495-unity.sqlite3",
+      "database_sha256": "b66af7edfd8d81b7d6022d2a047268d3a7f2ec026f8ca4a94e415c59eed30b26",
+      "manifest": "schema2-9ba9495-unity.project.json",
+      "manifest_sha256": "6fcc4ce4be8e79abf21090c62299e6032c0b0a477787a43f10c111b1da4f64d1",
+      "expect": {
+        "project_id": "750f4c159fee480b9fa27a04cf90ef60",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "UI/options",
+            "source_revision": "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            "status": "pending",
+            "version": 7,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "UI/quit",
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "e951aa23488da2a7df818bd2ca8578c486d448c2fcd0179ee23bef43777bb4cd",
+            "translation": "Çık"
+          },
+          {
+            "unit_id": "UI/start",
+            "source_revision": "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "d05b8e27615a672104c089c88c7004693cb989556164949a8f3aa8ef6ffa2f4f",
+            "translation": "Başla"
+          }
+        ],
+        "history": {
+          "UI/credits": [
+            "93821a80fcb188b14f1e38aa900fa7d9dc3e6b54102c49daf22021573777a551"
+          ],
+          "UI/options": [
+            "e8d50f0f26493a0e6050621b0449cbd691cf3dbb9771a91b42732864e44cc869",
+            "9c9fa205fcda0f87c70c1ff357812c3b238512513c21a681737e295afc8349f9"
+          ],
+          "UI/quit": [
+            "e951aa23488da2a7df818bd2ca8578c486d448c2fcd0179ee23bef43777bb4cd"
+          ],
+          "UI/start": [
+            "d05b8e27615a672104c089c88c7004693cb989556164949a8f3aa8ef6ffa2f4f"
+          ]
+        },
+        "drafts": {},
+        "jobs": {
+          "64e50f7cdd33414788ea195678624b3e": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "5947b3a8551d4e75af4cecdcccae1c52": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 2,
+        "migrations": [
+          1,
+          2
+        ],
+        "counts": {
+          "glossary_versions": 1,
+          "job_items": 5,
+          "jobs": 2,
+          "project": 1,
+          "project_settings": 1,
+          "schema_migrations": 2,
+          "snapshot_units": 7,
+          "source_revisions": 5,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 4,
+          "translation_revisions": 5,
+          "translation_runs": 5,
+          "work_items": 4
+        },
+        "text_units": {
+          "UI/credits": [
+            "0e5224eb975eda713c8596da71301ba4feafc09bce770e62e9ee706c334eaa21",
+            0
+          ],
+          "UI/options": [
+            "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            1
+          ],
+          "UI/quit": [
+            "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            1
+          ],
+          "UI/start": [
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            1
+          ]
+        },
+        "work_items": {
+          "UI/credits": [
+            "translated",
+            2,
+            "93821a80fcb188b14f1e38aa900fa7d9dc3e6b54102c49daf22021573777a551",
+            null,
+            null
+          ],
+          "UI/options": [
+            "pending",
+            7,
+            null,
+            null,
+            null
+          ],
+          "UI/quit": [
+            "translated",
+            2,
+            "e951aa23488da2a7df818bd2ca8578c486d448c2fcd0179ee23bef43777bb4cd",
+            null,
+            null
+          ],
+          "UI/start": [
+            "approved",
+            3,
+            "d05b8e27615a672104c089c88c7004693cb989556164949a8f3aa8ef6ffa2f4f",
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "d05b8e27615a672104c089c88c7004693cb989556164949a8f3aa8ef6ffa2f4f"
+          ]
+        },
+        "glossary_versions": [
+          "236cdc45b243cc504369a385bebd203cbd6a5dc0f66231f1b12bb31c96de026c"
+        ],
+        "source_descriptors": [],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema3-9ba9495-unity",
+      "revision": "9ba9495",
+      "package_version": "0.1.0",
+      "tags": [
+        "v0.1.0-rc.6"
+      ],
+      "recipe": "unity",
+      "build": "stepwise",
+      "schema": 3,
+      "database": "schema3-9ba9495-unity.sqlite3",
+      "database_sha256": "8dcba5a494c636628c3d126b59e807c32f239e35e4521849d8269e15f67c86e6",
+      "manifest": "schema3-9ba9495-unity.project.json",
+      "manifest_sha256": "db8cc1cbffd1328fc75dd3db68b169acd5baf1b10b1fd836a899a1acc018a23b",
+      "expect": {
+        "project_id": "cc2d0b0d385348cdb445038ed9e82ebf",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "UI/options",
+            "source_revision": "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            "status": "pending",
+            "version": 7,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "UI/quit",
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "41c5b37dbde22d202b4601fb26b3f6455223f80246bd5b3639ba9ee5b4b5d441",
+            "translation": "Çık"
+          },
+          {
+            "unit_id": "UI/start",
+            "source_revision": "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "792d4cabadb788774e9cd4a0394a66e89a09f5bb4381e9e4c1ac3213da457857",
+            "translation": "Başla"
+          }
+        ],
+        "history": {
+          "UI/credits": [
+            "9401d5b093fe202d7ef9c23a2737752860ac1fa46648bed154d02c157b6279fc"
+          ],
+          "UI/options": [
+            "e8d50f0f26493a0e6050621b0449cbd691cf3dbb9771a91b42732864e44cc869",
+            "57638c1c0f7e3af6baf091fcff603ba226438fa958f6ce0207629452f5f3d212"
+          ],
+          "UI/quit": [
+            "41c5b37dbde22d202b4601fb26b3f6455223f80246bd5b3639ba9ee5b4b5d441"
+          ],
+          "UI/start": [
+            "792d4cabadb788774e9cd4a0394a66e89a09f5bb4381e9e4c1ac3213da457857"
+          ]
+        },
+        "drafts": {},
+        "jobs": {
+          "b2fd48abd4514455accd0071baa4208c": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "aa4420759d854b30b82c5ff6de1d1a89": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 3,
+        "migrations": [
+          1,
+          2,
+          3
+        ],
+        "counts": {
+          "glossary_versions": 1,
+          "job_items": 5,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 3,
+          "snapshot_units": 7,
+          "source_revisions": 5,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 4,
+          "translation_revisions": 5,
+          "translation_runs": 5,
+          "work_items": 4
+        },
+        "text_units": {
+          "UI/credits": [
+            "0e5224eb975eda713c8596da71301ba4feafc09bce770e62e9ee706c334eaa21",
+            0
+          ],
+          "UI/options": [
+            "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            1
+          ],
+          "UI/quit": [
+            "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            1
+          ],
+          "UI/start": [
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            1
+          ]
+        },
+        "work_items": {
+          "UI/credits": [
+            "translated",
+            2,
+            "9401d5b093fe202d7ef9c23a2737752860ac1fa46648bed154d02c157b6279fc",
+            null,
+            null
+          ],
+          "UI/options": [
+            "pending",
+            7,
+            null,
+            null,
+            null
+          ],
+          "UI/quit": [
+            "translated",
+            2,
+            "41c5b37dbde22d202b4601fb26b3f6455223f80246bd5b3639ba9ee5b4b5d441",
+            null,
+            null
+          ],
+          "UI/start": [
+            "approved",
+            3,
+            "792d4cabadb788774e9cd4a0394a66e89a09f5bb4381e9e4c1ac3213da457857",
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "792d4cabadb788774e9cd4a0394a66e89a09f5bb4381e9e4c1ac3213da457857"
+          ]
+        },
+        "glossary_versions": [
+          "236cdc45b243cc504369a385bebd203cbd6a5dc0f66231f1b12bb31c96de026c"
+        ],
+        "source_descriptors": [],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema4-9ba9495-unity",
+      "revision": "9ba9495",
+      "package_version": "0.1.0",
+      "tags": [
+        "v0.1.0-rc.6"
+      ],
+      "recipe": "unity",
+      "build": "release",
+      "schema": 4,
+      "database": "schema4-9ba9495-unity.sqlite3",
+      "database_sha256": "4332fef1990c8b0121d7b60307ca9a7e933fafbe8abb36d3e6a3c1ec40e92691",
+      "manifest": "schema4-9ba9495-unity.project.json",
+      "manifest_sha256": "035a871c9a94a47283caefb69f6ec3682b2540762451c004063259332a91dbdd",
+      "expect": {
+        "project_id": "d89d1bb728ce44deb150835c1663ccf0",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "UI/options",
+            "source_revision": "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            "status": "pending",
+            "version": 7,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "UI/quit",
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "480269f2473779815ad5f6360b91de8dcebdc8680acfc6335811ea46e623ae67",
+            "translation": "Çık"
+          },
+          {
+            "unit_id": "UI/start",
+            "source_revision": "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "72a5ab0845cf7becb01972b519d8bc15040beb3e0b40795582553b5af755da68",
+            "translation": "Başla"
+          }
+        ],
+        "history": {
+          "UI/credits": [
+            "2b57e841ae651db4ff2d3f7f19955a8184712d2d7e650d3ef9c0f4072b630313"
+          ],
+          "UI/options": [
+            "e8d50f0f26493a0e6050621b0449cbd691cf3dbb9771a91b42732864e44cc869",
+            "2cdfca256b30abc8b8bb85fbec929c0fca9af778ed5388ef4bee62638c736bf3"
+          ],
+          "UI/quit": [
+            "480269f2473779815ad5f6360b91de8dcebdc8680acfc6335811ea46e623ae67"
+          ],
+          "UI/start": [
+            "72a5ab0845cf7becb01972b519d8bc15040beb3e0b40795582553b5af755da68"
+          ]
+        },
+        "drafts": {
+          "UI/quit": {
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Çıkış"
+          }
+        },
+        "jobs": {
+          "2dbefaa1bba44caf93686778fb05bf9c": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "6d815edd46ea4052810802d724cc2693": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 4,
+        "migrations": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_items": 5,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 4,
+          "snapshot_units": 7,
+          "source_revisions": 5,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 4,
+          "translation_revisions": 5,
+          "translation_runs": 5,
+          "work_items": 4
+        },
+        "text_units": {
+          "UI/credits": [
+            "0e5224eb975eda713c8596da71301ba4feafc09bce770e62e9ee706c334eaa21",
+            0
+          ],
+          "UI/options": [
+            "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            1
+          ],
+          "UI/quit": [
+            "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            1
+          ],
+          "UI/start": [
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            1
+          ]
+        },
+        "work_items": {
+          "UI/credits": [
+            "translated",
+            2,
+            "2b57e841ae651db4ff2d3f7f19955a8184712d2d7e650d3ef9c0f4072b630313",
+            null,
+            null
+          ],
+          "UI/options": [
+            "pending",
+            7,
+            null,
+            null,
+            null
+          ],
+          "UI/quit": [
+            "translated",
+            2,
+            "480269f2473779815ad5f6360b91de8dcebdc8680acfc6335811ea46e623ae67",
+            null,
+            null
+          ],
+          "UI/start": [
+            "approved",
+            3,
+            "72a5ab0845cf7becb01972b519d8bc15040beb3e0b40795582553b5af755da68",
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "72a5ab0845cf7becb01972b519d8bc15040beb3e0b40795582553b5af755da68"
+          ]
+        },
+        "glossary_versions": [
+          "236cdc45b243cc504369a385bebd203cbd6a5dc0f66231f1b12bb31c96de026c"
+        ],
+        "source_descriptors": [],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema4-0b83e59-unity",
+      "revision": "0b83e59",
+      "package_version": "0.1.0",
+      "tags": [
+        "v0.1.0-rc.7"
+      ],
+      "recipe": "unity",
+      "build": "release",
+      "schema": 4,
+      "database": "schema4-0b83e59-unity.sqlite3",
+      "database_sha256": "045787ca4d79ab477eae46bb5918c9e666dbd0809f23a5e6b9b345d4e7cb2f8f",
+      "manifest": "schema4-0b83e59-unity.project.json",
+      "manifest_sha256": "1011825acb098fcaf443693d0ebde56d6c76d00fe52d4897794b54dc380ed7f7",
+      "expect": {
+        "project_id": "836d68ef9ef0492b9b8b724d6c3a7ebc",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "UI/options",
+            "source_revision": "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            "status": "pending",
+            "version": 7,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "UI/quit",
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "b3341f91d24249450d8ee44cf3dc1e0ddedec839c49b2e9a51344884d5f03b76",
+            "translation": "Çık"
+          },
+          {
+            "unit_id": "UI/start",
+            "source_revision": "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "d633a4f05328af7186c003542c72d57b4322228aa0f27d240ba9145586d324cc",
+            "translation": "Başla"
+          }
+        ],
+        "history": {
+          "UI/credits": [
+            "f25b967a07c071e60b2463b7aaac85169ff760d42b7b92c13facf685d97049b4"
+          ],
+          "UI/options": [
+            "cf9e33faa4ec238afb3a01ba2b1957e1e4f35735651ed1a650e92e1c989910fa",
+            "01940671e2d9985232821162b55b52716c0e2594b29b74efef276b0bb4e38075"
+          ],
+          "UI/quit": [
+            "b3341f91d24249450d8ee44cf3dc1e0ddedec839c49b2e9a51344884d5f03b76"
+          ],
+          "UI/start": [
+            "d633a4f05328af7186c003542c72d57b4322228aa0f27d240ba9145586d324cc"
+          ]
+        },
+        "drafts": {
+          "UI/quit": {
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Çıkış"
+          }
+        },
+        "jobs": {
+          "d70dff578da1405a953b0ac1a427928c": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "a978d393a19449dcaff109d9ed82fac6": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 4,
+        "migrations": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_items": 5,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 4,
+          "snapshot_units": 7,
+          "source_revisions": 5,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 4,
+          "translation_revisions": 5,
+          "translation_runs": 5,
+          "work_items": 4
+        },
+        "text_units": {
+          "UI/credits": [
+            "0e5224eb975eda713c8596da71301ba4feafc09bce770e62e9ee706c334eaa21",
+            0
+          ],
+          "UI/options": [
+            "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            1
+          ],
+          "UI/quit": [
+            "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            1
+          ],
+          "UI/start": [
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            1
+          ]
+        },
+        "work_items": {
+          "UI/credits": [
+            "translated",
+            2,
+            "f25b967a07c071e60b2463b7aaac85169ff760d42b7b92c13facf685d97049b4",
+            null,
+            null
+          ],
+          "UI/options": [
+            "pending",
+            7,
+            null,
+            null,
+            null
+          ],
+          "UI/quit": [
+            "translated",
+            2,
+            "b3341f91d24249450d8ee44cf3dc1e0ddedec839c49b2e9a51344884d5f03b76",
+            null,
+            null
+          ],
+          "UI/start": [
+            "approved",
+            3,
+            "d633a4f05328af7186c003542c72d57b4322228aa0f27d240ba9145586d324cc",
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "d633a4f05328af7186c003542c72d57b4322228aa0f27d240ba9145586d324cc"
+          ]
+        },
+        "glossary_versions": [
+          "236cdc45b243cc504369a385bebd203cbd6a5dc0f66231f1b12bb31c96de026c"
+        ],
+        "source_descriptors": [],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema5-e8d768c-unity",
+      "revision": "e8d768c",
+      "package_version": "0.4.0",
+      "tags": [],
+      "recipe": "unity",
+      "build": "release",
+      "schema": 5,
+      "database": "schema5-e8d768c-unity.sqlite3",
+      "database_sha256": "31b8b301512b17e7654a5de171852abaf9888ec9e9867c1ae89172d95d46796b",
+      "manifest": "schema5-e8d768c-unity.project.json",
+      "manifest_sha256": "8a29a5ae916f9bdbaff42b740832b4be46091f6d2a14af4d32db8c2812961720",
+      "expect": {
+        "project_id": "d3cadf0f190b442b9b9af7f081cd6833",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "UI/options",
+            "source_revision": "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            "status": "pending",
+            "version": 7,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "UI/quit",
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "6cc7c4cd42447da0e130d731dc749963cdadbb657718d798005cb0e4abb7d9ae",
+            "translation": "Çık"
+          },
+          {
+            "unit_id": "UI/start",
+            "source_revision": "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "f0c16af25cd2b699e537aae34343cd55edb2920259f282ca187b87ab3b46f452",
+            "translation": "Başla"
+          }
+        ],
+        "history": {
+          "UI/credits": [
+            "5d6d7d5b998cb31dc43640fc666b5d97b9f8ae627effa26393dfa6589d95cf8a"
+          ],
+          "UI/options": [
+            "cf9e33faa4ec238afb3a01ba2b1957e1e4f35735651ed1a650e92e1c989910fa",
+            "55b3b5b1ecb62be3506a94d8a532705881b8c48513eab7f3f54648b3ec5a3405"
+          ],
+          "UI/quit": [
+            "6cc7c4cd42447da0e130d731dc749963cdadbb657718d798005cb0e4abb7d9ae"
+          ],
+          "UI/start": [
+            "f0c16af25cd2b699e537aae34343cd55edb2920259f282ca187b87ab3b46f452"
+          ]
+        },
+        "drafts": {
+          "UI/quit": {
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Çıkış"
+          }
+        },
+        "jobs": {
+          "9ab1e2e568cf4e71800147999a85f4b9": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "9b59d07c1f1b40a2a7523ba36e01e32b": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 5,
+        "migrations": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_items": 5,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 5,
+          "snapshot_sources": 2,
+          "snapshot_units": 7,
+          "source_descriptors": 1,
+          "source_revisions": 5,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 4,
+          "translation_revisions": 5,
+          "translation_runs": 5,
+          "work_items": 4
+        },
+        "text_units": {
+          "UI/credits": [
+            "0e5224eb975eda713c8596da71301ba4feafc09bce770e62e9ee706c334eaa21",
+            0
+          ],
+          "UI/options": [
+            "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            1
+          ],
+          "UI/quit": [
+            "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            1
+          ],
+          "UI/start": [
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            1
+          ]
+        },
+        "work_items": {
+          "UI/credits": [
+            "translated",
+            2,
+            "5d6d7d5b998cb31dc43640fc666b5d97b9f8ae627effa26393dfa6589d95cf8a",
+            null,
+            null
+          ],
+          "UI/options": [
+            "pending",
+            7,
+            null,
+            null,
+            null
+          ],
+          "UI/quit": [
+            "translated",
+            2,
+            "6cc7c4cd42447da0e130d731dc749963cdadbb657718d798005cb0e4abb7d9ae",
+            null,
+            null
+          ],
+          "UI/start": [
+            "approved",
+            3,
+            "f0c16af25cd2b699e537aae34343cd55edb2920259f282ca187b87ab3b46f452",
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "f0c16af25cd2b699e537aae34343cd55edb2920259f282ca187b87ab3b46f452"
+          ]
+        },
+        "glossary_versions": [
+          "236cdc45b243cc504369a385bebd203cbd6a5dc0f66231f1b12bb31c96de026c"
+        ],
+        "source_descriptors": [
+          "legacy-file-v1:synthetic.assets"
+        ],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema5-556bf5e-renpy",
+      "revision": "556bf5e",
+      "package_version": "0.5.0",
+      "tags": [
+        "Beta"
+      ],
+      "recipe": "renpy",
+      "build": "release",
+      "schema": 5,
+      "database": "schema5-556bf5e-renpy.sqlite3",
+      "database_sha256": "c9aeaee44837b6ced0c831e71427e99de4003883b74a060d4231455fbf57d0e1",
+      "manifest": "schema5-556bf5e-renpy.project.json",
+      "manifest_sha256": "c2d10e00aab852067ccd2d6e3d6a2e1957c801f46548764327696153f51f1d1b",
+      "expect": {
+        "project_id": "72d8c4f8761848e78a7fa397e0af822d",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644",
+            "source_revision": "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "status": "approved",
+            "version": 4,
+            "translation_revision": "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "translation": "Selam."
+          },
+          {
+            "unit_id": "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b",
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "0ad954df9285e11505253738e8b8bdc489498a49b5c63c3c78bb4bcbc9e2d18f",
+            "translation": "Anlatım."
+          },
+          {
+            "unit_id": "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6",
+            "source_revision": "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            "status": "pending",
+            "version": 2,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c",
+            "source_revision": "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "fba6cf1647197b9b048a2e075fca5c70a28810cf8308f4924541f62c911a3f16",
+            "translation": "Örnek"
+          },
+          {
+            "unit_id": "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772",
+            "source_revision": "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "6c8dfe4bd703d1a2d4bdc06b04171193666964e858dcabbe53278e7d546ac3a0",
+            "translation": "Ekran"
+          }
+        ],
+        "history": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "fba6cf1647197b9b048a2e075fca5c70a28810cf8308f4924541f62c911a3f16"
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "476d151b4d14900a6508e196051824555daabede442e20e697804bf871608f24"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "560d196b8c2b7ceaf1df278d9b8f83452d784e5364a19a7026e98f7f1727b859"
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "0ad954df9285e11505253738e8b8bdc489498a49b5c63c3c78bb4bcbc9e2d18f"
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "6c8dfe4bd703d1a2d4bdc06b04171193666964e858dcabbe53278e7d546ac3a0"
+          ]
+        },
+        "drafts": {
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": {
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Anlatı."
+          }
+        },
+        "jobs": {
+          "e62724f128d446c6ae77ce4b5520e5da": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "e732684a35774f67953a26844407b7a6": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 5,
+        "migrations": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_items": 6,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 5,
+          "snapshot_sources": 2,
+          "snapshot_units": 10,
+          "source_descriptors": 1,
+          "source_revisions": 6,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 6,
+          "translation_revisions": 6,
+          "translation_runs": 6,
+          "work_items": 6
+        },
+        "text_units": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            1
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            1
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "4387565ba984e0da774d0fecd2350f23f883c687103637b5e57f739cf386e25f",
+            0
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            1
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            1
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            1
+          ]
+        },
+        "work_items": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "translated",
+            2,
+            "fba6cf1647197b9b048a2e075fca5c70a28810cf8308f4924541f62c911a3f16",
+            null,
+            null
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "approved",
+            4,
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "translated",
+            2,
+            "560d196b8c2b7ceaf1df278d9b8f83452d784e5364a19a7026e98f7f1727b859",
+            null,
+            null
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "translated",
+            2,
+            "0ad954df9285e11505253738e8b8bdc489498a49b5c63c3c78bb4bcbc9e2d18f",
+            null,
+            null
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "pending",
+            2,
+            null,
+            null,
+            null
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "approved",
+            3,
+            "6c8dfe4bd703d1a2d4bdc06b04171193666964e858dcabbe53278e7d546ac3a0",
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "6c8dfe4bd703d1a2d4bdc06b04171193666964e858dcabbe53278e7d546ac3a0"
+          ]
+        },
+        "glossary_versions": [
+          "4288502cacc6ce5c1954f5c9271c453a9cea61cf2a87e4c239b7b0cdd1ea12bf"
+        ],
+        "source_descriptors": [
+          "renpy-script-8.1.2-v1:game/script.rpy"
+        ],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema5-1e1dfc3-renpy",
+      "revision": "1e1dfc3",
+      "package_version": "0.5.0",
+      "tags": [
+        "v0.7.0"
+      ],
+      "recipe": "renpy",
+      "build": "release",
+      "schema": 5,
+      "database": "schema5-1e1dfc3-renpy.sqlite3",
+      "database_sha256": "55fedd3cd0742257ef6339cb9cf0b0425b8eee43aa9f962b8a000313d358a144",
+      "manifest": "schema5-1e1dfc3-renpy.project.json",
+      "manifest_sha256": "46af7096cda97974719dd83ce63599785f421414ca266d739afc482532907de5",
+      "expect": {
+        "project_id": "2540c1cfeb664d329ecc29e853a9470f",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644",
+            "source_revision": "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "status": "approved",
+            "version": 4,
+            "translation_revision": "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "translation": "Selam."
+          },
+          {
+            "unit_id": "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b",
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "62959eedd70e763209a3302e395749467f91040f94022792686d735117496983",
+            "translation": "Anlatım."
+          },
+          {
+            "unit_id": "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6",
+            "source_revision": "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            "status": "pending",
+            "version": 2,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c",
+            "source_revision": "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "ecdc6ef44c54982a5c011b6cf9631254d716a5856a4c9e41b269b47f3f33297b",
+            "translation": "Örnek"
+          },
+          {
+            "unit_id": "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772",
+            "source_revision": "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "8e091530cf9c1e1f9bcd1eca456f55bfc1e739fdc9fd2bcf9e741a24a47dade4",
+            "translation": "Ekran"
+          }
+        ],
+        "history": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "ecdc6ef44c54982a5c011b6cf9631254d716a5856a4c9e41b269b47f3f33297b"
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "ec32b8b266d42ecbe6d77d061f28523bc9650ba40575172368dc644001d4bf63"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "9f70a3c658f6479484bb79250f5f1b37725044c88474429aa666513cadca1314"
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "62959eedd70e763209a3302e395749467f91040f94022792686d735117496983"
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "8e091530cf9c1e1f9bcd1eca456f55bfc1e739fdc9fd2bcf9e741a24a47dade4"
+          ]
+        },
+        "drafts": {
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": {
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Anlatı."
+          }
+        },
+        "jobs": {
+          "b3347c9b3f7a479f9dd51d4a78a9dc19": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "37a1cef988d7447a939f245ac9381593": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 5,
+        "migrations": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_items": 6,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 5,
+          "snapshot_sources": 2,
+          "snapshot_units": 10,
+          "source_descriptors": 1,
+          "source_revisions": 6,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 6,
+          "translation_revisions": 6,
+          "translation_runs": 6,
+          "work_items": 6
+        },
+        "text_units": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            1
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            1
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "4387565ba984e0da774d0fecd2350f23f883c687103637b5e57f739cf386e25f",
+            0
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            1
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            1
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            1
+          ]
+        },
+        "work_items": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "translated",
+            2,
+            "ecdc6ef44c54982a5c011b6cf9631254d716a5856a4c9e41b269b47f3f33297b",
+            null,
+            null
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "approved",
+            4,
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "translated",
+            2,
+            "9f70a3c658f6479484bb79250f5f1b37725044c88474429aa666513cadca1314",
+            null,
+            null
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "translated",
+            2,
+            "62959eedd70e763209a3302e395749467f91040f94022792686d735117496983",
+            null,
+            null
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "pending",
+            2,
+            null,
+            null,
+            null
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "approved",
+            3,
+            "8e091530cf9c1e1f9bcd1eca456f55bfc1e739fdc9fd2bcf9e741a24a47dade4",
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "8e091530cf9c1e1f9bcd1eca456f55bfc1e739fdc9fd2bcf9e741a24a47dade4"
+          ]
+        },
+        "glossary_versions": [
+          "4288502cacc6ce5c1954f5c9271c453a9cea61cf2a87e4c239b7b0cdd1ea12bf"
+        ],
+        "source_descriptors": [
+          "renpy-script-8.1.2-v1:game/script.rpy"
+        ],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema6-41ea1da-renpy",
+      "revision": "41ea1da",
+      "package_version": "0.6.0",
+      "tags": [],
+      "recipe": "renpy",
+      "build": "release",
+      "schema": 6,
+      "database": "schema6-41ea1da-renpy.sqlite3",
+      "database_sha256": "9565bdc0f5decb77f30e8be8192f0a9b9d036ab9cc24604772effb9b55037065",
+      "manifest": "schema6-41ea1da-renpy.project.json",
+      "manifest_sha256": "f988b0d30e6d550f14e49a5f11207e9a74ccc297e8d37fab6fab7e802bbb6a1c",
+      "expect": {
+        "project_id": "f1411fddfc8e42028d728d9f3bc96499",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644",
+            "source_revision": "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "status": "approved",
+            "version": 4,
+            "translation_revision": "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "translation": "Selam."
+          },
+          {
+            "unit_id": "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b",
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "5f4d69f895b59eb64ae4b37fc75e1d26f7efa469615e3b3e4c5697756616bc39",
+            "translation": "Anlatım."
+          },
+          {
+            "unit_id": "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6",
+            "source_revision": "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            "status": "pending",
+            "version": 2,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c",
+            "source_revision": "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "a6074956c66e1fb90b6f85ca02dea3f0c1146ac260b72fdf11f46319fdf188d3",
+            "translation": "Örnek"
+          },
+          {
+            "unit_id": "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772",
+            "source_revision": "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "413ee654f0e76e5e17836e99e918ead9e024f217f9e02fe524c1342a2b9f3bb5",
+            "translation": "Ekran"
+          }
+        ],
+        "history": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "a6074956c66e1fb90b6f85ca02dea3f0c1146ac260b72fdf11f46319fdf188d3"
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "69099fb559e6783c36b6bfe2d2beb16d9af74ce127bacd5c2ab70c557a435a17"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "cf3178b4aa60cc67b68d8be0d8b6c78ea33e0c78a25855a9c1aeba4a378a43f6"
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "5f4d69f895b59eb64ae4b37fc75e1d26f7efa469615e3b3e4c5697756616bc39"
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "413ee654f0e76e5e17836e99e918ead9e024f217f9e02fe524c1342a2b9f3bb5"
+          ]
+        },
+        "drafts": {
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": {
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Anlatı."
+          }
+        },
+        "jobs": {
+          "a4bfeccc3a9644f682122b784a852412": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "b3fb03b51c784f8fba837a5ede8b2e93": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 6,
+        "migrations": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_context_sources": 2,
+          "job_items": 6,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 6,
+          "snapshot_sources": 2,
+          "snapshot_units": 10,
+          "source_descriptors": 1,
+          "source_revisions": 6,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 6,
+          "translation_revisions": 6,
+          "translation_runs": 6,
+          "work_items": 6
+        },
+        "text_units": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            1
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            1
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "4387565ba984e0da774d0fecd2350f23f883c687103637b5e57f739cf386e25f",
+            0
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            1
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            1
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            1
+          ]
+        },
+        "work_items": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "translated",
+            2,
+            "a6074956c66e1fb90b6f85ca02dea3f0c1146ac260b72fdf11f46319fdf188d3",
+            null,
+            null
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "approved",
+            4,
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "translated",
+            2,
+            "cf3178b4aa60cc67b68d8be0d8b6c78ea33e0c78a25855a9c1aeba4a378a43f6",
+            null,
+            null
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "translated",
+            2,
+            "5f4d69f895b59eb64ae4b37fc75e1d26f7efa469615e3b3e4c5697756616bc39",
+            null,
+            null
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "pending",
+            2,
+            null,
+            null,
+            null
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "approved",
+            3,
+            "413ee654f0e76e5e17836e99e918ead9e024f217f9e02fe524c1342a2b9f3bb5",
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "413ee654f0e76e5e17836e99e918ead9e024f217f9e02fe524c1342a2b9f3bb5"
+          ]
+        },
+        "glossary_versions": [
+          "4288502cacc6ce5c1954f5c9271c453a9cea61cf2a87e4c239b7b0cdd1ea12bf"
+        ],
+        "source_descriptors": [
+          "renpy-script-8.1.2-v1:game/script.rpy"
+        ],
+        "job_context_sources": [
+          [
+            "a4bfeccc3a9644f682122b784a852412",
+            "renpy-script-8.1.2-v1:game/script.rpy"
+          ],
+          [
+            "b3fb03b51c784f8fba837a5ede8b2e93",
+            "renpy-script-8.1.2-v1:game/script.rpy"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "schema6-9088210-unity",
+      "revision": "9088210",
+      "package_version": "0.6.1",
+      "tags": [],
+      "recipe": "unity",
+      "build": "release",
+      "schema": 6,
+      "database": "schema6-9088210-unity.sqlite3",
+      "database_sha256": "0a0b35a032aea0eea455afb5abb4261e43f68b4de3bfd6f432c8bfe3b821a636",
+      "manifest": "schema6-9088210-unity.project.json",
+      "manifest_sha256": "84f7f9928ced8e0d6aa43b9d2311388587c631b201b592c08adbd41ae983b0ad",
+      "expect": {
+        "project_id": "6152ff4dcc1147688b256c4d46b87150",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "UI/options",
+            "source_revision": "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            "status": "pending",
+            "version": 7,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "UI/quit",
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "9740ceca9db76ea3fe12a3478e03711a1835d45f844259ea9e549d3e7bc78ec7",
+            "translation": "Çık"
+          },
+          {
+            "unit_id": "UI/start",
+            "source_revision": "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "1ab9202e8daea22d38e2efbbbf48d41b2e355160e7af3e9f9d5c50c1069b874b",
+            "translation": "Başla"
+          }
+        ],
+        "history": {
+          "UI/credits": [
+            "dbf6cf91620ace8501cba42f7e620e6ed052ed6c5ef694449694a3fd1f302259"
+          ],
+          "UI/options": [
+            "cf9e33faa4ec238afb3a01ba2b1957e1e4f35735651ed1a650e92e1c989910fa",
+            "9982262a7e0a55b013424eb09284c07c5f94518ba2f3a36140f524984a38e6f8"
+          ],
+          "UI/quit": [
+            "9740ceca9db76ea3fe12a3478e03711a1835d45f844259ea9e549d3e7bc78ec7"
+          ],
+          "UI/start": [
+            "1ab9202e8daea22d38e2efbbbf48d41b2e355160e7af3e9f9d5c50c1069b874b"
+          ]
+        },
+        "drafts": {
+          "UI/quit": {
+            "source_revision": "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Çıkış"
+          }
+        },
+        "jobs": {
+          "6396ef474c5d497aa7c5721b025a8689": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "0a24ed857c8748c382069e7444cc2439": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 6,
+        "migrations": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_context_sources": 0,
+          "job_items": 5,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 6,
+          "snapshot_sources": 2,
+          "snapshot_units": 7,
+          "source_descriptors": 1,
+          "source_revisions": 5,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 4,
+          "translation_revisions": 5,
+          "translation_runs": 5,
+          "work_items": 4
+        },
+        "text_units": {
+          "UI/credits": [
+            "0e5224eb975eda713c8596da71301ba4feafc09bce770e62e9ee706c334eaa21",
+            0
+          ],
+          "UI/options": [
+            "ee2a9f413af6c3a36d60b0c6f32edbc004ab741cafc95646d4cd40d75703e4cd",
+            1
+          ],
+          "UI/quit": [
+            "20f2f3a2e84c1034cf47c472a42d24499200b0f7fa59f46b91c6a36292fa939e",
+            1
+          ],
+          "UI/start": [
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            1
+          ]
+        },
+        "work_items": {
+          "UI/credits": [
+            "translated",
+            2,
+            "dbf6cf91620ace8501cba42f7e620e6ed052ed6c5ef694449694a3fd1f302259",
+            null,
+            null
+          ],
+          "UI/options": [
+            "pending",
+            7,
+            null,
+            null,
+            null
+          ],
+          "UI/quit": [
+            "translated",
+            2,
+            "9740ceca9db76ea3fe12a3478e03711a1835d45f844259ea9e549d3e7bc78ec7",
+            null,
+            null
+          ],
+          "UI/start": [
+            "approved",
+            3,
+            "1ab9202e8daea22d38e2efbbbf48d41b2e355160e7af3e9f9d5c50c1069b874b",
+            "fe5bb3c2ba0dfa8d808b31f3380fe283774de19e65a57e8258fae2b00eceda32",
+            "1ab9202e8daea22d38e2efbbbf48d41b2e355160e7af3e9f9d5c50c1069b874b"
+          ]
+        },
+        "glossary_versions": [
+          "236cdc45b243cc504369a385bebd203cbd6a5dc0f66231f1b12bb31c96de026c"
+        ],
+        "source_descriptors": [
+          "legacy-file-v1:synthetic.assets"
+        ],
+        "job_context_sources": []
+      }
+    },
+    {
+      "name": "schema6-bcfa3e2-renpy",
+      "revision": "bcfa3e2",
+      "package_version": "0.7.0",
+      "tags": [],
+      "recipe": "renpy",
+      "build": "release",
+      "schema": 6,
+      "database": "schema6-bcfa3e2-renpy.sqlite3",
+      "database_sha256": "2c84471bb6d37142d5c7118c3b2424f2104549f72475a928a049e2d9cad60210",
+      "manifest": "schema6-bcfa3e2-renpy.project.json",
+      "manifest_sha256": "a0da95b39f4d7240b6e58267b2dd55ec497b202fe3b59782f4569a06911703f5",
+      "expect": {
+        "project_id": "4148d825a3154763a60194dad5fe389a",
+        "source_language": "en",
+        "target_language": "tr",
+        "page": [
+          {
+            "unit_id": "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644",
+            "source_revision": "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "status": "approved",
+            "version": 4,
+            "translation_revision": "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "translation": "Selam."
+          },
+          {
+            "unit_id": "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b",
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "356610cb4b16f165a767d633f7dbd447e570e8ced482179ce0448eb08de8b717",
+            "translation": "Anlatım."
+          },
+          {
+            "unit_id": "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6",
+            "source_revision": "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            "status": "pending",
+            "version": 2,
+            "translation_revision": null,
+            "translation": null
+          },
+          {
+            "unit_id": "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c",
+            "source_revision": "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            "status": "translated",
+            "version": 2,
+            "translation_revision": "801a65f58bff80c3dd34d051d47af5ce59c13a7ef198acb36e44d5a6d241aa36",
+            "translation": "Örnek"
+          },
+          {
+            "unit_id": "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772",
+            "source_revision": "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "status": "approved",
+            "version": 3,
+            "translation_revision": "71671a4d0ca2b166b22f51aca5653b0b15f683b633c5e83a4307d31625880688",
+            "translation": "Ekran"
+          }
+        ],
+        "history": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "801a65f58bff80c3dd34d051d47af5ce59c13a7ef198acb36e44d5a6d241aa36"
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "8d7c512aae312bea39bbfb8f0682c00b313136253c8699c099d77a81c8601fd3"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "1b18349a67619397ce158f4e08c6085f2c363c9ac7dbb9b2f5d0171bb6e456a4"
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "356610cb4b16f165a767d633f7dbd447e570e8ced482179ce0448eb08de8b717"
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "71671a4d0ca2b166b22f51aca5653b0b15f683b633c5e83a4307d31625880688"
+          ]
+        },
+        "drafts": {
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": {
+            "source_revision": "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            "base_version": 2,
+            "revision": 1,
+            "text": "Anlatı."
+          }
+        },
+        "jobs": {
+          "dfad47d2050947e499e0b3de5b27cdfe": {
+            "kind": "prototype",
+            "status": "completed"
+          },
+          "20ad9aaebe424d9b8d6d9aef091573c9": {
+            "kind": "prototype",
+            "status": "paused"
+          }
+        },
+        "user_version": 6,
+        "migrations": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "counts": {
+          "editor_drafts": 1,
+          "glossary_versions": 1,
+          "job_context_sources": 2,
+          "job_items": 6,
+          "jobs": 2,
+          "policy_impacts": 1,
+          "project": 1,
+          "project_settings": 2,
+          "schema_migrations": 6,
+          "snapshot_sources": 2,
+          "snapshot_units": 10,
+          "source_descriptors": 1,
+          "source_revisions": 6,
+          "source_snapshots": 2,
+          "style_versions": 0,
+          "text_units": 6,
+          "translation_revisions": 6,
+          "translation_runs": 6,
+          "work_items": 6
+        },
+        "text_units": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "f46dd93c3a1856b62e8d297b47e97c58154c8abf26574b80b966c28531f88ff9",
+            1
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            1
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "4387565ba984e0da774d0fecd2350f23f883c687103637b5e57f739cf386e25f",
+            0
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "56af2734ed1554192cf6f3d8f67abb88fa3b04bb98b372f6952c5c244ee1e9be",
+            1
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "8c95971ae60125767c54a1aa46bb07abdefc923b124e9dc5acef25652c9db88c",
+            1
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            1
+          ]
+        },
+        "work_items": {
+          "renpy-v1:0d6b585670adf36295c4f7c010cc3c94d3ca7a1e871f4e4ddf2694690782a78c": [
+            "translated",
+            2,
+            "801a65f58bff80c3dd34d051d47af5ce59c13a7ef198acb36e44d5a6d241aa36",
+            null,
+            null
+          ],
+          "renpy-v1:24e9df8bc52139eaa1e31f1a29617517f600e43e2db6f6974e96ae1183242644": [
+            "approved",
+            4,
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d",
+            "f1542884783cb656faa8a8b2130a9dbcb7c829f2019a678c3a2638463337582d",
+            "c4d877a4b4f2cec953b80668e0ea9905c313c07c574f85a20906ee8c4e863c3d"
+          ],
+          "renpy-v1:2f80ade0adc5f9cbfef0aea3b08c3395fd5b039bbb24dcd1afd6e390bd36d61b": [
+            "translated",
+            2,
+            "1b18349a67619397ce158f4e08c6085f2c363c9ac7dbb9b2f5d0171bb6e456a4",
+            null,
+            null
+          ],
+          "renpy-v1:3bc0ccc3fc574dda721d6c58bf40b619296c60ac5c51a22a161cd80339b1256b": [
+            "translated",
+            2,
+            "356610cb4b16f165a767d633f7dbd447e570e8ced482179ce0448eb08de8b717",
+            null,
+            null
+          ],
+          "renpy-v1:57fd19cc4634211852bc248e01495a7f2c7264b7be8a826517aeedc8efdd69f6": [
+            "pending",
+            2,
+            null,
+            null,
+            null
+          ],
+          "renpy-v1:b59691a9331045d11b23b4ec8ec6089230c075ef89f12a43d741c3eed3c78772": [
+            "approved",
+            3,
+            "71671a4d0ca2b166b22f51aca5653b0b15f683b633c5e83a4307d31625880688",
+            "6d1f36b2d8ed9d3340124d2998b0bfb798d2d0a4b5344a379f595bfbb79c8f51",
+            "71671a4d0ca2b166b22f51aca5653b0b15f683b633c5e83a4307d31625880688"
+          ]
+        },
+        "glossary_versions": [
+          "4288502cacc6ce5c1954f5c9271c453a9cea61cf2a87e4c239b7b0cdd1ea12bf"
+        ],
+        "source_descriptors": [
+          "renpy-script-8.1.2-v1:game/script.rpy"
+        ],
+        "job_context_sources": [
+          [
+            "20ad9aaebe424d9b8d6d9aef091573c9",
+            "renpy-script-8.1.2-v1:game/script.rpy"
+          ],
+          [
+            "dfad47d2050947e499e0b3de5b27cdfe",
+            "renpy-script-8.1.2-v1:game/script.rpy"
+          ]
+        ]
+      }
+    }
+  ]
+}

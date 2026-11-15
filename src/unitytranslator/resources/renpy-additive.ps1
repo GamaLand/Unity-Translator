@@ -62,14 +62,14 @@ function AddonReceipt([string]$Root,[bool]$Launching) {
     $path = Confined $Root ($package.metadata_folder+'/receipt.json')
     if ((Get-Item -LiteralPath $path).Length -gt 16777216) { throw 'Oversized installation receipt.' }
     $result = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($result.status -cne 'installed' -or $result.target -cne $Root -or $result.package_id -cne $package.package_id -or $result.manifest_sha256 -cne $manifestHash -or $result.game_identity -cne [RenpyCopyIdentity]::ReadHandle($script:directoryGuards[$Root])) { throw 'Installation game identity mismatch.' }
+    if ($result.status -cne 'installed' -or $result.target -cne $Root -or $result.package_id -cne $package.package_id -or $result.manifest_sha256 -cne $manifestHash -or $result.game_identity -cne [RecipientIdentity]::ReadHandle($script:directoryGuards[$Root])) { throw 'Installation game identity mismatch.' }
     $metadataPath = Confined $Root $package.metadata_folder
     NeedDirectory $metadataPath
-    if ([RenpyCopyIdentity]::ReadHandle($script:directoryGuards[$metadataPath]) -cne $result.metadata_identity) { throw 'Installation metadata directory changed.' }
+    if ([RecipientIdentity]::ReadHandle($script:directoryGuards[$metadataPath]) -cne $result.metadata_identity) { throw 'Installation metadata directory changed.' }
     $languagePath = Confined $Root $languageRelative
     if (Test-Path -LiteralPath $languagePath) {
         NeedDirectory $languagePath
-        if ([RenpyCopyIdentity]::ReadHandle($script:directoryGuards[$languagePath]) -cne $result.language_identity) { throw 'Translation directory changed.' }
+        if ([RecipientIdentity]::ReadHandle($script:directoryGuards[$languagePath]) -cne $result.language_identity) { throw 'Translation directory changed.' }
     } elseif ($Launching) { throw 'Installed translation directory is missing.' }
     $allowed = @{}
     foreach ($entry in $package.payloads) { $allowed[$entry.path.ToLowerInvariant()] = $entry.sha256 }
@@ -89,7 +89,7 @@ function AddonReceipt([string]$Root,[bool]$Launching) {
     foreach ($name in @('reviewed-plan.json','install-start.json')) {
         $entry = @($result.files | Where-Object { $_.path -ceq ($package.metadata_folder+'/'+$name) })[0]
         $proof = Confined $Root $entry.path
-        if ([RenpyCopyIdentity]::Read($proof) -cne $entry.identity -or (Digest $proof) -cne $entry.sha256) { throw 'Immutable installation proof changed.' }
+        if ([RecipientIdentity]::Read($proof) -cne $entry.identity -or (Digest $proof) -cne $entry.sha256) { throw 'Immutable installation proof changed.' }
     }
     return $result
 }
@@ -107,12 +107,13 @@ function AddonConfirm($Plan,[string]$Hash,[string]$Word) {
     } else {
         Write-Output ($Plan | ConvertTo-Json -Depth 12)
         if ((Read-Host ('Review the file plan above. Type '+$Word)) -cne $Word) { throw 'Operation not approved; nothing written.' }
+        ForgetGameCheck
     }
 }
 
 try {
     if ($Action -eq 'Launch') {
-        $target = Checked ([IO.Path]::Combine($packageRoot,'../../..'))
+        $target = Checked ([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($packageRoot))))
         if ((Confined $target $package.metadata_folder) -cne $packageRoot) { throw 'Launch from the installed patch only.' }
         NeedDirectory $target
         $receipt = AddonReceipt $target $true
@@ -159,13 +160,13 @@ try {
             if (-not (Test-Path -LiteralPath $path)) { continue }
             try {
                 NeedDirectory ([IO.Path]::GetDirectoryName($path))
-                if (-not [RenpyCopyIdentity]::DeleteUnchanged($path,$entry.identity,$entry.sha256)) { $preserved += $entry.path }
+                if (-not [RecipientIdentity]::DeleteUnchanged($path,$entry.identity,$entry.sha256)) { $preserved += $entry.path }
             } catch { $preserved += $entry.path }
         }
         $languagePath = Confined $target $languageRelative
         if ((Test-Path -LiteralPath $languagePath) -and $preserved.Count -eq 0) {
             $script:directoryGuards[$languagePath].Dispose(); $script:directoryGuards.Remove($languagePath)
-            $null = [RenpyCopyIdentity]::DeleteEmptyDirectory($languagePath,$receipt.language_identity)
+            $null = [RecipientIdentity]::DeleteEmptyDirectory($languagePath,$receipt.language_identity)
         }
         $report = @{status=$(if ($preserved.Count) { 'partial_removal_modified_files_preserved' } else { 'owned_additions_removed_audit_metadata_retained' });target=$target;changed_files_preserved=$preserved;language_directory_retained=(Test-Path -LiteralPath $languagePath);original_files_overwritten=$false;runtime_data_restored=$false;reviewed_plan_sha256=$planHash;removal_receipt=$removalRelative}
         $null = WriteNew $removalRelative ([Text.UTF8Encoding]::new($false).GetBytes(($report | ConvertTo-Json -Depth 6)))
@@ -190,8 +191,8 @@ try {
         if (Test-Path -LiteralPath (Confined $target $entry.path)) { throw 'A patch destination exists; nothing overwritten.' }
     }
     if ((Digest (Confined $packageRoot $package.launcher)) -cne $package.launcher_sha256) { throw 'Launcher hash mismatch.' }
-    $gameGuard = [RenpyCopyIdentity]::HoldDirectory($target)
-    $gameIdentity = [RenpyCopyIdentity]::ReadHandle($gameGuard); $gameGuard.Dispose()
+    $gameGuard = [RecipientIdentity]::HoldDirectory($target)
+    $gameIdentity = [RecipientIdentity]::ReadHandle($gameGuard); $gameGuard.Dispose()
     $generated = @('install-start.json','reviewed-plan.json','install-journal.jsonl','receipt.json') | ForEach-Object { $package.metadata_folder+'/'+$_ }
     $plan = [ordered]@{format_version=3;action='Install';installation_mode='original-additions';target=$target;game_identity=$gameIdentity;manifest_sha256=$manifestHash;files=$newFiles;generated_files=@($generated);game_files_copied=0;original_files_overwritten=$false;backup_policy='No original file is overwritten; no original-file backup is needed.';runtime_policy=$package.runtime_write_scope;retained_metadata=$package.metadata_folder}
     $planRaw = [Text.UTF8Encoding]::new($false).GetBytes(($plan | ConvertTo-Json -Depth 12 -Compress))
@@ -199,14 +200,18 @@ try {
     if ($ReviewOnly) { Write-Output (@{plan=$plan;sha256=$planHash} | ConvertTo-Json -Depth 15); exit 0 }
     AddonConfirm $plan $planHash 'INSTALL'
     NeedDirectory $target
-    if ([RenpyCopyIdentity]::ReadHandle($script:directoryGuards[$target]) -cne $gameIdentity) { throw 'Game directory changed after review.' }
+    if ([RecipientIdentity]::ReadHandle($script:directoryGuards[$target]) -cne $gameIdentity) { throw 'Game directory changed after review.' }
+    GameClosed $target
     AddonInputs $target
     if ((Test-Path -LiteralPath $metadataPath) -or (Test-Path -LiteralPath $languagePath)) { throw 'A destination appeared after review.' }
-    NeedDirectory ([IO.Path]::GetDirectoryName($metadataPath)); [RenpyCopyIdentity]::NewDirectory($metadataPath); NeedDirectory $metadataPath
-    NeedDirectory ([IO.Path]::GetDirectoryName($languagePath)); [RenpyCopyIdentity]::NewDirectory($languagePath); NeedDirectory $languagePath
+    foreach ($entry in $newFiles) {
+        if (Test-Path -LiteralPath (Confined $target $entry.path)) { throw 'A destination appeared after review.' }
+    }
+    NeedDirectory ([IO.Path]::GetDirectoryName($metadataPath)); [RecipientIdentity]::NewDirectory($metadataPath); NeedDirectory $metadataPath
+    NeedDirectory ([IO.Path]::GetDirectoryName($languagePath)); [RecipientIdentity]::NewDirectory($languagePath); NeedDirectory $languagePath
     $journalPath = Confined $target ($package.metadata_folder+'/install-journal.jsonl')
     $script:journalStream = [IO.File]::Open($journalPath,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read)
-    $receipt = @{format_version=3;status='installing';target=$target;game_identity=$gameIdentity;package_id=$package.package_id;manifest_sha256=$manifestHash;reviewed_plan_sha256=$planHash;reviewed_plan_file_sha256=(BytesDigest $planRaw);language_identity=([RenpyCopyIdentity]::ReadHandle($script:directoryGuards[$languagePath]));metadata_identity=([RenpyCopyIdentity]::ReadHandle($script:directoryGuards[$metadataPath]));files=@()}
+    $receipt = @{format_version=3;status='installing';target=$target;game_identity=$gameIdentity;package_id=$package.package_id;manifest_sha256=$manifestHash;reviewed_plan_sha256=$planHash;reviewed_plan_file_sha256=(BytesDigest $planRaw);language_identity=([RecipientIdentity]::ReadHandle($script:directoryGuards[$languagePath]));metadata_identity=([RecipientIdentity]::ReadHandle($script:directoryGuards[$metadataPath]));files=@()}
     $start = [Text.UTF8Encoding]::new($false).GetBytes((@{target=$target;game_identity=$gameIdentity;package_id=$package.package_id;manifest_sha256=$manifestHash;reviewed_plan_sha256=$planHash} | ConvertTo-Json -Compress))
     $receipt.installation_start_sha256 = BytesDigest $start
     $receipt.files += WriteNew ($package.metadata_folder+'/install-start.json') $start

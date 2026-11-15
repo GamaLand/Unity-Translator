@@ -13,8 +13,13 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.filesystem import checked_path, hash_file
-from unitytranslator.game_process import GameProcessStatus, inspect_game_processes
+from unitytranslator.game_process import (
+    TREE_UNINSPECTABLE,
+    GameProcessStatus,
+    inspect_game_processes,
+)
 from unitytranslator.json_boundary import strict_json
 from unitytranslator.repository import ProjectRepository, canonical
 
@@ -75,7 +80,7 @@ class DeploymentManifest(BaseModel):
     files: list[FileReceipt] = Field(min_length=1, max_length=1000)
 
 
-class GameNotClosedError(ValueError):
+class GameNotClosedError(Diagnostic):
     pass
 
 
@@ -92,13 +97,13 @@ class DeploymentService:
         self.repository = repository
         self.process_probe = process_probe
         if exclusions and exclusions_reviewed is not True:
-            raise ValueError("Değişken veri dışlamaları açık kullanıcı seçimi gerektirir.")
+            raise ValueError("Volatile data exclusions require an explicit user choice.")
         self.requested_exclusions = [rule.model_dump() for rule in exclusions]
         self.validate_exclusions(self.requested_exclusions)
 
     def validate_exclusions(self, rules: list[dict[str, Any]]) -> None:
         if len(rules) > 1000:
-            raise ValueError("Dışlama dosyası sınırı aşıldı.")
+            raise ValueError("Exclusion file limit exceeded.")
         sources = {
             self.target(row[0]).as_posix().casefold()
             for row in self.repository.db.execute("SELECT DISTINCT source_file FROM text_units")
@@ -110,7 +115,7 @@ class DeploymentService:
             rule = VolatileFile.model_validate(value)
             path = self.target(rule.path)
             if path.as_posix().casefold() in sources:
-                raise ValueError("Çıkarılmış oyun kaynağı dışlanamaz.")
+                raise ValueError("An extracted game source cannot be excluded.")
             relative = path.relative_to(self.paths.game)
             # Only narrow single-file rules; no wildcard/directory or Unity/loader exclusions.
             if (
@@ -121,10 +126,10 @@ class DeploymentService:
                 or any(char in rule.path for char in "*?[]")
                 or (path.exists() and not path.is_file())
             ):
-                raise ValueError("Dışlama yalnızca tanımlı log/save/cache dosyası olabilir.")
+                raise ValueError("An exclusion can only be a defined log/save/cache file.")
             key = relative.as_posix().casefold()
             if key in names:
-                raise ValueError("Dışlama yolu yineleniyor.")
+                raise ValueError("The exclusion path is duplicated.")
             names.add(key)
 
     def read_baseline(self) -> dict[str, Any] | None:
@@ -132,7 +137,7 @@ class DeploymentService:
         if not path.exists():
             return None
         if path.stat().st_size > 64 * 1024 * 1024:
-            raise ValueError("Özgün envanter boyut sınırını aşıyor.")
+            raise ValueError("The original inventory exceeds the size limit.")
         value = OriginalInventory.model_validate(strict_json(path.read_bytes())).model_dump()
         rules = value["exclusions"]
         self.validate_exclusions(rules)
@@ -142,11 +147,13 @@ class DeploymentService:
             or value["fingerprint"] != self.fingerprint(value["files"], rules)
             or (self.requested_exclusions and self.requested_exclusions != rules)
         ):
-            raise ValueError("Özgün envanter proje/oyun/dışlama bağlantısı geçersiz.")
+            raise ValueError(
+                "The original inventory has an invalid project/game/exclusion binding."
+            )
         protected = {self.target(rule["path"]).as_posix().casefold() for rule in rules}
         for name in value["files"]:
             if self.target(name).as_posix().casefold() in protected:
-                raise ValueError("Özgün dosya ve dışlama aynı yolu içeremez.")
+                raise ValueError("An original file and an exclusion cannot share the same path.")
         return value
 
     def exclusion_rules(self) -> list[dict[str, Any]]:
@@ -177,18 +184,23 @@ class DeploymentService:
             if manifest is not None:
                 manifest["status"] = "recovery_required"
                 self.save_manifest(manifest)
+            if status.reason in TREE_UNINSPECTABLE:
+                raise GameNotClosedError(
+                    "The game folder cannot be inspected for running programs (links, reserved "
+                    "names, unreadable folders or too many entries); the file operation stopped."
+                )
             raise GameNotClosedError(
-                "Oyun çalışıyor veya kapalı olduğu doğrulanamadı; dosya işlemi durdu. "
-                "Oyunu kapatıp yeniden kontrol edin."
+                "The game is running or could not be verified as closed; the file operation "
+                "stopped. Close the game and check again."
             )
 
     def target(self, relative: str) -> Path:
         part = Path(relative)
         if not relative or part.is_absolute() or part.drive or ".." in part.parts:
-            raise ValueError("Uygulama hedefi güvenli ve göreli olmalı.")
+            raise ValueError("The application target must be a safe relative path.")
         path = checked_path(self.paths.game / part)
         if not path.is_relative_to(self.paths.game) or path == self.paths.game:
-            raise ValueError("Uygulama hedefi oyun kökü dışında.")
+            raise ValueError("The application target is outside the game root.")
         return path
 
     def inventory(self) -> dict[str, str]:
@@ -214,7 +226,9 @@ class DeploymentService:
                     after.st_size,
                     after.st_mtime_ns,
                 ):
-                    raise ValueError("Oyun dosyası envanter sırasında değişti; işlem durdu.")
+                    raise ValueError(
+                        "A game file changed during the inventory; the operation stopped."
+                    )
                 result[path.relative_to(self.paths.game).as_posix()] = digest
         self.require_game_closed()
         observations = self.excluded_observations()
@@ -255,34 +269,38 @@ class DeploymentService:
 
     def prepare(self, adapter: str, version: str, files: list[tuple[str, str]]) -> DeploymentPlan:
         if not adapter or not version or not 1 <= len(files) <= 1000:
-            raise ValueError("Adaptör sürümü ve dosya listesi gerekli.")
+            raise ValueError("An adapter, version and file list are required.")
         baseline = self.baseline()
         current = self.inventory()
         if current != baseline["files"]:
-            raise ValueError("Oyun envanteri değişti; eski paket yeniden uygulanamaz.")
+            raise ValueError("The game inventory changed; the old package cannot be applied again.")
         payload = []
         names: set[str] = set()
         for source, target in files:
             path = self.target(target)
             if path in self.protected_originals(baseline):
                 raise ValueError(
-                    "Uygulama hedefi özgün veya dışlanan kullanıcı verisiyle çakışıyor."
+                    "The application target conflicts with original or excluded user data."
                 )
             normalized = path.relative_to(self.paths.game).as_posix().casefold()
             if normalized in names or path.exists():
-                raise ValueError("Uygulama hedefi yineleniyor veya mevcut dosyayla çakışıyor.")
+                raise ValueError(
+                    "The application target is duplicated or conflicts with an existing file."
+                )
             names.add(normalized)
             source_path = self.paths.output(source)
             if not source_path.is_file():
-                raise ValueError("Paket dosyası proje içinde bulunamadı.")
+                raise ValueError("The package file was not found in the project.")
             for parent in path.parents:
                 if parent == self.paths.game:
                     break
                 if parent.exists() and not parent.is_dir():
-                    raise ValueError("Uygulama hedefinin üst yolu dosyayla çakışıyor.")
+                    raise ValueError(
+                        "A parent path of the application target conflicts with a file."
+                    )
             payload.append(PayloadFile(source, target, hash_file(source_path)))
         if any(a.startswith(b + "/") for a in names for b in names if a != b):
-            raise ValueError("Dosya/dizin uygulama hedefleri çakışıyor.")
+            raise ValueError("File and directory application targets conflict.")
         plan = DeploymentPlan(
             uuid4().hex, adapter, version, baseline["fingerprint"], tuple(payload)
         )
@@ -295,11 +313,11 @@ class DeploymentService:
         if not path.exists():
             return None
         if path.stat().st_size > 1024 * 1024:
-            raise ValueError("Uygulama manifesti boyut sınırını aşıyor.")
+            raise ValueError("The application manifest exceeds the size limit.")
         manifest = DeploymentManifest.model_validate(strict_json(path.read_bytes())).model_dump()
         baseline = self.baseline()
         if manifest["fingerprint"] != baseline["fingerprint"]:
-            raise ValueError("Uygulama manifesti özgün envanterle eşleşmiyor.")
+            raise ValueError("The application manifest does not match the original inventory.")
         originals = self.protected_originals(baseline)
         recorded = strict_json(
             self.paths.output(f"artifacts/plans/{manifest['plan_id']}.json").read_bytes()
@@ -314,34 +332,25 @@ class DeploymentService:
                 for file in manifest["files"]
             ]
         ):
-            raise ValueError("Uygulama manifesti hazırlanan dosya planıyla eşleşmiyor.")
+            raise ValueError("The application manifest does not match the prepared file plan.")
         for file in manifest["files"]:
             self.target(file["target"])
             if self.target(file["target"]) in originals:
-                raise ValueError("Uygulama manifesti özgün dosyayı sahiplenemez.")
+                raise ValueError("The application manifest cannot claim an original file.")
         return manifest
 
     def save_manifest(self, manifest: dict[str, Any]) -> None:
         DeploymentManifest.model_validate(manifest)
         self.paths.write_json("artifacts/deployment.json", manifest)
 
-    def activate(
-        self, plan: DeploymentPlan, *, user_action: bool, adapter_verified: bool
-    ) -> dict[str, Any]:
-        if plan.adapter in {"i2mono-experimental-trial", "krypta-textassets-experimental-trial"}:
-            raise ValueError("Deneysel plan normal doğrulanmış adaptör yolundan kurulamaz.")
-        if user_action is not True or adapter_verified is not True:
-            raise ValueError(
-                "Etkinleştirme açık kullanıcı eylemi ve doğrulanmış adaptör gerektirir."
-            )
-        return self._activate_checked(plan)
-
     def install_experimental_trial(
         self, plan: DeploymentPlan, *, user_action: bool, experimental_trial_reviewed: bool
     ) -> dict[str, Any]:
         """Explicit reviewed trial; does not establish normal adapter support or approval."""
         if user_action is not True or experimental_trial_reviewed is not True:
-            raise ValueError("Deneysel kurulum ayrı, açık kullanıcı deneme seçimi gerektirir.")
+            raise ValueError(
+                "Experimental installation requires a separate, explicit user trial choice."
+            )
         if (
             plan.adapter
             not in {"i2mono-experimental-trial", "krypta-textassets-experimental-trial"}
@@ -349,7 +358,7 @@ class DeploymentService:
             or len(plan.files) != 2
             or {file.target for file in plan.files} != {"winhttp.dll", "doorstop_config.ini"}
         ):
-            raise ValueError("Deneysel kurulum yalnızca sınırlı I2 deneme planını kabul eder.")
+            raise ValueError("Experimental installation accepts only the limited I2 trial plan.")
         return {
             **self._activate_checked(plan),
             "experimental": True,
@@ -360,19 +369,19 @@ class DeploymentService:
         self.require_game_closed()
         old = self.read_manifest()
         if old is not None and old["status"] != "removed":
-            raise ValueError("Önce eski uygulama eklerini kaldırın veya kurtarın.")
+            raise ValueError("Remove or recover the previous application additions first.")
         # Compare the exact locally prepared plan; imported JSON is not installation authority.
         recorded = strict_json(self.paths.output(f"artifacts/plans/{plan.id}.json").read_bytes())
         if canonical(recorded) != canonical(asdict(plan)):
-            raise ValueError("Plan hazırlamadan sonra değişti.")
+            raise ValueError("The plan changed after preparation.")
         if self.fingerprint(self.inventory(), self.baseline()["exclusions"]) != plan.fingerprint:
-            raise ValueError("Oyun hazırlamadan sonra değişti.")
+            raise ValueError("The game changed after preparation.")
         for file in plan.files:
             if (
                 self.target(file.target).exists()
                 or hash_file(self.paths.output(file.source)) != file.sha256
             ):
-                raise ValueError("Paket veya hedef hazırlamadan sonra değişti.")
+                raise ValueError("The package or target changed after preparation.")
         manifest: dict[str, Any] = {
             "format_version": 1,
             "plan_id": plan.id,
@@ -401,12 +410,14 @@ class DeploymentService:
                     output.flush()
                     os.fsync(output.fileno())
                 if hash_file(path) != item["sha256"]:
-                    raise ValueError("Eklenen dosya hash kontrolünü geçmedi.")
+                    raise ValueError("An added file failed the hash check.")
                 item["state"] = "installed"
                 self.save_manifest(manifest)
             changed = self.original_changes()
             if changed:
-                raise ValueError("Özgün dosya değişikliği saptandı; etkinleştirme doğrulanmadı.")
+                raise ValueError(
+                    "An original file change was detected; activation was not verified."
+                )
             self.require_game_closed(manifest)
             manifest["status"] = "installed"
             self.save_manifest(manifest)
@@ -429,7 +440,7 @@ class DeploymentService:
         self.require_game_closed(manifest)
         originals = self.protected_originals(self.baseline())
         if any(self.target(item["target"]) in originals for item in manifest["files"]):
-            raise ValueError("Kaldırma manifesti özgün dosyayı sahiplenemez.")
+            raise ValueError("The removal manifest cannot claim an original file.")
         removed = []
         preserved = []
         for item in reversed(manifest["files"]):
@@ -473,9 +484,9 @@ class DeploymentService:
 
     def uninstall(self, *, user_action: bool) -> dict[str, Any]:
         if not user_action:
-            raise ValueError("Kaldırma/kurtarma açık kullanıcı eylemi gerektirir.")
+            raise ValueError("Removal or recovery requires an explicit user action.")
         self.require_game_closed()
         manifest = self.read_manifest()
         if manifest is None:
-            raise ValueError("Kaldırılacak sahiplik manifesti bulunamadı.")
+            raise ValueError("No ownership manifest was found to remove.")
         return self._remove_owned(manifest)

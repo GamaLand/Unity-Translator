@@ -39,19 +39,19 @@ def bundled_kit_root() -> Path:
 def trusted_catalog() -> dict[str, Any]:
     resource = files("unitytranslator.resources").joinpath("runtime-kit-catalog.json")
     if not resource.is_file():
-        raise ValueError("Bu pakette oyuna uygulama bileşenleri bulunmuyor.")
+        raise ValueError("This package does not include game application components.")
     data = resource.read_bytes()
     if len(data) > 1024 * 1024:
-        raise ValueError("Runtime kataloğu boyut sınırını aşıyor.")
+        raise ValueError("The runtime catalog exceeds the size limit.")
     value = strict_json(data)
     if not isinstance(value, dict):
-        raise ValueError("Runtime kataloğu nesne olmalı.")
+        raise ValueError("The runtime catalog must be an object.")
     if (
         value.get("format_version") != 1
         or value.get("purpose") != "bundled-i2mono-runtime"
         or set(value["runtime_files"]) != RUNTIME_NAMES
     ):
-        raise ValueError("Runtime kataloğu geçersiz.")
+        raise ValueError("Invalid runtime catalog.")
     return value
 
 
@@ -66,9 +66,9 @@ class RuntimeKit:
     def validate(self) -> None:
         inventory = self.catalog["files"]
         if not 1 <= len(inventory) <= 2000 or not self.runtime_names <= set(inventory):
-            raise ValueError("Runtime dosya envanteri eksik.")
+            raise ValueError("The runtime file inventory is missing.")
         if any(inventory[name] != digest for name, digest in self.catalog["runtime_files"].items()):
-            raise ValueError("Runtime bileşen envanteri eşleşmiyor.")
+            raise ValueError("The runtime component inventory does not match.")
         actual = set()
         total = 0
         for path in self.root.rglob("*"):
@@ -76,13 +76,13 @@ class RuntimeKit:
             if path.is_file():
                 actual.add(path.relative_to(self.root).as_posix())
         if actual != set(inventory):
-            raise ValueError("Runtime paketi eksik veya beklenmeyen dosya içeriyor.")
+            raise ValueError("The runtime package is incomplete or contains unexpected files.")
         for name, digest in inventory.items():
             path = confined(self.root, name)
             size = path.stat().st_size
             total += size
             if size > 64 * 1024 * 1024 or total > 256 * 1024 * 1024 or hash_file(path) != digest:
-                raise ValueError("Runtime dosyası değişmiş veya boyut sınırını aşıyor.")
+                raise ValueError("A runtime file changed or exceeds the size limit.")
 
     def check_game(self, repo: ProjectRepository, assembly_relative: str) -> None:
         assembly = checked_path(repo.paths.game / assembly_relative)
@@ -91,29 +91,29 @@ class RuntimeKit:
             or assembly.name != "Assembly-CSharp.dll"
             or hash_file(assembly) != self.catalog["assembly_sha256"]
         ):
-            raise ValueError("Bu oyun sürümüyle eşleşen uygulama adaptörü bulunmuyor.")
+            raise ValueError("No application adapter matches this game version.")
         for name, expected in self.catalog["managed_references"].items():
             if Path(name).name != name or hash_file(confined(assembly.parent, name)) != expected:
-                raise ValueError("Oyunun çalışma altyapısı adaptör sürümüyle eşleşmiyor.")
+                raise ValueError("The game runtime does not match the adapter version.")
         if (
             hash_file(confined(repo.paths.game, "UnityPlayer.dll"))
             != self.catalog["unity_player_sha256"]
         ):
-            raise ValueError("Unity motoru adaptör sürümüyle eşleşmiyor.")
+            raise ValueError("The Unity engine does not match the adapter version.")
         data_name = assembly.parent.parent.name
         if not data_name.endswith("_Data"):
-            raise ValueError("Oyun veri klasörü belirsiz.")
+            raise ValueError("The game data folder is ambiguous.")
         executable = confined(repo.paths.game, data_name[:-5] + ".exe")
         with executable.open("rb") as stream:
             header = stream.read(64)
             if len(header) != 64 or header[:2] != b"MZ":
-                raise ValueError("Oyun yürütülebilir dosyası doğrulanamadı.")
+                raise ValueError("The game executable could not be verified.")
             offset = struct.unpack_from("<I", header, 60)[0]
             if not 64 <= offset <= 1024 * 1024:
-                raise ValueError("Oyun PE başlığı geçersiz.")
+                raise ValueError("Invalid game PE header.")
             stream.seek(offset)
             if stream.read(6) != b"PE\0\0\x64\x86":
-                raise ValueError("Bu adaptör yalnızca Windows x64 oyunları içindir.")
+                raise ValueError("This adapter supports only Windows x64 games.")
 
     def stage(self, repo: ProjectRepository, assembly_relative: str) -> dict[str, Any]:
         self.validate()
@@ -129,7 +129,7 @@ class RuntimeKit:
                 stream.write(source.read_bytes())
             expected = self.catalog["runtime_files"]["core/" + name]
             if hash_file(target) != expected:
-                raise ValueError("Runtime kopyası eşleşmiyor.")
+                raise ValueError("The runtime copy does not match.")
             copied.append({"file": "core/" + name, "sha256": expected})
         for folder in ("plugins", "patchers"):
             repo.paths.output(relative + "/" + folder).mkdir()
@@ -142,7 +142,7 @@ class RuntimeKit:
             with target.open("xb") as stream:
                 stream.write(confined(self.root, name).read_bytes())
             if hash_file(target) != expected:
-                raise ValueError("Lisans/kaynak kopyası eşleşmiyor.")
+                raise ValueError("The license or source copy does not match.")
         settings = prepare_runtime_settings(repo.paths, relative + "/core/BepInEx.Preloader.dll")
         repo.paths.write_json(
             relative + "/runtime-base-manifest.json",
@@ -187,4 +187,4 @@ class PortableRuntimeKit(RuntimeKit):
             or self.catalog.get("variant") != "portable-owned-subtree-v1"
             or set(self.catalog["runtime_files"]) != RUNTIME_NAMES
         ):
-            raise ValueError("Taşınabilir runtime kataloğu geçersiz.")
+            raise ValueError("Invalid portable runtime catalog.")

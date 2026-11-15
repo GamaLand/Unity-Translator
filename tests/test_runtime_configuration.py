@@ -36,7 +36,7 @@ def test_settings_are_disabled_external_and_preserve_game_and_existing_files(tmp
     assert Path(result["runtime_config"]).is_relative_to(paths.project)
     assert hash_file(original) == before and list(game.iterdir()) == [original]
     saved = Path(result["runtime_config"]).read_bytes()
-    with pytest.raises(ValueError, match="üzerine yazılmaz"):
+    with pytest.raises(ValueError, match="existing runtime configuration is never overwritten"):
         prepare_runtime_settings(paths, preloader.relative_to(paths.project).as_posix())
     assert Path(result["runtime_config"]).read_bytes() == saved
 

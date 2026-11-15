@@ -12,6 +12,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.filesystem import checked_path
 from unitytranslator.renpy_python import PYTHON_BLOCKS_V1, PYTHON_BLOCKS_V2
 
@@ -142,7 +143,7 @@ def contract_fingerprint(tree: ast.Module, qualified: str) -> str:
         matches = [child for child in node.body
                    if isinstance(child, ast.FunctionDef | ast.ClassDef) and child.name == part]
         if len(matches) != 1:
-            raise ValueError("Missing or ambiguous Ren'Py source contract: " + qualified)
+            raise Diagnostic("Missing or ambiguous Ren'Py source contract: {p0}", p0=qualified)
         node = matches[0]
     return sha256(ast.dump(node, include_attributes=False).encode()).hexdigest()
 
@@ -173,7 +174,9 @@ def inspect_source_dialect(
             raise ValueError("Source extraction was cancelled.")
         path = paths[name]
         if not path.is_file() or path.stat().st_size > MAX_CONTRACT_BYTES:
-            raise ValueError("Missing or oversized Ren'Py native-ID source contract: " + name)
+            raise Diagnostic(
+                "Missing or oversized Ren'Py native-ID source contract: {p0}", p0=name
+            )
         with path.open("rb") as stream:
             raw = stream.read(MAX_CONTRACT_BYTES + 1)
         if len(raw) > MAX_CONTRACT_BYTES:
@@ -181,7 +184,7 @@ def inspect_source_dialect(
         try:
             tree = ast.parse(raw.decode("utf-8-sig"))
         except (SyntaxError, UnicodeError, RecursionError) as exc:
-            raise ValueError("Unverified Ren'Py source contract syntax: " + name) from exc
+            raise Diagnostic("Unverified Ren'Py source contract syntax: {p0}", p0=name) from exc
         if sum(1 for _ in ast.walk(tree)) > MAX_AST_NODES:
             raise ValueError("Ren'Py source contract AST limit exceeded.")
         _without_docs(tree)
@@ -189,7 +192,9 @@ def inspect_source_dialect(
         for qualified, accepted in required.items():
             digest = contract_fingerprint(tree, qualified)
             if digest not in accepted:
-                raise ValueError("Unverified Ren'Py source behavior: " + name + ":" + qualified)
+                raise Diagnostic(
+                    "Unverified Ren'Py source behavior: {p0}:{p1}", p0=name, p1=qualified
+                )
             verified[qualified] = digest
         if name == "translation/__init__.py" and verified.get("Restructurer.callback") == (
             _MODERN_CALLBACK

@@ -38,6 +38,12 @@ source et cible du projet.
    Choisissez entre 1 et 36 requêtes parallèles selon le serveur. La réduction de la
    fenêtre n’arrête pas le travail. La pause attend les requêtes en cours ; l’annulation
    interrompt les tâches du client.
+   Fermer l’application ou ouvrir un autre projet met en pause la tâche en cours ;
+   reprenez-la explicitement. Si le serveur de modèle reste indisponible, la tâche se
+   met en pause sans consommer les essais des entrées.
+   Les espaces réservés `%d`, `%s` ou `%(name)s` des textes d’interface Ren'Py doivent
+   être conservés ; les anciens projets activent ce contrôle en réextrayant avec
+   `--format-rules renpy-text-v2`.
 6. **Révision :** comparez, corrigez, enregistrez puis approuvez les traductions.
    L’enregistrement d’un brouillon ne vaut pas approbation. L’approbation par page ne
    concerne que les éléments admissibles sélectionnés. Pour tout approuver, confirmez
@@ -71,7 +77,7 @@ Pour la version correspondante de Krypta FM, choisissez `en` comme source et `tr
 
 Après vérification et approbation, fermez le jeu puis examinez sous « Appliquer au jeu » le plan des deux nouveaux fichiers `winhttp.dll` et `doorstop_config.ini`. Le runtime expérimental reste dans le projet séparé ; aucun fichier original n’est remplacé. Retirez les ajouts depuis ce même projet. L’export de textes n’est pas un paquet d’installation ; les ZIP d’installation prennent aussi en charge la version Krypta en→tr correspondante. Le destinataire lance Install.cmd, examine le plan et saisit INSTALL ; Uninstall.cmd retire uniquement les ajouts propres inchangés. La combinaison portable a des tests synthétiques ; son contrôle spécifique en jeu reste à faire. Démarrage/menu, options, passage au jeu, pause et sous-titres ont été observés. Les autres écrans, changements de langue et la mise en page nécessitent une vérification manuelle ; un long libellé peut chevaucher son explication.
 
-Les paramètres avancés permettent de désactiver le raisonnement pour les requêtes LM Studio. Cela peut réserver davantage de tokens de sortie à la traduction. La prise en charge dépend du modèle chargé et du serveur ; une option non prise en charge peut arrêter la tâche. Les valeurs par défaut et les paramètres globaux du serveur sont conservés.
+Dans les paramètres avancés du modèle, « Raisonnement du modèle » contrôle l'étape de réflexion du modèle. « Par défaut du serveur » conserve le comportement du serveur. « Budget adaptatif (llama.cpp) » permet au modèle de réfléchir proportionnellement à chaque enregistrement : le texte d'interface court reçoit un petit budget de réflexion, tandis que le texte long et les dialogues voisins vérifiés en reçoivent davantage. Cela peut rendre les tâches beaucoup plus rapides sans passer le raisonnement sur « Désactivé ». « Désactivé » désactive la réflexion pour LM Studio et llama.cpp et peut réduire la qualité pour le texte dépendant du contexte. La prise en charge dépend du modèle chargé et du serveur ; une option non prise en charge peut arrêter la tâche. Le rapport pilote montre la quantité de raisonnement effectuée par le modèle. Modifier ce paramètre nécessite un pilote révisé correspondant.
 
 ## Traduction Ren'Py
 

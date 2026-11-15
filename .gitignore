@@ -17,6 +17,8 @@ deployment/
 *.assets
 *.resS
 *.sqlite3*
+# Frozen synthetic schema 1-6 projects (tests/fixtures/legacy-projects/README.md).
+!/tests/fixtures/legacy-projects/*.sqlite3
 
 # Local AI instructions, agent state and editor assistants
 AGENTS.md

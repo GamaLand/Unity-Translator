@@ -41,14 +41,19 @@ def test_enabled_review_is_project_only_and_does_not_alter_disabled_preview(acti
         if item["target"] == "doorstop_config.ini"
     )
     assert repo.paths.output(disabled).read_bytes() == doorstop_config_bytes(preloader)
-    with pytest.raises(ValueError, match="normal doğrulanmış"):
-        service.activate(plan, user_action=True, adapter_verified=True)
+    # A reviewed plan alone authorizes nothing: the only install path needs the trial choice.
+    with pytest.raises(ValueError, match="separate, explicit user trial choice"):
+        service.install_experimental_trial(
+            plan, user_action=True, experimental_trial_reviewed=False
+        )
+    assert not (repo.paths.game / "winhttp.dll").exists()
+    assert not repo.paths.output("artifacts/deployment.json").exists()
 
 
 @pytest.mark.parametrize("choice", [False, None, "true", "false", 1])
 def test_experimental_install_requires_literal_explicit_choice(active, choice):
     repo, _, service, review = active
-    with pytest.raises(ValueError, match="açık kullanıcı"):
+    with pytest.raises(ValueError, match="requires an explicit user choice"):
         install_reviewed_trial(
             repo,
             review["review_relative"],

@@ -89,7 +89,7 @@ def test_support_bundle_has_all_hashes_and_never_grants_installation(inputs):
 )
 def test_changed_support_input_is_rejected_before_output_creation(inputs, root, name):
     inputs[1][root].joinpath(name).write_bytes(b"tampered")
-    with pytest.raises(ValueError, match="katalogdan sonra"):
+    with pytest.raises(ValueError, match="changed after the catalog"):
         stage(inputs)
     assert not inputs[0].output("artifacts").exists()
 
@@ -98,14 +98,14 @@ def test_catalog_cannot_escape_picked_source_roots(inputs):
     inputs[2]["licenses"][0]["file"] = "../private.txt"
     inputs[2]["components"][0]["license_files"] = ["../private.txt"]
     save_catalog(inputs)
-    with pytest.raises(ValueError, match="göreli"):
+    with pytest.raises(ValueError, match="must be safe and relative"):
         stage(inputs)
 
 
 def test_binary_without_notice_cannot_be_staged(inputs):
     inputs[2]["components"][0]["license_files"] = []
     save_catalog(inputs)
-    with pytest.raises(ValueError, match="lisans bildirimi"):
+    with pytest.raises(ValueError, match="license notice is missing"):
         stage(inputs)
 
 

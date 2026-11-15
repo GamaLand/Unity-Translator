@@ -12,7 +12,7 @@ def test_mapped_network_drive_rejected_before_project_creation(
     project = tmp_path / "project"
     rejected = game if network_target == "game" else project
     monkeypatch.setattr(filesystem, "_is_network_drive", lambda path: path == rejected)
-    with pytest.raises(filesystem.PolicyError, match="yerel disk"):
+    with pytest.raises(filesystem.PolicyError, match="local disk folders"):
         filesystem.ProjectPaths(game, project)
     assert not project.exists()
 

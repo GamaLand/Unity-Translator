@@ -1,7 +1,9 @@
 """Reusable presentation components; no project state or translation policy."""
 
+from typing import Any, overload
+
 from PySide6.QtCore import QEvent, QRect, QSize, Qt
-from PySide6.QtGui import QAction, QPalette
+from PySide6.QtGui import QAction, QIcon, QPalette, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
     QFrame,
@@ -14,6 +16,8 @@ from PySide6.QtWidgets import (
     QStyleOptionButton,
     QStylePainter,
     QTableView,
+    QTableWidget,
+    QTableWidgetItem,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -132,7 +136,7 @@ class ReviewNotice(QLabel):
         self.setWordWrap(True)
         self.setText(text)
 
-    def setText(self, text):
+    def setText(self, text: str) -> None:
         super().setText(text)
         self.setToolTip(text)
         self.details.setText(text)
@@ -210,7 +214,15 @@ class WorkflowTabs(QTabWidget):
         self.button_group.setExclusive(True)
         self.currentChanged.connect(self.activate)
 
-    def addTab(self, widget, text):
+    @overload
+    def addTab(self, widget: QWidget, text: str, /) -> int: ...
+
+    @overload
+    def addTab(self, widget: QWidget, icon: QIcon | QPixmap, text: str, /) -> int: ...
+
+    def addTab(self, widget: QWidget, *args: Any) -> int:
+        # Accept both QTabWidget.addTab forms; the label is always the last argument.
+        text = args[-1]
         index = self.count()
         if index in self.groups:
             if index:
@@ -225,11 +237,11 @@ class WorkflowTabs(QTabWidget):
         self.buttons.append(button)
         self.button_group.addButton(button, index)
         self.navigation.addWidget(button)
-        result = super().addTab(widget, text)
+        result = super().addTab(widget, *args)
         self.activate(self.currentIndex())
         return result
 
-    def setTabEnabled(self, index, enabled):
+    def setTabEnabled(self, index: int, enabled: bool) -> None:
         super().setTabEnabled(index, enabled)
         self.buttons[index].setEnabled(enabled)
 
@@ -240,6 +252,13 @@ class WorkflowTabs(QTabWidget):
     def finish(self, footer):
         self.navigation.addStretch()
         self.navigation.addWidget(label(footer))
+
+
+def table_item(table: QTableWidget, row: int, column: int) -> QTableWidgetItem:
+    """Return a cell item the caller created; a missing item is a programming error."""
+    item = table.item(row, column)
+    assert item is not None, (row, column)
+    return item
 
 
 def scroll_page(widget):

@@ -10,7 +10,7 @@ from unitytranslator.ui.i18n import tr
 class DraftController(QObject):
     changed = Signal()
     action_finished = Signal(str, str)
-    failure = Signal(str, str)
+    failure = Signal(str, object)  # Keeps the diagnostics.Failure reason code.
 
     def __init__(self, bridge, parent=None):
         super().__init__(parent)
@@ -26,7 +26,7 @@ class DraftController(QObject):
         bridge.completed.connect(self.completed)
         bridge.failed.connect(self.failed)
 
-    def reset(self, project_id):
+    def reset(self, project_id: str) -> None:
         if self.pending or self.action or any(self.dirty(e) for e in self.entries.values()):
             raise ValueError(tr("Cannot switch projects while a draft is unsaved."))
         self.timer.stop()

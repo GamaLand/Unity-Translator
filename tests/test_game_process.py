@@ -62,3 +62,45 @@ def test_real_windows_snapshot_can_query_own_process_without_starting_or_stoppin
     assert own.image is not None and own.image.is_absolute()
     result = classify_game_processes(own.image.parent, {own.name}, (own,))
     assert result.status == "running" and result.running_pids == (os.getpid(),)
+
+
+def test_tree_inspection_failure_has_its_own_reason_and_message(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from unitytranslator.deployment import DeploymentService, GameNotClosedError
+
+    game = tmp_path / "game"
+    game.mkdir()
+    (game / "Game.exe").write_bytes(b"synthetic image identity")
+    monkeypatch.setattr("unitytranslator.game_process.windows_process_snapshot", lambda: ())
+    assert inspect_game_processes(game).status == "closed"
+    if os.name == "nt":
+        import _winapi
+
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        _winapi.CreateJunction(str(outside), str(game / "linked"))
+        result = inspect_game_processes(game)
+        assert (result.status, result.reason) == ("unknown", "game_tree_uninspectable")
+    for reason, message in (
+        ("game_tree_uninspectable", "cannot be inspected for running programs"),
+        ("game_entry_limit", "cannot be inspected for running programs"),
+        ("process_or_path_inspection_failed", "Close the game and check again"),
+        ("no_executable_identity", "Close the game and check again"),
+    ):
+        service = SimpleNamespace(
+            paths=SimpleNamespace(game=game),
+            process_probe=lambda _game, reason=reason: GameProcessStatus("unknown", reason=reason),
+        )
+        with pytest.raises(GameNotClosedError, match=message):
+            DeploymentService.require_game_closed(service)  # type: ignore[arg-type]
+
+
+def test_missing_or_file_game_root_is_not_reported_as_an_uninspectable_tree(tmp_path):
+    missing = tmp_path / "moved-game"
+    regular = tmp_path / "game.txt"
+    regular.write_bytes(b"not a folder")
+    for root in (missing, regular):
+        assert inspect_game_processes(root) == GameProcessStatus(
+            "unknown", reason="no_executable_identity"
+        )

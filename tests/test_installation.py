@@ -119,13 +119,13 @@ def test_prepare_install_remove_uses_all_approved_records_and_requires_explicit_
     assert review["records"] == 23 and len(review["files"]) == 2
     assert original_hashes(repo) == original  # Preparation writes only project artifacts.
     for consent in (False, 1, "true"):
-        with pytest.raises(ValueError, match="açık kullanıcı"):
+        with pytest.raises(ValueError, match="explicit user choice and an experimental scope"):
             flow.install(review["review_id"], user_action=consent, experimental_reviewed=True)
     result = flow.install(review["review_id"], user_action=True, experimental_reviewed=True)
     assert result["status"] == "installed" and result["application_verified"] is False
     assert result["original_changes"] == []
     status = flow.status()
-    with pytest.raises(ValueError, match="açık kullanıcı"):
+    with pytest.raises(ValueError, match="Removal requires an explicit user action"):
         flow.remove(status["deployment"]["plan_id"], user_action=False)
     removed = flow.remove(status["deployment"]["plan_id"], user_action=True)
     assert removed["status"] == "removed" and not removed["original_changes"]
@@ -176,7 +176,7 @@ def test_runtime_kit_tamper_is_rejected(install_project):
     repo, kit = install_project
     source = kit / "core/BepInEx.Preloader.dll"
     source.write_bytes(b"changed synthetic loader")
-    with pytest.raises(ValueError, match="değişmiş"):
+    with pytest.raises(ValueError, match="changed or exceeds the size limit"):
         InstallationSession(repo).prepare()
     assert not (repo.paths.game / "winhttp.dll").exists()
 

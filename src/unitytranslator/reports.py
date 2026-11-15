@@ -29,7 +29,8 @@ def save_current_quality_audit(repository: ProjectRepository) -> dict[str, Any]:
         "FROM text_units u JOIN source_revisions s ON s.id=u.source_revision "
         "JOIN work_items w USING(unit_id) JOIN translation_revisions t "
         "ON t.id=w.translation_revision AND t.source_revision=u.source_revision "
-        "WHERE u.active=1 ORDER BY u.original_key,u.unit_id"
+        # Full reads keep the scan-and-sort plan; the review-order index only helps pages.
+        "WHERE u.active=1 ORDER BY +u.original_key,u.unit_id"
     ):
         count += 1
         issues = sorted(
@@ -184,7 +185,7 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
     attempts = [
         dict(row)
         for row in repository.db.execute(
-            "SELECT attempt,status,elapsed_seconds,metadata_json FROM translation_runs "
+            "SELECT unit_id,attempt,status,elapsed_seconds,metadata_json FROM translation_runs "
             "WHERE job_id=?",
             (job_id,),
         )
@@ -193,7 +194,10 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         row["elapsed_seconds"]
         for row in attempts
         if row["status"]
-        not in ("processing", "interrupted", "cancelled", "unsupported_format", "context")
+        not in (
+            "processing", "interrupted", "cancelled", "unsupported_format", "context",
+            "connection", "server_unavailable",
+        )
     )
     rows = [
         dict(row)
@@ -248,8 +252,22 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
             row["review_status"] = "translated"
     review_blocker = store.pilot_review_blocker(job_id)
     context_attempts = []
+    reasoning_attempts = []
     for attempt in attempts:
         metadata = json.loads(attempt["metadata_json"])
+        reasoning = metadata.get("result", {}).get("reasoning")
+        if isinstance(reasoning, dict):
+            reasoning_attempts.append(reasoning)
+        elif isinstance(metadata.get("error_diagnostics"), dict):
+            # Failed attempts (for example output_truncated) often reasoned the most.
+            failed = metadata["error_diagnostics"]
+            reasoning_attempts.append({
+                "failed": True,
+                **({"budget_tokens": failed["reasoning_budget_tokens"]}
+                   if "reasoning_budget_tokens" in failed else {}),
+                **{key: failed[key] for key in ("reasoning_characters", "reasoning_tokens")
+                   if key in failed},
+            })
         details = metadata.get("result", {}).get("dialogue_context") or metadata.get(
             "error_diagnostics", {},
         ).get("dialogue_context")
@@ -268,7 +286,13 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
         "categories": dict(categories),
         "failure_codes": dict(failure_counts),
         "issue_counts": dict(issue_counts),
-        "retry_count": sum(max(row["attempts"] - 1, 0) for row in rows),
+        # Retries come from run history: outage attempts are refunded from the budget column.
+        "retry_count": sum(max(count - 1, 0) for count in Counter(
+            attempt["unit_id"] for attempt in attempts
+            if attempt["status"] not in ("processing", "interrupted", "cancelled")
+        ).values()),
+        "outage_attempts": attempt_statuses["connection"]
+        + attempt_statuses["server_unavailable"],
         "measured_attempts": len(measured),
         "attempt_count": len(attempts),
         "validation_metrics": {
@@ -290,6 +314,9 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
             "isolated_fallback": sum(c["reference_count"] == 0 for c in context_attempts),
             "budget_reduced": sum(c["omitted_for_budget"] > 0 for c in context_attempts),
         },
+        "reasoning_metrics": reasoning_metrics(
+            json.loads(job["profile_json"]).get("reasoning_effort", "default"), reasoning_attempts,
+        ),
         "median_request_seconds": median(measured) if measured else None,
         "p95_request_seconds": measured[math.ceil(len(measured) * 0.95) - 1] if measured else None,
         "human_approved_records": approved,
@@ -305,6 +332,25 @@ def job_report(repository: ProjectRepository, job_id: str) -> dict[str, Any]:
     }
 
 
+def reasoning_metrics(mode: str, attempts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Thinking size per reported attempt, failed ones included, to compare budgets."""
+
+    def summary(key: str) -> dict[str, Any] | None:
+        values = sorted(a[key] for a in attempts if type(a.get(key)) is int)
+        if not values:
+            return None
+        return {"attempts": len(values), "median": median(values), "max": values[-1]}
+
+    return {
+        "mode": mode,
+        "reported_attempts": len(attempts),
+        "failed_attempts": sum(a.get("failed") is True for a in attempts),
+        "budget_tokens": summary("budget_tokens"),
+        "reasoning_characters": summary("reasoning_characters"),
+        "reasoning_tokens": summary("reasoning_tokens"),
+    }
+
+
 def save_job_report(repository: ProjectRepository, job_id: str) -> Path:
     return repository.paths.write_json(
         f"reports/pilot-{job_id}.json", job_report(repository, job_id)
@@ -314,7 +360,7 @@ def save_job_report(repository: ProjectRepository, job_id: str) -> Path:
 def save_review_html(repository: ProjectRepository, job_id: str) -> Path:
     report = job_report(repository, job_id)
     if report["record_count"] > 200:
-        raise ValueError("HTML inceleme raporu yalnızca sınırlı pilot içindir.")
+        raise ValueError("The HTML review report is only available for a limited pilot.")
     rows = []
     for item in report["records"]:
         rows.append(

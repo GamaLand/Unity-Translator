@@ -1,6 +1,7 @@
 """Bounded original-source worker; reads bytes and fixed syntax, never game code."""
 
 import json
+import re
 import sys
 import time
 from collections.abc import Callable, Iterable, Iterator
@@ -9,6 +10,7 @@ from hashlib import md5, sha256
 from pathlib import Path
 from typing import Any
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.engines import renpy_inputs
 from unitytranslator.filesystem import checked_path
 from unitytranslator.renpy_archive import ArchiveIndex, read_index
@@ -62,7 +64,7 @@ def probe(
     try:
         dialect = inspect_source_dialect(game, version_raw, cancelled=interrupted)
     except ValueError as exc:
-        raise ValueError(relative + ": " + str(exc)) from exc
+        raise Diagnostic("Source {p0}: {p1}", p0=relative, p1=exc) from exc
     discovered = renpy_inputs(game)
     candidates = discovered["source_candidates"]
     if not dialect["python_source"] and any(
@@ -224,7 +226,7 @@ def probe(
             python_dialect=dialect["python_source"],
         )
     except ValueError as exc:
-        raise ValueError("Source member " + current_member + ": " + str(exc)) from exc
+        raise Diagnostic("Source member {p0}: {p1}", p0=current_member, p1=exc) from exc
     mixed = len(archive_sources) > 1 or bool(archive_sources and loose)
     if mixed:
         document = replace(document, members=tuple(
@@ -261,25 +263,56 @@ def probe(
         "source_resolution": "disjoint-basename-union-v1" if mixed else "single-source-scope-v1",
         "outside_scope": [
             "Verified symbolic dialogue, attributes, nointeract and literal UI/menu keys.",
-            "Multiline/backtick literals, other suffixes and voice/nvl groups are excluded.",
+            "Multiline/backtick literals, extend continuations, other suffixes and voice/nvl "
+            "groups are excluded and counted.",
             "Images, compiled-only scripts and arbitrary Python literals are not text inputs.",
         ],
         "excluded_files": sorted(excluded),
     }
 
 
+DIGEST_PROTOCOL = "reader-digest-v1"
+DIGEST_COUNTS = ("records", "sources", "members", "excluded_files")
+
+
+def digest_summary(report: dict[str, Any]) -> dict[str, Any]:
+    """The bounded worker result: a canonical report digest and diagnostic counts."""
+    from unitytranslator.report_stream import report_digest
+
+    counts = (
+        len(report["units"]), len(report["source_descriptors"]),
+        len(report["coverage"]), len(report["excluded_files"]),
+    )
+    return {"protocol": DIGEST_PROTOCOL, "report_sha256": report_digest(report),
+            "counts": dict(zip(DIGEST_COUNTS, counts, strict=True))}
+
+
+def valid_digest_summary(value: Any) -> bool:
+    counts = value.get("counts") if isinstance(value, dict) else None
+    return (
+        isinstance(value, dict) and set(value) == {"protocol", "report_sha256", "counts"}
+        and value["protocol"] == DIGEST_PROTOCOL
+        and isinstance(value["report_sha256"], str)
+        and re.fullmatch("[0-9a-f]{64}", value["report_sha256"]) is not None
+        and isinstance(counts, dict) and set(counts) == set(DIGEST_COUNTS)
+        and all(type(count) is int and count >= 0 for count in counts.values())
+    )
+
+
 def main() -> int:
     try:
         args = sys.argv[1:]
-        streaming = args[-1:] == ["--stream-report"]
-        args = args[:-1] if streaming else args
+        mode = args[-1] if args[-1:] in (["--stream-report"], ["--digest-report"]) else None
+        args = args[:-1] if mode else args
         anchor = None
         if len(args) == 5 and args[3] == "--anchor":
             anchor = args[4]
             args = args[:3]
         game, relative, language = args
         report = probe(Path(game), relative, language, anchor=anchor)
-        if streaming:
+        if mode == "--digest-report":
+            print(json.dumps(digest_summary(report), ensure_ascii=True))
+        elif mode == "--stream-report":
             from unitytranslator.report_stream import write_report
 
             write_report(report, sys.stdout)

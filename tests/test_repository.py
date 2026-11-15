@@ -94,7 +94,7 @@ def test_quality_warning_is_persisted_without_approval_or_text_changes(paths: Pr
 
 def test_second_writer_refused(paths: ProjectPaths) -> None:
     with ProjectRepository(paths):
-        with pytest.raises(ValueError, match="başka"):
+        with pytest.raises(ValueError, match="open for writing in another application"):
             ProjectRepository(paths)
     with ProjectRepository(paths):
         pass
@@ -202,6 +202,23 @@ def test_ambiguous_source_set_does_not_replace_original_snapshot(paths: ProjectP
     with ProjectRepository(paths) as repo:
         original = draft()
         repo.ingest([original], {})
-        with pytest.raises(ValueError, match="belirsiz"):
+        with pytest.raises(ValueError, match="logical source identity is ambiguous"):
             repo.ingest([replace(original, source_file="other.assets")], {})
         assert repo.page()[0]["source_file"] == "synthetic.assets"
+
+
+def test_inactive_record_edit_is_rejected_before_any_state_change(paths: ProjectPaths) -> None:
+    with ProjectRepository(paths) as repo:
+        repo.ingest([draft("UI/a", "Start"), draft("UI/b", "Quit")], {})
+        row = next(r for r in repo.page() if r["unit_id"] == "UI/a")
+        assert repo.candidate("UI/a", row["source_revision"], row["version"], "Başla", "model",
+                              {}, [])
+        row = next(r for r in repo.page() if r["unit_id"] == "UI/a")
+        repo.approve("UI/a", row["version"])
+        repo.ingest([draft("UI/b", "Quit")], {})  # UI/a becomes inactive history.
+        before = repo.db.execute("SELECT * FROM work_items WHERE unit_id='UI/a'").fetchone()
+        with pytest.raises(ValueError, match="Inactive records"):
+            repo.edit("UI/a", before["version"], "Oyunu başlat")
+        after = repo.db.execute("SELECT * FROM work_items WHERE unit_id='UI/a'").fetchone()
+        assert tuple(after) == tuple(before)
+        assert after["status"] == "approved" and after["approved_translation"] is not None

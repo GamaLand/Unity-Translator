@@ -16,7 +16,7 @@ from unitytranslator.filesystem import hash_file
 from unitytranslator.renpy_export import export_native
 from unitytranslator.renpy_python import PYTHON_BLOCKS_V2, source_order
 from unitytranslator.repository import ProjectRepository
-from unitytranslator.workers.renpy_script_probe import probe
+from unitytranslator.workers.renpy_script_probe import digest_summary, probe
 
 
 @pytest.fixture
@@ -27,9 +27,9 @@ def verified_resolver(monkeypatch):
                 "python_source": PYTHON_BLOCKS_V2}
 
     def worker(command, **kwargs):
-        args = command[3:-1]  # Fixed Python module invocation and stream-report flag.
-        return probe(Path(args[0]), args[1], args[2],
-                     anchor=args[4] if args[3:4] == ["--anchor"] else None)
+        args = command[3:-1]  # Fixed Python module invocation and digest-report flag.
+        return digest_summary(probe(Path(args[0]), args[1], args[2],
+                                    anchor=args[4] if args[3:4] == ["--anchor"] else None))
 
     monkeypatch.setattr(
         "unitytranslator.workers.renpy_script_probe.inspect_source_dialect", evidence,

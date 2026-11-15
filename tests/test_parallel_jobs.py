@@ -70,6 +70,6 @@ def test_invalid_parallel_setting_does_not_start_job(tmp_path, parallel):
         repo.ingest([draft()], {})
         store = JobStore(repo)
         job = store.create(["UI/start"], profile())
-        with pytest.raises(ValueError, match="Paralel"):
+        with pytest.raises(ValueError, match="Parallel requests must be between 1 and 36"):
             asyncio.run(TranslationJobService(repo).run(job, parallel_requests=parallel))
         assert store.job(job)["status"] == "queued"

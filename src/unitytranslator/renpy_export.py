@@ -2,7 +2,7 @@
 
 import base64
 import json
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 from typing import Any
 from uuid import uuid4
@@ -10,7 +10,7 @@ from weakref import WeakKeyDictionary
 
 from unitytranslator.filesystem import checked_path, hash_file
 from unitytranslator.reader_adapters import BUILTIN_READERS, result_from_report
-from unitytranslator.renpy_format import RENPY_FORMAT
+from unitytranslator.renpy_format import RENPY_FORMATS, unit_rules
 from unitytranslator.renpy_say import SYNTAX_VERSION, SayShape
 from unitytranslator.renpy_templates import (
     MAX_FILE_BYTES,
@@ -110,7 +110,9 @@ def template_candidate(repo: ProjectRepository, unit_id: str) -> dict[str, Any] 
                 "source_file": source.source_file, "block": entry["block"],
                 "speaker": entry["speaker"], "slot": entry["slot"], "line": entry["line"],
                 "trusted": False, "target_language_verified": False,
-                "issues": format_issues(row[1], entry["candidate"], rules=RENPY_FORMAT),
+                "issues": format_issues(
+                    row[1], entry["candidate"], rules=repo.format_rules(unit_id)
+                ),
             }
     return None
 
@@ -154,7 +156,7 @@ def _review_context_index(repo: ProjectRepository, source: SourceDescriptor) -> 
 
 def add_review_context(repo: ProjectRepository, rows: list[dict[str, Any]]) -> None:
     """Cache display context by immutable local snapshot; never cache export authority."""
-    native = [row for row in rows if row["format_rules"] == RENPY_FORMAT]
+    native = [row for row in rows if row["format_rules"] in RENPY_FORMATS]
     needed = {row["logical_source_id"] for row in native}
     for row in native:
         row.pop("native_context", None)
@@ -180,6 +182,7 @@ def _emit(
     blocks: dict[str, list[tuple[TemplateRecord, str]]] = {}
     strings = []
     fallback = 0
+    rules = snapshot.source.format_rules
     for record, unit in zip(document.records, snapshot.units, strict=True):
         if record.kind == "dialogue":
             blocks.setdefault(record.block, []).append((record, unit.unit_id))
@@ -201,8 +204,10 @@ def _emit(
             output = parse_template(raw, language)
             actual = [(r.kind, r.block, r.say_shape(), r.source, r.candidate)
                       for r in output.records]
-            if actual != expected or any(format_issues(old, new, rules=RENPY_FORMAT)
-                                         for _, _, _, old, new in actual):
+            if actual != expected or any(
+                format_issues(old, new, rules=unit_rules(rules, kind + "/"))
+                for kind, _, _, old, new in actual
+            ):
                 raise ValueError("Generated native file failed its fixed-grammar round trip.")
             payloads.append(raw)
         lines, expected = heading.copy(), []
@@ -292,7 +297,14 @@ def export_native(
     report = BUILTIN_READERS.select((first.adapter_id,)).probe(
         ReaderContext(repo.paths.game, repo.paths.project, repo.source_language), first.source_file,
     ).report
+    if len({source.format_rules for source in sources}) != 1:
+        raise ValueError("Active Ren'Py sources use more than one text rule.")
+    # Readers emit the base rule; the stored rule is a project decision applied at ingest.
     fresh = result_from_report(report, replace_source_set=True)
+    fresh = replace(fresh, snapshots=tuple(
+        replace(s, source=replace(s.source, format_rules=first.format_rules))
+        for s in fresh.snapshots
+    ))
     verified = {s.source.logical_id: s for s in fresh.snapshots}
     if {source.logical_id: source for source in sources} != {
         key: snapshot.source for key, snapshot in verified.items()
@@ -339,7 +351,8 @@ def export_native(
                 or selected["approved_source"] != selected["source_revision"]
                 or selected["approved_translation"] != selected["translation_revision"]
                 or not selected["translation"] or format_issues(
-                    selected["source_text"], selected["translation"], rules=RENPY_FORMAT
+                    selected["source_text"], selected["translation"],
+                    rules=repo.format_rules(selected["unit_id"]),
                 )
             ):
                 raise ValueError("Native export approval, revision or protected format changed.")
@@ -451,7 +464,7 @@ def export_native(
             "format_version": 2 if any("files" in item for item in coverage) else 1,
             "kind": "staged-renpy-native-files",
             "project_id": repo.project_id, "adapter_id": first.adapter_id,
-            "parser_version": first.schema_version, "format_rules": RENPY_FORMAT,
+            "parser_version": first.schema_version, "format_rules": first.format_rules,
             "syntax_version": SYNTAX_VERSION,
             "source_language": repo.source_language, "target_language": repo.target_language,
             "language_mapping": {repo.target_language: language},

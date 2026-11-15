@@ -42,9 +42,9 @@ class PolicyStore:
 
     def set_glossary(self, rules: list[GlossaryRule]) -> str:
         if len(rules) > 5000:
-            raise ValueError("Sözlük boyut sınırı aşıldı.")
+            raise ValueError("The glossary size limit was exceeded.")
         if any(rule.kind == "preserve_name" and rule.source != rule.target for rule in rules):
-            raise ValueError("Korunacak adın kaynak ve hedef değeri aynı olmalı.")
+            raise ValueError("A preserved name must have the same source and target value.")
         encoded = canonical([rule.model_dump() for rule in rules])
         identifier = sha256(encoded.encode("utf-8")).hexdigest()
         old = self.rules(self.active_version("glossary"))
@@ -88,7 +88,7 @@ class PolicyStore:
 
     def set_styles(self, styles: dict[str, str]) -> str:
         if len(styles) > 100 or any(len(v) > 2000 for v in styles.values()):
-            raise ValueError("Üslup boyut sınırı aşıldı.")
+            raise ValueError("The style size limit was exceeded.")
         encoded = canonical(styles)
         identifier = sha256(encoded.encode("utf-8")).hexdigest()
         old_version = self.active_version("style")
@@ -132,7 +132,7 @@ class PolicyStore:
                 "SELECT p.unit_id,p.reason,w.status FROM policy_impacts p "
                 "JOIN work_items w USING(unit_id) JOIN text_units u USING(unit_id) "
                 "WHERE u.active=1 "
-                "ORDER BY u.original_key,u.unit_id"
+                "ORDER BY +u.original_key,u.unit_id"
             )
         ]
 
@@ -163,7 +163,7 @@ class PolicyStore:
             "SELECT rules_json FROM glossary_versions WHERE id=?", (version,)
         ).fetchone()
         if row is None:
-            raise ValueError("Sabitlenen sözlük sürümü bulunamadı.")
+            raise ValueError("The pinned glossary version was not found.")
         return [GlossaryRule.model_validate(value) for value in json.loads(row[0])]
 
     def style(self, version: str | None, category: str) -> str:
@@ -173,6 +173,6 @@ class PolicyStore:
             "SELECT styles_json FROM style_versions WHERE id=?", (version,)
         ).fetchone()
         if row is None:
-            raise ValueError("Sabitlenen üslup sürümü bulunamadı.")
+            raise ValueError("The pinned style version was not found.")
         styles = json.loads(row[0])
         return str(styles.get(category, styles.get("default", "Preserve the original tone.")))

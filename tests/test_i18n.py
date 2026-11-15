@@ -39,7 +39,9 @@ def test_all_eight_catalogs_cover_every_interface_message_with_matching_placehol
             assert fields(source) == fields(text), (language, source)
             for token in ("%p%", "%v", "%m", "Kur.cmd"):
                 assert source.count(token) == text.count(token), (language, source)
-    for name in ("window.py", "drafts.py"):
+    ui = Path(__file__).parents[1] / "src/unitytranslator/ui"
+    pages = [path.relative_to(ui).as_posix() for path in sorted((ui / "pages").glob("*.py"))]
+    for name in ("window.py", "drafts.py", *pages):
         tree = ast.parse(
             (Path(__file__).parents[1] / "src/unitytranslator/ui" / name).read_text(
                 encoding="utf-8"

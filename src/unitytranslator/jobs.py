@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import random
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from hashlib import sha256
@@ -9,13 +10,42 @@ from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.dialogue_context import DialogueContextStore
 from unitytranslator.domain import GenerationProfile, OperationCancelled
 from unitytranslator.policy import GlossaryRule, PolicyStore
-from unitytranslator.providers import LocalProvider, ProviderError, local_endpoint
+from unitytranslator.providers import (
+    REASONING_MODES,
+    LocalProvider,
+    ProviderError,
+    local_endpoint,
+    reasoning_supported,
+)
 from unitytranslator.repository import ProjectRepository, canonical, now
 
 MAX_PARALLEL_REQUESTS = 36
+MAX_ATTEMPTS = 3
+# Server outages are not the record's fault: they keep their attempt history but refund the
+# attempt budget. Consecutive outages spanning several records pause the job; a record that
+# alone keeps failing this way is failed after a bounded number of consecutive outage runs.
+OUTAGE_CODES = frozenset({"connection", "server_unavailable"})
+OUTAGE_PAUSE_STREAK = 5
+MAX_RECORD_OUTAGES = 5
+RETRY_CODES = frozenset({
+    "timeout",
+    "invalid_response",
+    "validation_error",
+    "response_schema_error",
+    "protected_content_error",
+    "output_truncated",
+    "unexpected_tool_call",
+})
+PAUSE_CODES = frozenset({"out_of_memory", "not_found", "unauthorized", "unsupported_option"})
+
+
+def retry_delay(failures: int, base: float) -> float:
+    """Jittered exponential backoff, capped at 30 seconds."""
+    return float(min(30.0, base * 2 ** max(0, failures - 1)) * random.uniform(0.5, 1.0))
 
 
 class JobStore:
@@ -30,6 +60,15 @@ class JobStore:
             if index % 1024 == 0:
                 self.repository.check_cancelled()
             digest.update(canonical(list(row)).encode("utf-8"))
+        # Newer text rules join the identity, so a rule upgrade needs a new pilot. Legacy
+        # rules add nothing and keep existing reviewed pilots valid.
+        newer = sorted({
+            json.loads(row[0]).get("format_rules") for row in self.repository.db.execute(
+                "SELECT descriptor_json FROM source_descriptors WHERE active=1"
+            )
+        } - {None, "protected-i2-v4", "literal-lines-v1", "renpy-text-v1"})
+        if newer:
+            digest.update(canonical(newer).encode("utf-8"))
         if profile is not None and profile.dialogue_context != "none":
             digest.update(profile.dialogue_context.encode())
             digest.update(DialogueContextStore(self.repository).fingerprint().encode())
@@ -44,22 +83,22 @@ class JobStore:
         approved_candidates: bool = False,
     ) -> str:
         if kind not in ("prototype", "pilot", "bulk") or len(units) != len(set(units)) or not units:
-            raise ValueError("İş türü/kayıt seçimi geçersiz.")
+            raise ValueError("Invalid job type or record selection.")
         if (kind == "prototype" and len(units) > 10) or (kind == "pilot" and len(units) > 200):
-            raise ValueError("Prototip/pilot kayıt sınırı aşıldı.")
+            raise ValueError("The prototype or pilot record limit was exceeded.")
         if profile.provider not in ("lm-studio", "llama-cpp") or not profile.model.strip():
-            raise ValueError("Sağlayıcı/model seçimi gerekli.")
-        if profile.reasoning_effort not in ("default", "none") or (
-            profile.reasoning_effort == "none" and profile.provider != "lm-studio"
+            raise ValueError("A provider and model selection is required.")
+        if profile.reasoning_effort not in REASONING_MODES or not reasoning_supported(
+            profile.provider, profile.reasoning_effort
         ):
-            raise ValueError("This reasoning option is available only for LM Studio requests.")
+            raise ValueError("This reasoning option is not available for the selected provider.")
         if (
             not 512 <= profile.context_tokens <= 1_048_576
             or not 128 <= profile.output_tokens <= 8192
         ):
-            raise ValueError("Bağlam/çıkış token sınırı geçersiz.")
+            raise ValueError("The context or output token limit is invalid.")
         if not 0 <= profile.temperature <= 2 or profile.prompt_version != "translate-v1":
-            raise ValueError("Üretim profili geçersiz.")
+            raise ValueError("Invalid generation profile.")
         local_endpoint(profile.address)
         if profile.dialogue_context not in ("none", "source-window-v1"):
             raise ValueError("Unknown dialogue context policy.")
@@ -70,7 +109,8 @@ class JobStore:
         fingerprint = self.fingerprint(profile)
         if kind == "bulk" and not self.pilot_reviewed(profile, fingerprint):
             raise ValueError(
-                "Bu profil/kaynak için pilot raporu kullanıcıya gösterilmeden toplu iş açılamaz."
+                "A bulk job cannot be created until the pilot report for this profile "
+                "and source has been shown to the user."
             )
         identifier = uuid4().hex
         # Context reconstruction is read-only and may be expensive on a cold large
@@ -89,7 +129,7 @@ class JobStore:
                     (unit,),
                 ).fetchone()
                 if row is None or not row["active"]:
-                    raise ValueError("Seçilen kaynak kayıt artık etkin değil.")
+                    raise ValueError("The selected source record is no longer active.")
                 if row["status"] == "processing" or (
                     row["status"] == "approved" and not approved_candidates
                 ):
@@ -100,7 +140,9 @@ class JobStore:
                     (unit, row["source_revision"], row["version"], int(row["status"] == "approved"))
                 )
             if not selected:
-                raise ValueError("Seçimde çevrilecek bekleyen kayıt yok; onaylar korunuyor.")
+                raise ValueError(
+                    "The selection has no pending records to translate; approvals are preserved."
+                )
             db.execute(
                 "INSERT INTO jobs(id,kind,status,profile_json,source_fingerprint,"
                 "created_at,updated_at) "
@@ -200,7 +242,7 @@ class JobStore:
     def job(self, job_id: str) -> dict[str, Any]:
         row = self.repository.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
         if row is None:
-            raise ValueError("İş bulunamadı.")
+            raise ValueError("Job not found.")
         return dict(row)
 
     def progress(self, job_id: str) -> dict[str, Any]:
@@ -277,7 +319,10 @@ class JobStore:
             return "sample"
         if job["status"] == "cancelled":
             attempted, completed, active = self.repository.db.execute(
-                "SELECT coalesce(sum(attempts>0),0),coalesce(sum(status='completed'),0),"
+                "SELECT coalesce(sum(attempts>0 OR EXISTS(SELECT 1 FROM translation_runs r "
+                "WHERE r.job_id=job_items.job_id AND r.unit_id=job_items.unit_id "
+                "AND r.status NOT IN ('processing','cancelled','interrupted'))),0),"
+                "coalesce(sum(status='completed'),0),"
                 "coalesce(sum(status IN ('queued','processing')),0) "
                 "FROM job_items WHERE job_id=?", (job_id,),
             ).fetchone()
@@ -289,9 +334,9 @@ class JobStore:
         blocker = self.pilot_review_blocker(job_id)
         if blocker is not None:
             raise ValueError({
-                "unfinished": "Önce tamamlanmış pilot raporunu inceleyin.",
-                "source_changed": "Kaynak değişti; yeni bir pilot değerlendirmesi gerekli.",
-                "sample": "Pilot örneklemi yetersiz; temsilî pilot oluşturun.",
+                "unfinished": "Review a completed pilot report first.",
+                "source_changed": "The source changed; a new pilot evaluation is required.",
+                "sample": "The pilot sample is insufficient; create a representative pilot.",
             }[blocker])
         with self.repository.transaction() as db:
             db.execute("UPDATE jobs SET report_seen=1,updated_at=? WHERE id=?", (now(), job_id))
@@ -311,12 +356,12 @@ class JobStore:
         if not DialogueContextStore(self.repository).current(job_id):
             raise ValueError("Dialogue context sources changed; prepare a new job and pilot.")
         if job["status"] not in ("queued", "paused") or job["cancel_requested"]:
-            raise ValueError("Bu iş başlatılamaz; durumunu kontrol edin.")
+            raise ValueError("This job cannot be started; check its status.")
         with self.repository.transaction() as db:
             if db.execute(
                 "SELECT 1 FROM jobs WHERE id!=? AND status IN ('running','pausing')", (job_id,)
             ).fetchone():
-                raise ValueError("Başka bir model işi sürüyor.")
+                raise ValueError("Another model job is running.")
             db.execute(
                 "UPDATE jobs SET status='running',pause_requested=0,updated_at=? WHERE id=?",
                 (now(), job_id),
@@ -327,14 +372,15 @@ class JobStore:
     def pause(self, job_id: str, reason: str = "user") -> None:
         with self.repository.transaction() as db:
             updated = db.execute(
-                "UPDATE jobs SET pause_requested=1,status=CASE WHEN status='running' "
-                "THEN 'pausing' ELSE 'paused' END,updated_at=? WHERE id=? "
+                "UPDATE jobs SET pause_requested=1,status=CASE WHEN status IN "
+                "('running','pausing') THEN 'pausing' ELSE 'paused' END,updated_at=? WHERE id=? "
                 "AND status IN ('queued','running','pausing','paused')",
                 (now(), job_id),
             )
             if updated.rowcount:
+                # Keep the first reason of a pending pause; start() clears it on resume.
                 db.execute(
-                    "INSERT OR REPLACE INTO project_settings(key,value) VALUES(?,?)",
+                    "INSERT OR IGNORE INTO project_settings(key,value) VALUES(?,?)",
                     ("pause_reason:" + job_id, reason),
                 )
 
@@ -362,7 +408,8 @@ class JobStore:
                 (job_id,),
             )
 
-    def claim(self, job_id: str) -> dict[str, Any] | None:
+    def claim(self, job_id: str, avoid: frozenset[str] = frozenset()) -> dict[str, Any] | None:
+        """Claim the next queued record; records in ``avoid`` go last, never skipped."""
         with self.repository.transaction() as db:
             if not DialogueContextStore(self.repository).current(job_id):
                 self.pause(job_id, "context_sources_changed")
@@ -370,16 +417,24 @@ class JobStore:
             job = self.job(job_id)
             if job["pause_requested"] or job["cancel_requested"]:
                 return None
+            query = (
+                "SELECT j.*,u.active,u.source_revision AS current_source,w.version,"
+                "w.status AS work_status,s.source_text,s.category,s.context "
+                "FROM job_items j JOIN text_units u USING(unit_id) "
+                "JOIN work_items w USING(unit_id) "
+                "JOIN source_revisions s ON s.id=j.source_revision "
+                "WHERE j.job_id=? AND j.status='queued' "
+            )
             while True:
+                # Both statements keep the job_pending index order (no full sort).
                 item = db.execute(
-                    "SELECT j.*,u.active,u.source_revision AS current_source,w.version,"
-                    "w.status AS work_status,s.source_text,s.category,s.context "
-                    "FROM job_items j JOIN text_units u USING(unit_id) "
-                    "JOIN work_items w USING(unit_id) "
-                    "JOIN source_revisions s ON s.id=j.source_revision "
-                    "WHERE j.job_id=? AND j.status='queued' ORDER BY j.rowid LIMIT 1",
-                    (job_id,),
-                ).fetchone()
+                    query + "AND j.unit_id NOT IN (SELECT value FROM json_each(?)) "
+                    "ORDER BY j.rowid LIMIT 1", (job_id, json.dumps(sorted(avoid))),
+                ).fetchone() if avoid else None
+                if item is None:
+                    item = db.execute(
+                        query + "ORDER BY j.rowid LIMIT 1", (job_id,)
+                    ).fetchone()
                 if item is None:
                     return None
                 if (
@@ -397,7 +452,7 @@ class JobStore:
                     )
                     continue
                 if item["work_status"] == "processing":
-                    raise ValueError("Kayıt başka bir iş tarafından işleniyor.")
+                    raise ValueError("The record is being processed by another job.")
                 claim = uuid4().hex
                 version = item["version"] if item["candidate_only"] else item["version"] + 1
                 if not item["candidate_only"]:
@@ -421,9 +476,11 @@ class JobStore:
                 (item["job_id"], item["unit_id"], item["claim_id"]),
             )
             if updated.rowcount != 1:
-                raise ValueError("İş claim'i geçersiz veya deneme bütçesi tükendi.")
+                raise ValueError("The job claim is invalid or the attempt budget is exhausted.")
+            # Run numbers follow history, not the refundable budget, so they never repeat.
             count = db.execute(
-                "SELECT attempts FROM job_items WHERE job_id=? AND unit_id=?",
+                "SELECT COALESCE(MAX(attempt),0)+1 FROM translation_runs "
+                "WHERE job_id=? AND unit_id=?",
                 (item["job_id"], item["unit_id"]),
             ).fetchone()[0]
             db.execute(
@@ -488,10 +545,12 @@ class JobStore:
                     "FROM text_units u JOIN work_items w USING(unit_id) WHERE u.unit_id=?",
                     (item["unit_id"],),
                 ).fetchone()
+                candidate_id, _ = self.repository.candidate_identity(
+                    item["unit_id"], item["source_revision"], result["translation"], "model",
+                    metadata,
+                )
                 candidate = db.execute(
-                    "SELECT id FROM translation_revisions WHERE source_revision=? "
-                    "AND metadata_json=? AND text=? AND origin='model'",
-                    (item["source_revision"], canonical(metadata), result["translation"]),
+                    "SELECT id FROM translation_revisions WHERE id=?", (candidate_id,)
                 ).fetchone()
                 from unitytranslator.validation import format_issues
 
@@ -547,7 +606,7 @@ class JobStore:
             if updated.rowcount:
                 status = (
                     "pending"
-                    if retry
+                    if retry or code in OUTAGE_CODES
                     else "needs_review"
                     if code == "context"
                     else "validation_error"
@@ -563,6 +622,60 @@ class JobStore:
                         "WHERE job_id=? AND unit_id=?",
                         (item["job_id"], item["unit_id"]),
                     )
+
+    def consecutive_outages(self, job_id: str, unit_id: str) -> int:
+        """Count this record's latest outage runs, across pause/resume cycles."""
+        count = 0
+        for (status,) in self.repository.db.execute(
+            "SELECT status FROM translation_runs WHERE job_id=? AND unit_id=? "
+            "ORDER BY attempt DESC", (job_id, unit_id),
+        ):
+            if status in ("processing", "cancelled", "interrupted"):
+                continue
+            if status not in OUTAGE_CODES:
+                break
+            count += 1
+        return count
+
+    def refund_attempt(self, item: dict[str, Any]) -> None:
+        """Return an outage attempt to the record's budget; its run history stays."""
+        with self.repository.transaction() as db:
+            db.execute(
+                "UPDATE job_items SET attempts=attempts-1 WHERE job_id=? AND unit_id=? "
+                "AND claim_id=? AND status='processing' AND attempts>0",
+                (item["job_id"], item["unit_id"], item["claim_id"]),
+            )
+
+    def interrupt(self, job_id: str, reason: str = "shutdown") -> None:
+        """Pause a job whose run stopped without an explicit cancel; requeue its claims.
+
+        Records whose latest request was cut off get that attempt back. Records waiting
+        in backoff keep their already recorded failure. Nothing resumes automatically.
+        """
+        with self.repository.transaction() as db:
+            if not self.job(job_id)["pause_requested"]:
+                self.pause(job_id, reason)
+            rows = db.execute(
+                "SELECT * FROM job_items WHERE job_id=? AND status='processing'", (job_id,)
+            ).fetchall()
+            for item in rows:
+                latest = db.execute(
+                    "SELECT status FROM translation_runs WHERE job_id=? AND unit_id=? "
+                    "ORDER BY attempt DESC LIMIT 1",
+                    (job_id, item["unit_id"]),
+                ).fetchone()
+                refund = int(latest is not None and latest[0] == "cancelled")
+                work = db.execute(
+                    "UPDATE work_items SET status='pending',version=version+1 "
+                    "WHERE unit_id=? AND status='processing' AND version=?",
+                    (item["unit_id"], item["work_version"]),
+                )
+                db.execute(
+                    "UPDATE job_items SET status='queued',claim_id=NULL,"
+                    "attempts=MAX(attempts-?,0),work_version=work_version+? "
+                    "WHERE job_id=? AND unit_id=?",
+                    (refund, int(work.rowcount == 1), job_id, item["unit_id"]),
+                )
 
     def settle(self, job_id: str) -> dict[str, Any]:
         progress = self.progress(job_id)
@@ -602,6 +715,14 @@ class TranslationJobService:
             if self.task is not None:
                 self.task.cancel()
 
+    def suspend(self, reason: str = "shutdown") -> None:
+        """Stop the running job for close/project switch; it stays paused, not cancelled."""
+        if self.active_job is not None:
+            if not self.store.job(self.active_job)["pause_requested"]:
+                self.store.pause(self.active_job, reason)
+            if self.task is not None:
+                self.task.cancel()
+
     async def run(
         self,
         job_id: str,
@@ -613,9 +734,11 @@ class TranslationJobService:
             type(parallel_requests) is not int
             or not 1 <= parallel_requests <= MAX_PARALLEL_REQUESTS
         ):
-            raise ValueError(f"Paralel istek sayısı 1–{MAX_PARALLEL_REQUESTS} arasında olmalı.")
+            raise Diagnostic(
+                "Parallel requests must be between 1 and {p0}.", p0=MAX_PARALLEL_REQUESTS
+            )
         if self.active_job is not None:
-            raise ValueError("Bir model işi zaten çalışıyor.")
+            raise ValueError("A translation job is already running.")
         profile = self.store.start(job_id)
         self.active_job = job_id
         self.task = asyncio.current_task()
@@ -629,9 +752,11 @@ class TranslationJobService:
         policy = PolicyStore(self.repository)
         cached_rules: tuple[str | None, list[GlossaryRule]] | None = None
         last_event = 0.0
+        outage_streak = 0
+        outage_units: set[str] = set()
 
         async def worker() -> None:
-            nonlocal last_event, cached_rules
+            nonlocal last_event, cached_rules, outage_streak
             while True:
                 # Capture saved policies once per attempt, before the HTTP await.
                 effective = replace(
@@ -643,7 +768,9 @@ class TranslationJobService:
                     cached_rules = (
                         effective.glossary_version, policy.rules(effective.glossary_version),
                     )
-                item = self.store.claim(job_id)
+                # Records in a current outage go last, so a single failing record cannot
+                # starve the others or masquerade as a server-wide outage.
+                item = self.store.claim(job_id, frozenset(outage_units))
                 if item is None:
                     break
                 relevant = [
@@ -711,6 +838,8 @@ class TranslationJobService:
                                 "glossary_violation:" + rule.source
                             )
                     accepted = self.store.finish(item, result, run_id)
+                    outage_streak = 0
+                    outage_units.clear()
                     self.store.record_attempt(
                         run_id,
                         "accepted" if accepted else "stale",
@@ -737,30 +866,37 @@ class TranslationJobService:
                     self.store.record_attempt(
                         run_id, code, perf_counter() - started, failure_metadata
                     )
-                    retry = (
-                        code
-                        in (
-                            "timeout",
-                            "connection",
-                            "invalid_response",
-                            "validation_error",
-                            "response_schema_error",
-                            "protected_content_error",
-                            "output_truncated",
-                            "unexpected_tool_call",
-                        )
-                        and item["attempts"] + 1 < 3
-                    )
-                    self.store.fail(item, code, retry)
-                    if code in (
-                        "out_of_memory",
-                        "not_found",
-                        "unauthorized",
-                        "unsupported_option",
-                    ) or (code in ("connection", "timeout") and not retry):
-                        self.store.pause(job_id, code)
-                    elif retry:
-                        await asyncio.sleep(0.5 * (item["attempts"] + 1))
+                    if code in OUTAGE_CODES:
+                        self.store.refund_attempt(item)
+                        outage_streak += 1
+                        outage_units.add(item["unit_id"])
+                        failures = self.store.consecutive_outages(job_id, item["unit_id"])
+                        if failures >= MAX_RECORD_OUTAGES:
+                            # One record that alone keeps failing is failed (left Pending
+                            # for a later job) instead of pausing the job on every resume.
+                            outage_units.discard(item["unit_id"])
+                            self.store.fail(item, code, False)
+                        elif (
+                            outage_streak >= OUTAGE_PAUSE_STREAK + parallel_requests - 1
+                            and len(outage_units) > 1
+                        ):
+                            # A server-wide outage spans several records and outlasts
+                            # the first concurrent wave of failures.
+                            self.store.fail(item, code, True)
+                            self.store.pause(job_id, code)
+                        else:
+                            # Keep the claim while waiting so no other worker retries at once.
+                            await asyncio.sleep(retry_delay(failures, 2.0))
+                            self.store.fail(item, code, True)
+                    else:
+                        outage_streak = 0
+                        outage_units.clear()
+                        retry = code in RETRY_CODES and item["attempts"] + 1 < MAX_ATTEMPTS
+                        if retry:
+                            await asyncio.sleep(retry_delay(item["attempts"] + 1, 0.5))
+                        self.store.fail(item, code, retry)
+                        if code in PAUSE_CODES or (code == "timeout" and not retry):
+                            self.store.pause(job_id, code)
                 except asyncio.CancelledError:
                     self.store.record_attempt(
                         run_id, "cancelled", perf_counter() - started, metadata
@@ -783,7 +919,12 @@ class TranslationJobService:
                 raise
             return self.store.settle(job_id)
         except (asyncio.CancelledError, OperationCancelled):
-            self.store.cancel(job_id)
+            # Only an explicit cancel cancels; closing, switching projects or a cooperative
+            # shutdown leaves the job paused with its queue intact for an explicit resume.
+            if self.store.job(job_id)["cancel_requested"]:
+                self.store.cancel(job_id)
+            else:
+                self.store.interrupt(job_id)
             return self.store.settle(job_id)
         finally:
             self.active_job = None

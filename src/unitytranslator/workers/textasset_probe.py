@@ -208,7 +208,8 @@ def main() -> int:
         print(json.dumps(result, ensure_ascii=True))
         return 0
     except Exception as exc:
-        print(json.dumps({"fatal": type(exc).__name__, "message": str(exc)}, ensure_ascii=True))
+        record = {"fatal": type(exc).__name__, "message": str(exc)[:1024]}
+        print(json.dumps(record, ensure_ascii=True))
         return 1
 
 

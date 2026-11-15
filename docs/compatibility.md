@@ -194,7 +194,7 @@ dialogue, voice/nvl groups and image labels remain unsupported. Exclusions are c
 
 Synthetic checks cover native-ID vectors, logical multiline expressions and opaque
 block boundaries, source/approval continuity, complete-scope failure, over 32 MiB
-framed reports, incremental limits and block-preserving native shards. Recipient
+reports verified through digest-only worker results, incremental limits and block-preserving native shards. Recipient
 checks reject cross-file ID/key conflicts and structure/token injection. An old
 project's anchor remains stable when a new filename sorts earlier. Native staging
 does not grant installation authority; the
@@ -249,6 +249,20 @@ Studio. A 512-token output budget truncated two responses; retrying those record
 with 2,048 output tokens and requested `reasoning_effort="none"` completed them.
 Final candidates preserved interpolation/tags/newlines and remained unapproved.
 No model/server was started or downloaded and no bulk game translation ran.
+
+On 15 November 2026 the user's running llama.cpp server (build b12359, 12 slots,
+`Gemma4_26B_A4B` IQ3_M) was measured with short English interface messages. Its chat
+template enables thinking whenever a system message is present, which every translation
+request has; one-line messages then used about 300-850 reasoning tokens. Request
+`reasoning_effort` values `low`, `medium` and `high` had no effect;
+`reasoning_effort="none"` or `chat_template_kwargs.enable_thinking=false` disabled
+thinking, and `thinking_budget_tokens` capped it. For the same 24 messages through the
+app's request path at 12 parallel requests: unlimited thinking took 111 s, a 128-token
+budget 13.3 s, the adaptive budget 13.7 s and thinking off 8.6 s, where two records
+failed the protected-token check; the budgeted runs had no failures, and the budgeted
+and unlimited translations differed mainly in wording. With a 1,024-token output budget
+and unlimited thinking, 9 of 24 requests ended as `output_truncated` after three attempts.
+These are observations for this model and server only.
 
 A read-only inspection of a second local layout, LR2, found static Ren'Py
 8.3.6.25022803 evidence, 588 loose `.rpy` files totaling 18,701,812 bytes,

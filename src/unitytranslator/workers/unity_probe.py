@@ -117,5 +117,5 @@ if __name__ == "__main__":
         )
         print(json.dumps(value, ensure_ascii=True))
     except Exception as exc:
-        print(json.dumps({"fatal": type(exc).__name__}))
+        print(json.dumps({"fatal": type(exc).__name__, "message": str(exc)[:1024]}))
         sys.exit(1)

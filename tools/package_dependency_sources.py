@@ -2,12 +2,12 @@
 
 import argparse
 import json
-import tomllib
 import zipfile
 from pathlib import Path
 from uuid import uuid4
 
 import httpx
+from release_rules import project_version
 
 from unitytranslator.filesystem import checked_path, hash_file
 from unitytranslator.json_boundary import strict_json
@@ -58,12 +58,8 @@ def main() -> int:
             raise ValueError("Kaynak önbelleği değişmiş.")
         paths[item["file"]] = target
         print(json.dumps({"verified_source": item["file"], "bytes": item["bytes"]}), flush=True)
-    version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
-        "version"
-    ]
-    destination = checked_path(
-        output / f"UnityTranslator-{version}-dependency-sources.zip"
-    )
+    version = project_version(root)
+    destination = checked_path(output / f"UnityTranslator-{version}-dependency-sources.zip")
     if destination.exists():
         raise ValueError("Mevcut kaynak teslimi üzerine yazılmaz.")
     temporary = destination.parent / ("sources-" + uuid4().hex + ".zip")

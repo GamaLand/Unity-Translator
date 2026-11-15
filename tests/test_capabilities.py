@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -100,13 +99,12 @@ def test_probe_exposes_structured_reasons_and_preserves_legacy_result(tmp_path, 
     before = hash_file(source)
 
     def run(command, **kwargs):
-        evidence = {
+        return {
             "objects": {"TextAsset": 1}, "units": [], "errors": [],
             "diagnostics": [], "unity_versions": ["synthetic"],
         }
-        return subprocess.CompletedProcess(command, 0, json.dumps(evidence).encode(), b"")
 
-    monkeypatch.setattr(discovery.subprocess, "run", run)
+    monkeypatch.setattr("unitytranslator.worker_process.run_json_worker", run)
     report = discovery.probe_source(paths, "source.assets")
     assert report["extraction"] == report["application"] == "unknown"
     assert report["capabilities"]["extraction"]["reason"] == "no_matching_reader"

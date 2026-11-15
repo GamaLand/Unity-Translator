@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-import unitytranslator.discovery as discovery
 from unitytranslator.discovery import probe_source, scan
 from unitytranslator.filesystem import PolicyError, ProjectPaths, hash_file
 
@@ -105,14 +104,19 @@ def test_frozen_binary_uses_private_worker_entry(paths: ProjectPaths, monkeypatc
     source.write_bytes(b"synthetic")
     commands = []
 
-    def fake_run(command, **kwargs):
+    real_popen = subprocess.Popen
+
+    def fake_popen(command, **kwargs):
+        # The shared worker boundary launches it; substitute a synthetic child.
         assert kwargs["stdin"] == subprocess.DEVNULL
         commands.append(command)
         result = {"units": [], "errors": [], "diagnostics": [], "unity_versions": []}
-        return subprocess.CompletedProcess(command, 0, json.dumps(result).encode(), b"")
+        return real_popen(
+            [sys.executable, "-c", "print(" + repr(json.dumps(result)) + ")"], **kwargs,
+        )
 
     monkeypatch.setattr(sys, "frozen", True, raising=False)
-    monkeypatch.setattr(discovery.subprocess, "run", fake_run)
+    monkeypatch.setattr("unitytranslator.worker_process.subprocess.Popen", fake_popen)
     probe_source(paths, "synthetic.assets")
     assert commands[0][1] == "--unity-worker"
     assert "-m" not in commands[0]

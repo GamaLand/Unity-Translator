@@ -11,6 +11,17 @@ The application never launches a game. Before installation/removal it queries th
 selected game's process state; an inaccessible or uncertain identity is not a positive
 closed-game result. A prior observation is not permanent authorization.
 
+The application and newly exported recipient installers use the same check. Any running
+program whose image is inside the game folder refuses the operation. A program whose
+image cannot be read but whose name matches an EXE in the game folder is treated as
+uncertain. A game folder that cannot be inspected (links or junctions, reserved names,
+unreadable folders or more than 100,000 entries) also refuses, with its own message,
+before anything changes. Closing the game does not resolve that case; the folder
+contents must be fixed first. A selected folder without any EXE is refused with a
+request to select the game folder. A game folder at a drive root counts every program on
+that drive and is refused. Already distributed packages keep their own frozen
+installer and its narrower check.
+
 ## Project-managed runtime
 
 The normal installation flow stages an external runtime under the translation project,

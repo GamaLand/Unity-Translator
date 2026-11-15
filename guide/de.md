@@ -38,6 +38,12 @@ Quell- oder Zielsprache des Projekts.
    Sie ihn, bevor Sie den Gesamtauftrag starten. Wählen Sie 1–36 parallele Anfragen
    passend zum Server. Minimieren stoppt den Auftrag nicht. Pause wartet auf laufende
    Anfragen; Abbrechen beendet die Client-Aufgaben.
+   Schließen oder ein anderes Projekt öffnen pausiert einen laufenden Auftrag; setzen Sie
+   ihn ausdrücklich fort. Bleibt der Modellserver unerreichbar, pausiert der Auftrag,
+   ohne Versuche der Einträge zu verbrauchen.
+   Platzhalter wie `%d`, `%s` oder `%(name)s` in Ren'Py-Oberflächentexten müssen
+   erhalten bleiben; ältere Projekte aktivieren diese Prüfung durch erneutes Extrahieren
+   mit `--format-rules renpy-text-v2`.
 6. **Prüfen:** Vergleichen und bearbeiten Sie Texte, speichern Sie und genehmigen Sie
    anschließend. Ein gespeicherter Entwurf ist keine Genehmigung. Die Seitengenehmigung
    gilt nur für ausgewählte geeignete Einträge. Bei der Genehmigung aller Übersetzungen
@@ -71,7 +77,7 @@ Für den passenden Krypta-FM-Build `en` als Quelle und `tr` als Ziel wählen. Pr
 
 Nach Prüfung und Freigabe das Spiel schließen und unter „Auf Spiel anwenden“ den Plan für die zwei neuen Dateien `winhttp.dll` und `doorstop_config.ini` prüfen. Die experimentelle Laufzeit bleibt im separaten Projekt; Originaldateien werden nicht ersetzt. Zusätze über dasselbe Projekt entfernen. Textexporte sind keine Installationspakete; teilbare Installations-ZIPs unterstützen auch den passenden Krypta-Build en→tr. Empfänger starten Install.cmd, prüfen den Dateiplan und geben INSTALL ein; Uninstall.cmd entfernt nur unveränderte eigene Zusätze. Die portable Kombination wurde synthetisch geprüft; eine eigene Prüfung im Spiel steht aus. Start/Menü, Optionen, Übergang ins Spiel, Pause und Untertitel wurden beobachtet. Andere Ansichten, Sprachwechsel und Textlayout müssen manuell geprüft werden; eine lange Optionsbeschriftung kann ihren Hilfetext überlagern.
 
-In den erweiterten Modelleinstellungen lässt sich der Denkmodus für LM-Studio-Anfragen optional deaktivieren. Dadurch kann mehr Ausgabebudget für die Übersetzung bleiben. Die Unterstützung hängt vom geladenen Modell und Server ab; eine nicht unterstützte Option kann den Auftrag stoppen. Standardwerte und globale Servereinstellungen bleiben erhalten.
+In den erweiterten Modelleinstellungen steuert der „Modell-Denkmodus“ den Denkprozess des Modells. Der „Serverstandardwert“ behält das Verhalten des Servers bei. „Adaptives Budget (llama.cpp)“ lässt das Modell proportional zu jedem Datensatz denken: Kurzer Oberflächentext erhält ein kleines Denkbudget, während langer Text und verifizierter benachbarter Dialog mehr erhalten. Dies kann Aufgaben viel schneller machen, ohne den Denkmodus auf „Aus“ zu stellen. „Aus“ deaktiviert das Denken für LM Studio und llama.cpp und kann die Qualität bei kontextabhängigem Text verringern. Die Unterstützung hängt vom geladenen Modell und Server ab; eine nicht unterstützte Option kann den Vorgang stoppen. Der Pilotbericht zeigt, wie viel das Modell nachgedacht hat. Das Ändern dieser Einstellung erfordert einen passenden, überprüften Piloten.
 
 ## Ren'Py-Übersetzung
 

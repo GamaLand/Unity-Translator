@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from deployment_helpers import EXPERIMENTAL_ADAPTERS, install_synthetic_plan
 
 from unitytranslator.deployment import DeploymentService, GameNotClosedError
 from unitytranslator.filesystem import ProjectPaths, hash_file
@@ -34,9 +35,7 @@ def test_activation_and_removal_preserve_all_original_hashes(service) -> None:
     before = service.inventory()
     prepared = plan(service)
     assert not (service.paths.game / "mod").exists()
-    assert (
-        service.activate(prepared, user_action=True, adapter_verified=True)["status"] == "installed"
-    )
+    assert install_synthetic_plan(service, prepared)["status"] == "installed"
     assert service.original_changes() == []
     result = service.uninstall(user_action=True)
     assert result["status"] == "removed"
@@ -51,7 +50,7 @@ def test_game_not_closed_blocks_baseline_and_activation_before_any_new_game_file
     prepared = plan(service)
     service.process_probe = lambda _: GameProcessStatus(status)
     with pytest.raises(GameNotClosedError):
-        service.activate(prepared, user_action=True, adapter_verified=True)
+        install_synthetic_plan(service, prepared)
     assert not (service.paths.game / "mod").exists()
     assert not service.paths.output("artifacts/deployment.json").exists()
 
@@ -65,7 +64,7 @@ def test_unknown_game_state_cannot_create_first_original_inventory(service):
 
 def test_running_game_blocks_uninstall_and_preserves_installed_files(service):
     prepared = plan(service)
-    service.activate(prepared, user_action=True, adapter_verified=True)
+    install_synthetic_plan(service, prepared)
     before = {file.target: hash_file(service.target(file.target)) for file in prepared.files}
     service.process_probe = lambda _: GameProcessStatus("running")
     with pytest.raises(GameNotClosedError):
@@ -83,7 +82,7 @@ def test_game_start_mid_activation_preserves_owned_addition_until_closed_recover
 
     service.process_probe = check
     with pytest.raises(GameNotClosedError):
-        service.activate(prepared, user_action=True, adapter_verified=True)
+        install_synthetic_plan(service, prepared)
     assert (service.paths.game / "mod/a.txt").is_file()
     assert not (service.paths.game / "mod/b.txt").exists()
     stored = service.read_manifest()
@@ -94,7 +93,7 @@ def test_game_start_mid_activation_preserves_owned_addition_until_closed_recover
 
 def test_game_start_mid_removal_records_recovery_and_keeps_remaining_addition(service):
     prepared = plan(service)
-    service.activate(prepared, user_action=True, adapter_verified=True)
+    install_synthetic_plan(service, prepared)
     service.process_probe = lambda _: GameProcessStatus(
         "closed" if (service.paths.game / "mod/b.txt").exists() else "running"
     )
@@ -120,12 +119,62 @@ def test_game_start_during_inventory_does_not_freeze_unverified_baseline(service
     assert not service.paths.output("artifacts/original-inventory.json").exists()
 
 
-@pytest.mark.parametrize("action,verified", [(False, False), (True, False), (False, True)])
-def test_activation_gate_requires_both_evidence_and_user_action(service, action, verified) -> None:
+@pytest.mark.parametrize(
+    "action,reviewed",
+    [(False, False), (True, False), (False, True), (True, None), ("true", True), (True, 1)],
+)
+def test_install_gate_requires_literal_user_action_and_trial_review(
+    service, action, reviewed
+) -> None:
     prepared = plan(service)
-    with pytest.raises(ValueError, match="doğrulanmış"):
-        service.activate(prepared, user_action=action, adapter_verified=verified)
+    with pytest.raises(ValueError, match="separate, explicit user trial choice"):
+        service.install_experimental_trial(
+            prepared, user_action=action, experimental_trial_reviewed=reviewed
+        )
     assert not (service.paths.game / "mod").exists()
+    assert not service.paths.output("artifacts/deployment.json").exists()
+
+
+def test_install_path_refuses_plans_other_than_the_limited_trial(service) -> None:
+    before = service.inventory()
+    prepared = plan(service)
+    with pytest.raises(ValueError, match="accepts only the limited I2 trial plan"):
+        service.install_experimental_trial(
+            prepared, user_action=True, experimental_trial_reviewed=True
+        )
+    assert service.inventory() == before
+    assert not service.paths.output("artifacts/deployment.json").exists()
+
+
+LOADER_TARGETS = ("winhttp.dll", "doorstop_config.ini")
+
+
+@pytest.mark.parametrize("adapter", sorted(EXPERIMENTAL_ADAPTERS))
+@pytest.mark.parametrize(
+    "version,targets",
+    [
+        ("2", LOADER_TARGETS),  # Wrong adapter version.
+        ("1", LOADER_TARGETS[:1]),  # One file instead of the two loader files.
+        ("1", (*LOADER_TARGETS, "mod/c.txt")),  # Three files.
+        ("1", ("winhttp.dll", "mod/a.txt")),  # Two files, but not the loader target set.
+    ],
+    ids=["adapter-version", "one-file", "three-files", "target-set"],
+)
+def test_limited_trial_guard_refuses_each_other_experimental_plan_shape(
+    service, adapter, version, targets
+) -> None:
+    service.paths.write_text("artifacts/payload/c.txt", "synthetic extra")
+    sources = ("artifacts/payload/a.txt", "artifacts/payload/b.txt", "artifacts/payload/c.txt")
+    before = service.inventory()
+    prepared = service.prepare(adapter, version, list(zip(sources, targets, strict=False)))
+    assert prepared.adapter == adapter and len(prepared.files) == len(targets)
+    with pytest.raises(ValueError, match="accepts only the limited I2 trial plan"):
+        service.install_experimental_trial(
+            prepared, user_action=True, experimental_trial_reviewed=True
+        )
+    assert service.inventory() == before
+    assert not any((service.paths.game / target).exists() for target in targets)
+    assert not service.paths.output("artifacts/deployment.json").exists()
 
 
 @pytest.mark.parametrize(
@@ -140,7 +189,7 @@ def test_existing_or_escaping_target_refused_before_game_writes(service, target)
 
 def test_changed_user_addition_is_preserved_on_removal(service) -> None:
     prepared = plan(service)
-    service.activate(prepared, user_action=True, adapter_verified=True)
+    install_synthetic_plan(service, prepared)
     modified = service.paths.game / "mod/a.txt"
     modified.write_text("user edit", encoding="utf-8")
     result = service.uninstall(user_action=True)
@@ -152,7 +201,7 @@ def test_changed_user_addition_is_preserved_on_removal(service) -> None:
 
 def test_changed_original_never_restored_from_backup(service) -> None:
     prepared = plan(service)
-    service.activate(prepared, user_action=True, adapter_verified=True)
+    install_synthetic_plan(service, prepared)
     original = service.paths.game / "original.bin"
     original.write_bytes(b"external game update")
     result = service.uninstall(user_action=True)
@@ -164,8 +213,8 @@ def test_changed_original_never_restored_from_backup(service) -> None:
 def test_payload_change_after_plan_is_rejected(service) -> None:
     prepared = plan(service)
     service.paths.write_text("artifacts/payload/b.txt", "changed package")
-    with pytest.raises(ValueError, match="hazırlamadan sonra"):
-        service.activate(prepared, user_action=True, adapter_verified=True)
+    with pytest.raises(ValueError, match="The package or target changed after preparation"):
+        install_synthetic_plan(service, prepared)
     assert not (service.paths.game / "mod").exists()
 
 
@@ -180,13 +229,13 @@ def test_partial_failure_rolls_back_only_created_matching_files(service, monkeyp
 
     monkeypatch.setattr(service, "save_manifest", fail_after_first_file)
     with pytest.raises(OSError, match="disk full"):
-        service.activate(prepared, user_action=True, adapter_verified=True)
+        install_synthetic_plan(service, prepared)
     assert service.inventory() == service.baseline()["files"]
 
 
 def test_crash_recovery_preserves_unclaimed_file_and_removes_owned_file(service) -> None:
     prepared = plan(service)
-    service.activate(prepared, user_action=True, adapter_verified=True)
+    install_synthetic_plan(service, prepared)
     manifest = service.read_manifest()
     manifest["status"] = "installing"
     manifest["files"][1]["state"] = "planned"
@@ -210,7 +259,7 @@ def test_hardlinked_payload_is_refused(service) -> None:
 
 def test_original_file_cannot_be_claimed_even_by_malformed_local_receipt(service) -> None:
     prepared = plan(service)
-    service.activate(prepared, user_action=True, adapter_verified=True)
+    install_synthetic_plan(service, prepared)
     manifest = service.read_manifest()
     original = service.paths.game / "original.bin"
     info = original.stat()
@@ -218,14 +267,14 @@ def test_original_file_cannot_be_claimed_even_by_malformed_local_receipt(service
         target="ORIGINAL.bin", sha256=hash_file(original), device=info.st_dev, inode=info.st_ino
     )
     before = service.inventory()
-    with pytest.raises(ValueError, match="özgün dosyayı"):
+    with pytest.raises(ValueError, match="cannot claim an original file"):
         service._remove_owned(manifest)
     assert service.inventory() == before
 
 
 def test_partial_created_file_is_preserved_after_crash(service) -> None:
     prepared = plan(service)
-    service.activate(prepared, user_action=True, adapter_verified=True)
+    install_synthetic_plan(service, prepared)
     manifest = service.read_manifest()
     manifest["status"] = "installing"
     manifest["files"][1]["state"] = "created"
@@ -239,7 +288,7 @@ def test_partial_created_file_is_preserved_after_crash(service) -> None:
 
 @pytest.mark.parametrize("targets", [("mod/a.txt", "MOD/A.txt"), ("mod", "mod/a.txt")])
 def test_case_alias_and_file_directory_conflicts_are_refused(service, targets) -> None:
-    with pytest.raises(ValueError, match="yineleniyor|çakışıyor"):
+    with pytest.raises(ValueError, match="duplicated or conflicts|targets conflict"):
         service.prepare(
             "synthetic",
             "1",
@@ -254,6 +303,6 @@ def test_case_alias_and_file_directory_conflicts_are_refused(service, targets) -
 def test_new_game_file_invalidates_fingerprint_before_activation(service) -> None:
     prepared = plan(service)
     (service.paths.game / "new-update.bin").write_bytes(b"game update")
-    with pytest.raises(ValueError, match="Oyun hazırlamadan"):
-        service.activate(prepared, user_action=True, adapter_verified=True)
+    with pytest.raises(ValueError, match="The game changed after preparation"):
+        install_synthetic_plan(service, prepared)
     assert not (service.paths.game / "mod").exists()

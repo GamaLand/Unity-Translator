@@ -81,9 +81,28 @@ def tr(message: str, **values: Any) -> str:
     return translated.format(**values) if values else translated
 
 
+def localize(failure: Any) -> str:
+    """Localize a bridge failure by its reason code, or a plain message by its text."""
+    code, params = getattr(failure, "code", None), getattr(failure, "params", None) or {}
+    if isinstance(code, str) and code in catalog(active_language()):
+        try:
+            return tr(code, **params)
+        except (KeyError, IndexError, ValueError):
+            pass  # A parameter mismatch shows the English text instead of failing.
+    return diagnostic(str(failure))
+
+
 @lru_cache(maxsize=2048)
 def diagnostic(message: str) -> str:
     """Translate known app diagnostics; preserve unknown OS/server details verbatim."""
+    from unitytranslator.diagnostics import classify_message
+
+    code, values = classify_message(message)
+    if code is not None and code in catalog(active_language()):
+        try:
+            return tr(code, **values)
+        except (KeyError, IndexError, ValueError):
+            pass
     for source, turkish in catalog("tr").items():
         if source == message or turkish == message:
             return tr(source)

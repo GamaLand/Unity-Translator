@@ -19,7 +19,7 @@ from unitytranslator.ui.window import MainWindow  # noqa: E402
 
 class FakeBridge(QObject):
     completed = Signal(str, object)
-    failed = Signal(str, str)
+    failed = Signal(str, object)
 
     def __init__(self):
         super().__init__()

@@ -1,6 +1,7 @@
 """Shared, offline visual tokens for the translation workbench."""
 
 from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QApplication
 
 COLORS = {
     "background": "#202321",
@@ -15,7 +16,7 @@ COLORS = {
 }
 
 
-def apply_theme(app):
+def apply_theme(app: QApplication) -> None:
     app.setStyle("Fusion")
     palette = QPalette()
     for role, key in (

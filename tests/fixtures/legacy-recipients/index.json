@@ -1,0 +1,72 @@
+{
+  "format_version": 1,
+  "synthetic_only": true,
+  "fixtures": [
+    {
+      "name": "renpy-additive-1e1dfc3",
+      "revision": "1e1dfc3",
+      "package": "renpy-additive-1e1dfc3.zip",
+      "package_sha256": "cc1597321dd319224e176aa95199efa39d7e56623e617052f6d7996378837be0",
+      "game": "renpy-additive-1e1dfc3-game.zip",
+      "game_sha256": "aa61e9c4d06a92082d696f7318b6b6253dc7fd239aa5ea8c0a00a84f1974cff5",
+      "format_version": 3,
+      "purpose": "unitytranslator-renpy-additive",
+      "installer": "renpy-copy.ps1"
+    },
+    {
+      "name": "renpy-copy-format1-556bf5e",
+      "revision": "556bf5e",
+      "package": "renpy-copy-format1-556bf5e.zip",
+      "package_sha256": "37f769017c5716d0ad7120edc23c73986a5b95cb0a6f9cc6d926bb1372b59c82",
+      "game": "renpy-copy-format1-556bf5e-game.zip",
+      "game_sha256": "aa61e9c4d06a92082d696f7318b6b6253dc7fd239aa5ea8c0a00a84f1974cff5",
+      "format_version": 1,
+      "purpose": "unitytranslator-renpy-translated-copy",
+      "installer": "renpy-copy.ps1"
+    },
+    {
+      "name": "renpy-copy-format2-556bf5e",
+      "revision": "556bf5e",
+      "package": "renpy-copy-format2-556bf5e.zip",
+      "package_sha256": "fcab6b70f735e789a95957df41f5465d73c3872eddbe87f4342695a974c90954",
+      "game": "renpy-copy-format2-556bf5e-game.zip",
+      "game_sha256": "c81ae5c6b95003b32f225f202bde633ee6a3a1131fc7188b5143c8196a5ea926",
+      "format_version": 2,
+      "purpose": "unitytranslator-renpy-translated-copy",
+      "installer": "renpy-copy.ps1"
+    },
+    {
+      "name": "unity-shareable-0b83e59",
+      "revision": "0b83e59",
+      "package": "unity-shareable-0b83e59.zip",
+      "package_sha256": "ef9789851d0f8f06c4b3e71a2f80ccb7277c5d4a5d1909b9358060441c3dd0af",
+      "game": "unity-shareable-0b83e59-game.zip",
+      "game_sha256": "7cdf5ccc5c16e024b355184e48296621c4b99538c92c7daed940347f6e0b4a99",
+      "format_version": 1,
+      "purpose": "unitytranslator-shareable-patch",
+      "installer": "patch.ps1"
+    },
+    {
+      "name": "unity-shareable-556bf5e",
+      "revision": "556bf5e",
+      "package": "unity-shareable-556bf5e.zip",
+      "package_sha256": "84ed60f857b9863c7bcb48dc416fcd391566701d885f6d89f23a024e6949e10c",
+      "game": "unity-shareable-556bf5e-game.zip",
+      "game_sha256": "8ec2f98cba5f7a463a87191d0adb7fbe89ff445de18b79e57d30b02e83b62b75",
+      "format_version": 1,
+      "purpose": "unitytranslator-shareable-patch",
+      "installer": "patch.ps1"
+    },
+    {
+      "name": "unity-shareable-9ba9495",
+      "revision": "9ba9495",
+      "package": "unity-shareable-9ba9495.zip",
+      "package_sha256": "5980bbb1b4645e1409b19db470df4e3f9839431f21f26ac63e75c94c96089a33",
+      "game": "unity-shareable-9ba9495-game.zip",
+      "game_sha256": "7cdf5ccc5c16e024b355184e48296621c4b99538c92c7daed940347f6e0b4a99",
+      "format_version": 1,
+      "purpose": "unitytranslator-shareable-patch",
+      "installer": "patch.ps1"
+    }
+  ]
+}

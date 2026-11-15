@@ -40,8 +40,10 @@ def test_i2_contract_retains_original_id_and_has_no_complete_set_side_effect(tmp
     report = {"extraction": "supported", "units": [asdict(unit)], "sha256_before": "a" * 64}
     calls = []
 
-    def probe(paths, relative, timeout, *, source_language):
+    def probe(paths, relative, timeout, *, source_language, cancelled):
         calls.append((relative, timeout, source_language))
+        if cancelled():
+            raise ValueError("Source extraction was cancelled.")
         return dict(report)
 
     monkeypatch.setattr("unitytranslator.discovery._probe_i2_source", probe)

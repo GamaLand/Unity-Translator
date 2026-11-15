@@ -7,11 +7,8 @@ from unitytranslator.deployment import DeploymentService
 from unitytranslator.filesystem import ProjectPaths, hash_file
 from unitytranslator.game_process import GameProcessStatus
 from unitytranslator.i2 import extract_i2
-from unitytranslator.i2_trial import (
-    prepare_i2_deployment_preview,
-    prepare_i2_trial,
-    validate_i2_trial,
-)
+from unitytranslator.i2_activation import prepare_activation_review
+from unitytranslator.i2_trial import prepare_i2_trial, validate_i2_trial
 from unitytranslator.repository import ProjectRepository
 from unitytranslator.runtime_configuration import bepinex_config_text, doorstop_config_bytes
 
@@ -121,7 +118,7 @@ def test_preview_stays_outside_game_and_preserves_approval(trial):
         if p.is_file()
     }
     assert repo.page()[0]["status"] == "approved"
-    with pytest.raises(ValueError, match="beklenmeyen|üzerine"):
+    with pytest.raises(ValueError, match="unexpected file|not overwritten"):
         prepare_i2_trial(repo, **args)
 
 
@@ -148,7 +145,7 @@ def test_changed_preconditions_invalidate_preview(trial, change):
 def test_unapproved_selection_fails_without_game_files(trial):
     repo, args = trial
     args["selected_unit_ids"].add("not-approved")
-    with pytest.raises(ValueError, match="insan onaylı"):
+    with pytest.raises(ValueError, match="current human-approved I2 text"):
         prepare_i2_trial(repo, **args)
     manifests = list(repo.paths.project.glob("artifacts/i2-trial-*/trial-preview.json"))
     assert len(manifests) == 1
@@ -162,35 +159,40 @@ def test_preexisting_patcher_is_refused_before_preparation(trial):
     path = repo.paths.output(args["runtime_relative"] + "/patchers/extra.dll")
     path.parent.mkdir()
     path.write_bytes(b"unreviewed executable")
-    with pytest.raises(ValueError, match="beklenmeyen"):
+    with pytest.raises(ValueError, match="unexpected file was added"):
         prepare_i2_trial(repo, **args)
     assert not list(repo.paths.project.glob("artifacts/i2-trial-*"))
 
 
-def test_inventory_bound_plan_requires_baseline_and_stays_disabled(trial):
+def test_activation_plan_requires_baseline_before_any_plan(trial):
     repo, args = trial
     relative, _ = prepared(repo, args)
     service = DeploymentService(repo, process_probe=lambda _: GameProcessStatus("closed"))
-    with pytest.raises(ValueError, match="envanteri"):
-        prepare_i2_deployment_preview(repo, relative, service)
+    with pytest.raises(ValueError, match="prepared original inventory is required"):
+        prepare_activation_review(repo, relative, service)
+    assert service.read_baseline() is None
+    assert not list(repo.paths.project.glob("artifacts/plans/*.json"))
+    assert not list(repo.paths.project.glob("artifacts/i2-active-review-*"))
     baseline = service.baseline()
-    result = prepare_i2_deployment_preview(repo, relative, service)
-    assert result["plan"]["fingerprint"] == baseline["fingerprint"]
-    assert result["loader_enabled"] is False and result["installation_authorized"] is False
-    assert len(result["plan"]["files"]) == 2
+    review = prepare_activation_review(repo, relative, service)
+    assert review["plan"]["fingerprint"] == baseline["fingerprint"]
+    assert review["installation_authorized"] is False
+    assert len(review["plan"]["files"]) == 2
     assert service.inventory() == baseline["files"]
     assert not repo.paths.output("artifacts/deployment.json").exists()
 
 
-def test_game_update_blocks_inventory_bound_preview(trial):
+def test_game_update_blocks_activation_plan(trial):
     repo, args = trial
     relative, _ = prepared(repo, args)
     service = DeploymentService(repo, process_probe=lambda _: GameProcessStatus("closed"))
     service.baseline()
     (repo.paths.game / "new-update.bin").write_bytes(b"update")
-    with pytest.raises(ValueError, match="envanteri değişti"):
-        prepare_i2_deployment_preview(repo, relative, service)
-    assert not list(repo.paths.project.glob("artifacts/plans/*-trial-review.json"))
+    with pytest.raises(ValueError, match="game inventory changed"):
+        prepare_activation_review(repo, relative, service)
+    assert not list(repo.paths.project.glob("artifacts/plans/*.json"))
+    assert not list(repo.paths.project.glob("artifacts/i2-active-review-*/activation-review.json"))
+    assert not repo.paths.output("artifacts/deployment.json").exists()
 
 
 def test_metadata_cannot_disguise_enabled_loader_settings(trial):
@@ -206,7 +208,7 @@ def test_metadata_cannot_disguise_enabled_loader_settings(trial):
     )
     base["settings"]["doorstop_ini_sha256"] = hash_file(ini)
     repo.paths.write_json(base_relative, base)
-    with pytest.raises(ValueError, match="ayar içeriği"):
+    with pytest.raises(ValueError, match="settings content does not match the disabled trial"):
         prepare_i2_trial(repo, **args)
 
 
@@ -223,5 +225,5 @@ def test_changed_payload_cannot_borrow_original_human_approval(trial):
         if item["relative"] == path.relative_to(repo.paths.project).as_posix():
             item["sha256"] = digest
     repo.paths.write_json(relative, manifest)
-    with pytest.raises(ValueError, match="incelenmiş kayıt değişti"):
+    with pytest.raises(ValueError, match="reviewed record for the trial changed"):
         validate_i2_trial(repo, relative)

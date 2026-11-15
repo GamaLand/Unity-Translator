@@ -183,7 +183,7 @@ class PortableService:
             value["source_descriptors"] = descriptors
         PortableProject.model_validate(value)
         if len(canonical(value).encode("utf-8")) > 64 * 1024 * 1024:
-            raise ValueError("Taşınabilir proje boyut sınırı aşıldı.")
+            raise ValueError("The portable project size limit was exceeded.")
         return self.repository.paths.write_json(relative, value)
 
     def export_history(self) -> list[dict[str, Any]]:
@@ -194,11 +194,12 @@ class PortableService:
             if metadata.get("kind") == "portable_review_archive":
                 for review in metadata["reviews"]:
                     reviews.setdefault(review["unit_id"], []).append(review)
-        for unit in self.repository.db.execute(
-            "SELECT u.*,w.translation_revision,w.approved_source,w.approved_translation "
-            "FROM text_units u JOIN work_items w USING(unit_id) ORDER BY u.unit_id"
+        # Two ordered set-based reads replace per-unit lookups; per-unit order is unchanged.
+        sources_by_unit: dict[str, list[dict[str, Any]]] = {}
+        for row in self.repository.db.execute(
+            "SELECT * FROM source_revisions ORDER BY unit_id,created_at,id"
         ):
-            sources = [
+            sources_by_unit.setdefault(row["unit_id"], []).append(
                 {
                     key: row[key]
                     for key in (
@@ -210,12 +211,14 @@ class PortableService:
                         "created_at",
                     )
                 }
-                for row in self.repository.db.execute(
-                    "SELECT * FROM source_revisions WHERE unit_id=? ORDER BY created_at,id",
-                    (unit["unit_id"],),
-                )
-            ]
-            translations = [
+            )
+        translations_by_unit: dict[str, list[dict[str, Any]]] = {}
+        for row in self.repository.db.execute(
+            "SELECT t.*,s.unit_id AS owner_unit_id FROM translation_revisions t NOT INDEXED "
+            "JOIN source_revisions s ON s.id=t.source_revision "
+            "ORDER BY s.unit_id,t.created_at,t.id"
+        ):
+            translations_by_unit.setdefault(row["owner_unit_id"], []).append(
                 {
                     **{
                         key: row[key]
@@ -224,12 +227,13 @@ class PortableService:
                     "metadata": portable_metadata(json.loads(row["metadata_json"])),
                     "issues": json.loads(row["issues_json"]),
                 }
-                for row in self.repository.db.execute(
-                    "SELECT t.* FROM translation_revisions t JOIN source_revisions s "
-                    "ON s.id=t.source_revision WHERE s.unit_id=? ORDER BY t.created_at,t.id",
-                    (unit["unit_id"],),
-                )
-            ]
+            )
+        for unit in self.repository.db.execute(
+            "SELECT u.*,w.translation_revision,w.approved_source,w.approved_translation "
+            "FROM text_units u JOIN work_items w USING(unit_id) ORDER BY u.unit_id"
+        ):
+            sources = sources_by_unit.get(unit["unit_id"], [])
+            translations = translations_by_unit.get(unit["unit_id"], [])
             result.append(
                 {
                     **{
@@ -256,15 +260,15 @@ class PortableService:
     def read(self, path: Path) -> PortableProject:
         path = checked_path(path)
         if path.stat().st_size > 64 * 1024 * 1024:
-            raise ValueError("İçe aktarma boyut sınırı aşıldı.")
+            raise ValueError("The import size limit was exceeded.")
         value = PortableProject.model_validate(strict_json(path.read_bytes()))
         if (value.source_language, value.target_language) != (
             self.repository.source_language,
             self.repository.target_language,
         ):
-            raise ValueError("İçe aktarma dil çifti projeyle eşleşmiyor.")
+            raise ValueError("The import language pair does not match the project.")
         if len({unit.unit_id for unit in value.units}) != len(value.units):
-            raise ValueError("İçe aktarmada yinelenen kayıt kimliği.")
+            raise ValueError("The import contains a duplicate record identity.")
         self.validate_history(value)
         return value
 
@@ -273,9 +277,9 @@ class PortableService:
             self.repository.source_language,
             self.repository.target_language,
         ):
-            raise ValueError("İçe aktarma dil çifti projeyle eşleşmiyor.")
+            raise ValueError("The import language pair does not match the project.")
         if value.format_version == 1 and value.history:
-            raise ValueError("Eski JSON sürümü revizyon arşivi içeremez.")
+            raise ValueError("The legacy JSON version cannot contain a revision archive.")
         descriptors = {
             source.logical_id: source
             for source in (SourceDescriptor(**item) for item in value.source_descriptors)
@@ -291,6 +295,15 @@ class PortableService:
         seen_sources: set[str] = set()
         seen_translations: set[str] = set()
         archived = {unit.unit_id: unit for unit in value.history}
+        renpy_rules = {
+            item.format_rules for item in descriptors.values()
+            if item.adapter_id in ("renpy-templates", "renpy-scripts")
+        }
+        if len(renpy_rules) > 1 or not renpy_rules <= {"renpy-text-v1", "renpy-text-v2"}:
+            raise ValueError(
+                "Portable record has invalid source ownership or format: "
+                "Ren'Py sources must use one text rule."
+            )
         for unit in value.history:
             if value.format_version == 3:
                 descriptor = descriptors.get(unit.logical_source_id or "")
@@ -303,22 +316,22 @@ class PortableService:
                     )
                     or (unit.unit_id.startswith("renpy-v1:") and (
                         descriptor.adapter_id not in ("renpy-templates", "renpy-scripts")
-                        or descriptor.format_rules != "renpy-text-v1"
+                        or descriptor.format_rules not in ("renpy-text-v1", "renpy-text-v2")
                     ))
                 ):
                     raise ValueError("Portable record has invalid source ownership or format.")
             if unit.unit_id in seen_units:
-                raise ValueError("Arşivde yinelenen kayıt kimliği.")
+                raise ValueError("The archive contains a duplicate record identity.")
             seen_units.add(unit.unit_id)
             location = Path(unit.source_file)
             if location.is_absolute() or location.drive or ".." in location.parts:
-                raise ValueError("Arşiv kaynak yolu güvenli ve göreli olmalı.")
+                raise ValueError("The archive source path must be safe and relative.")
             # The path is location data only; importing never opens that file.
             self.repository.paths.output("tmp/location-check/" + unit.source_file)
             sources = {source.id: source for source in unit.sources}
             translations = {translation.id: translation for translation in unit.translations}
             if len(sources) != len(unit.sources) or len(translations) != len(unit.translations):
-                raise ValueError("Arşivde yinelenen revizyon kimliği.")
+                raise ValueError("The archive contains a duplicate revision identity.")
             for source in unit.sources:
                 draft = TextUnitDraft(
                     unit.unit_id,
@@ -341,14 +354,14 @@ class PortableService:
                     or sha256(canonical(meaning).encode()).hexdigest() != source.id
                     or source.id in seen_sources
                 ):
-                    raise ValueError("Arşiv kaynak revizyonu/hash geçersiz.")
+                    raise ValueError("Invalid archive source revision or hash.")
                 seen_sources.add(source.id)
             for translation in unit.translations:
                 if (
                     translation.source_revision not in sources
                     or translation.id in seen_translations
                 ):
-                    raise ValueError("Arşiv çeviri revizyonu ilişkisi geçersiz.")
+                    raise ValueError("Invalid archive translation revision relationship.")
                 seen_translations.add(translation.id)
             if unit.current_source not in sources or (
                 unit.current_translation is not None
@@ -357,7 +370,7 @@ class PortableService:
                     or translations[unit.current_translation].source_revision != unit.current_source
                 )
             ):
-                raise ValueError("Arşiv etkin revizyon ilişkisi geçersiz.")
+                raise ValueError("Invalid archive active revision relationship.")
             if (unit.approved_source is None) != (unit.approved_translation is None) or (
                 unit.approved_source is not None
                 and (
@@ -365,7 +378,7 @@ class PortableService:
                     or unit.approved_translation != unit.current_translation
                 )
             ):
-                raise ValueError("Arşiv onay ilişkisi geçersiz.")
+                raise ValueError("Invalid archive approval relationship.")
             for review in unit.imported_reviews:
                 if set(review) != {
                     "unit_id",
@@ -379,12 +392,12 @@ class PortableService:
                     or translations[review["translation_revision"]].source_revision
                     != review["source_revision"]
                 ):
-                    raise ValueError("İçe aktarılmış arşiv onay ilişkisi geçersiz.")
+                    raise ValueError("Invalid imported archive approval relationship.")
         if value.format_version in (2, 3):
             if {unit.unit_id for unit in value.units} != {
                 unit.unit_id for unit in value.history if unit.active
             }:
-                raise ValueError("Etkin kayıtlar revizyon arşiviyle eşleşmiyor.")
+                raise ValueError("Active records do not match the revision archive.")
             for current in value.units:
                 history = archived[current.unit_id]
                 source = next(s for s in history.sources if s.id == history.current_source)
@@ -396,7 +409,7 @@ class PortableService:
                         for key in ("source_text", "source_hash", "category", "context")
                     )
                 ):
-                    raise ValueError("Etkin kaynak revizyon arşiviyle eşleşmiyor.")
+                    raise ValueError("The active source does not match the revision archive.")
 
     def preview(self, value: PortableProject) -> dict[str, Any]:
         self.validate_history(value)
@@ -508,7 +521,9 @@ class PortableService:
                         existing[key] != getattr(source, key)
                         for key in ("source_text", "source_hash", "category", "context")
                     ):
-                        raise ValueError("Arşiv kaynak kimliği mevcut revizyonla çakışıyor.")
+                        raise ValueError(
+                            "An archive source identity conflicts with an existing revision."
+                        )
                     continue
                 db.execute(
                     "INSERT INTO source_revisions VALUES(?,?,?,?,?,?,?,?)",
@@ -536,7 +551,9 @@ class PortableService:
                         portable_metadata(json.loads(existing["metadata_json"])) != metadata
                         or json.loads(existing["issues_json"]) != translation.issues
                     ):
-                        raise ValueError("Arşiv çeviri kimliği mevcut revizyonla çakışıyor.")
+                        raise ValueError(
+                            "An archive translation identity conflicts with an existing revision."
+                        )
                     continue
                 db.execute(
                     "INSERT INTO translation_revisions VALUES(?,?,?,?,?,?,?,?)",
@@ -582,9 +599,9 @@ class PortableService:
         """Restore into an empty project; imported approvals remain archive history."""
         self.validate_history(value)
         if value.format_version not in (2, 3) or not value.history:
-            raise ValueError("Geri yükleme revizyon arşivli JSON sürüm 2 gerektirir.")
+            raise ValueError("Restore requires JSON version 2 with a revision archive.")
         if self.repository.db.execute("SELECT count(*) FROM text_units").fetchone()[0]:
-            raise ValueError("Geri yükleme yalnızca boş projede yapılabilir.")
+            raise ValueError("Restore is only possible into an empty project.")
         with self.repository.transaction():
             if value.format_version == 3:
                 for item in value.source_descriptors:

@@ -9,10 +9,10 @@ from unitytranslator.filesystem import ProjectPaths, checked_path, hash_file
 
 def doorstop_config_bytes(preloader: Path, *, enabled: bool = False) -> bytes:
     if type(enabled) is not bool:
-        raise ValueError("Loader etkinlik seçimi bool olmalı.")
+        raise ValueError("The loader enabled setting must be a bool.")
     path = str(checked_path(preloader))
     if any(char in path for char in '\r\n\0"'):
-        raise ValueError("Loader yolu INI değeri olarak güvenli değil.")
+        raise ValueError("The loader path is not safe as an INI value.")
     text = (
         "; UnityTranslator experimental external runtime; preparation is not activation.\r\n"
         "[General]\r\n"
@@ -44,15 +44,15 @@ def prepare_runtime_settings(paths: ProjectPaths, preloader_relative: str) -> di
         or preloader.name != "BepInEx.Preloader.dll"
         or preloader.parent.name.casefold() != "core"
     ):
-        raise ValueError("Proje içinde core/BepInEx.Preloader.dll gerekli.")
+        raise ValueError("The project must contain core/BepInEx.Preloader.dll.")
     runtime = checked_path(preloader.parent.parent)
     config = checked_path(runtime / "config/BepInEx.cfg")
     if config.exists():
-        raise ValueError("Mevcut runtime yapılandırmasının üzerine yazılmaz.")
+        raise ValueError("An existing runtime configuration is never overwritten.")
     relative = "artifacts/runtime-settings-" + uuid4().hex
     folder = paths.output(relative)
     if folder.exists():
-        raise ValueError("Ayar hedefi yeni olmalı.")
+        raise ValueError("The settings target must be new.")
     folder.mkdir(parents=True)
     config.parent.mkdir(parents=True, exist_ok=True)
     with config.open("x", encoding="utf-8", newline="\n") as output:

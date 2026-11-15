@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from packaging.requirements import Requirement
+from release_rules import LANGUAGES, STANDALONE, private_reason
 
 from unitytranslator.krypta_runtime import KryptaRuntimeKit
 from unitytranslator.runtime_kit import PortableRuntimeKit, RuntimeKit
@@ -67,8 +68,10 @@ def main() -> int:
         shutil.copytree(portable_kit.root, portable_destination)
     PortableRuntimeKit(portable_destination).validate()
     notices.mkdir(exist_ok=True)
-    shutil.copyfile(root / "src/unitytranslator/resources/renpy-source-NOTICE.txt",
-                    notices / "RenPySource-NOTICE.txt")
+    shutil.copyfile(
+        root / "src/unitytranslator/resources/renpy-source-NOTICE.txt",
+        notices / "RenPySource-NOTICE.txt",
+    )
     native_notices = root / "adapters/native_licenses"
     native_catalog = json.loads((native_notices / "catalog.json").read_text(encoding="utf-8"))
     destination = notices / "NativeRuntime"
@@ -98,7 +101,7 @@ def main() -> int:
         shutil.copyfile(root / "docs" / name, package / name)
     guides = package / "guide"
     guides.mkdir(exist_ok=True)
-    for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
+    for code in LANGUAGES:
         shutil.copyfile(root / "guide" / (code + ".md"), guides / (code + ".md"))
     shutil.copyfile(root / "tools/standalone_smoke.ps1", package / "standalone_smoke.ps1")
     inventory = []
@@ -142,9 +145,7 @@ def main() -> int:
         if not path.is_file():
             continue
         relative = path.relative_to(package)
-        if any(
-            part in (".local", ".cache", ".python", "deployment") for part in relative.parts
-        ) or path.suffix.casefold() in (".gguf", ".assets", ".sqlite3", ".resS"):
+        if private_reason(relative.as_posix(), STANDALONE) is not None:
             raise ValueError("Dağıtımda yerel veri veya oyun/model dosyası bulundu.")
         digest = sha256()
         with path.open("rb") as stream:

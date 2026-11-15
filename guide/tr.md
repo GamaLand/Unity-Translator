@@ -42,6 +42,11 @@ Arayüz dili, projenin kaynak/hedef dilini değiştirmez.
 5. **Çeviri:** önce temsilî pilotu çalıştırıp inceleyin, sonra toplu işe geçin. Sunucunuza
    göre 1–36 paralel istek seçin. Pencere küçültülünce çeviri sürer. Duraklatma yeni
    istekleri durdurup devam edenleri bekler; iptal istemci görevlerini keser.
+   Uygulamayı kapatmak veya başka proje açmak çalışan işi duraklatır; işi açıkça sürdürün.
+   Model sunucusu erişilemez kalırsa iş, kayıtların deneme hakkını harcamadan duraklar.
+   Ren'Py arayüz metinlerindeki `%d`, `%s` veya `%(name)s` yer tutucuları korunmalıdır;
+   eski projelerde bu denetim `--format-rules renpy-text-v2` ile yeniden çıkarılarak
+   açılır.
 6. **İnceleme:** kaynakla çeviriyi karşılaştırın, düzeltmeleri kaydedip ayrıca onaylayın.
    Taslak kaydı onay değildir. Sayfa onayı yalnızca o sayfadaki seçilmiş uygun kayıtları
    kapsar. **Bütün çevirileri onayla** için önce sayı/uyarıları kabul edin; ikinci adımda
@@ -67,7 +72,7 @@ Bütün Unity oyunları desteklenmez; bazı teknik tanılar özgün dilinde kala
 
 Oyun çevirisinde kaynak ve hedef dil, arayüz dilinden bağımsızdır. Japonca için ja, İtalyanca için it, Brezilya Portekizcesi için pt-BR yazın; başka dil kodları da girilebilir. Kaynak dil oyunda bulunmalıdır; eksik veya belirsiz dil sütunları reddedilir. Model dil çiftini desteklemelidir. Mevcut projelerin dilleri, onayları ve özel üslupları korunur; eski dile özel üslup kurallarını gözden geçirin. Dağıtımdan önce küçük bir yamada yazı tiplerini, sağdan sola düzeni ve çoğul biçimlerini kontrol edin. İngilizce de hedef olabilir.
 
-Gelişmiş model ayarlarında LM Studio istekleri için model düşünmesini isteğe bağlı kapatabilirsin. Böylece çeviriye daha fazla çıktı bütçesi kalabilir. Destek, yüklü model ve sunucuya bağlıdır; desteklenmeyen seçenek işi durdurabilir. Varsayılanlar ve sunucunun genel ayarları korunur.
+Gelişmiş model ayarlarında, "Model muhakemesi" modelin düşünme adımını kontrol eder. "Sunucu varsayılanı", sunucunun davranışını korur. "Uyarlanabilir bütçe (llama.cpp)", modelin her bir kayıtla orantılı olarak düşünmesine olanak tanır: kısa arayüz metni küçük bir düşünme bütçesi alırken, uzun metin ve doğrulanmış komşu diyalog daha fazlasını alır. Bu, muhakemeyi "Kapalı" konuma getirmeden işleri çok daha hızlı hale getirebilir. "Kapalı", LM Studio ve llama.cpp için düşünmeyi devre dışı bırakır ve bağlama bağlı metinler için kaliteyi düşürebilir. Destek, yüklenen modele ve sunucuya bağlıdır; desteklenmeyen bir seçenek işi durdurabilir. Pilot raporu, modelin ne kadar muhakeme yaptığını gösterir. Bu ayarı değiştirmek, eşleşen incelenmiş bir pilot gerektirir.
 
 ## Ren'Py çevirisi
 

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.filesystem import ProjectPaths, checked_path, hash_file
 from unitytranslator.json_boundary import strict_json
 from unitytranslator.loader_support import confined
@@ -20,7 +21,7 @@ def _read(path: Path) -> bytes:
     with checked_path(path).open("rb") as stream:
         value = stream.read(_LIMIT + 1)
     if len(value) > _LIMIT:
-        raise ValueError("Kaynak paketi dosya boyut sınırı aşıldı.")
+        raise ValueError("Source package file size limit exceeded.")
     return value
 
 
@@ -33,7 +34,7 @@ def stage_protected_source(
     catalog = strict_json(_read(confined(catalog_root, "loader-components.json")))
     upstream = next(item for item in catalog["sources"] if item["repository"] == "BepInEx/BepInEx")
     if hash_file(archive) != upstream["source_archive_sha256"]:
-        raise ValueError("Upstream kaynak arşivi katalogla eşleşmiyor.")
+        raise ValueError("The upstream source archive does not match the catalog.")
     evidence_bytes = _read(confined(build, "build-evidence.json"))
     evidence = strict_json(evidence_bytes)
     if (
@@ -45,14 +46,16 @@ def stage_protected_source(
         or not evidence.get("references_sha256")
         or not re.fullmatch(r"[a-f0-9]{64}", evidence.get("compiler_sha256", ""))
     ):
-        raise ValueError("Kaynak paketinin derleme kanıtı eksik veya geçersiz.")
+        raise ValueError("The source package build evidence is missing or invalid.")
     references = evidence["references_sha256"]
     for name, digest in references.items():
         if Path(name).name != name or not re.fullmatch(r"[a-f0-9]{64}", digest):
-            raise ValueError("Derleme referansı kişisel yol içeremez; ad/hash gerekli.")
+            raise ValueError(
+                "A build reference cannot contain a personal path; a name and hash are required."
+            )
     binary = confined(build, "BepInEx.Preloader.dll")
     if hash_file(binary) != evidence["binary_sha256"]:
-        raise ValueError("Kaynak paketinin ikili dosyası derleme kanıtıyla eşleşmiyor.")
+        raise ValueError("The source package binary does not match the build evidence.")
     source = confined(build, "source")
     expected: dict[str, str] = {}
     prefix = "BepInEx-" + upstream["commit"] + "/"
@@ -62,19 +65,19 @@ def stage_protected_source(
             if item.is_dir():
                 continue
             if not item.filename.startswith(prefix):
-                raise ValueError("Upstream kaynak arşivi kökü geçersiz.")
+                raise ValueError("Invalid upstream source archive root.")
             name = item.filename[len(prefix) :]
             confined(source, name)
             total += item.file_size
             if len(expected) >= 1000 or item.file_size > _LIMIT or total > _LIMIT:
-                raise ValueError("Upstream kaynak arşivi boyut sınırı aşıldı.")
+                raise ValueError("Upstream source archive size limit exceeded.")
             if name.casefold() in {key.casefold() for key in expected}:
-                raise ValueError("Upstream kaynak yolu yineleniyor.")
+                raise ValueError("Duplicate upstream source path.")
             before = sha256(zipped.read(item)).hexdigest()
             if name.startswith(_PREFIX) and name[len(_PREFIX) :] in _CHANGES:
                 change = evidence["changes"][name[len(_PREFIX) :]]
                 if change["before"] != before:
-                    raise ValueError("Değişiklik upstream kaynak hash'iyle eşleşmiyor.")
+                    raise ValueError("A change does not match the upstream source hash.")
                 expected[name] = change["after"]
             else:
                 expected[name] = before
@@ -85,7 +88,7 @@ def stage_protected_source(
     )
     helper = confined(own_root, "adapters/bepinex-protected/" + helper_name)
     if hash_file(helper) != evidence["diagnostics_source_sha256"]:
-        raise ValueError("Diagnostics kaynağı derleme kanıtından sonra değişti.")
+        raise ValueError("The diagnostics source changed after the build evidence.")
     expected[_PREFIX + "ProtectedRuntimeDiagnostics.cs"] = evidence["diagnostics_source_sha256"]
     version_name = _PREFIX + "ProtectedVersion.cs"
     version = (
@@ -95,7 +98,7 @@ def stage_protected_source(
     )
     version_bytes = _read(confined(source, version_name))
     if version_bytes not in (version, version.replace(b"\n", b"\r\n")):
-        raise ValueError("Koruma sürüm kaynağı beklenen içerikle eşleşmiyor.")
+        raise ValueError("The protection version source does not match the expected content.")
     expected[version_name] = sha256(version_bytes).hexdigest()
     actual = set()
     for entry in source.rglob("*"):
@@ -104,9 +107,9 @@ def stage_protected_source(
             name = path.relative_to(source).as_posix()
             actual.add(name)
             if name not in expected or hash_file(path) != expected[name]:
-                raise ValueError(f"Beklenmeyen veya değiştirilmiş kaynak dosyası bulundu: {name}")
+                raise Diagnostic("Source file {p0} is unexpected or modified.", p0=name)
     if actual != set(expected) or "LICENSE" not in expected:
-        raise ValueError("Kaynak ağacı veya upstream lisans bildirimi eksik.")
+        raise ValueError("The source tree or upstream license notice is missing.")
     pending = [
         (confined(source, name), "source/" + name, digest)
         for name, digest in sorted(expected.items())
@@ -127,7 +130,7 @@ def stage_protected_source(
     if any(
         output.is_relative_to(root) or root.is_relative_to(output) for root in (build, catalog_root)
     ):
-        raise ValueError("Kaynak paketi derleme/katalog ağacıyla örtüşemez.")
+        raise ValueError("The source package cannot overlap the build or catalog tree.")
     manifest: dict[str, Any] = {
         "format_version": 1,
         "purpose": "protected-preloader-source-trace",
@@ -144,7 +147,7 @@ def stage_protected_source(
         for incoming, name, digest in pending:
             data = _read(incoming)
             if sha256(data).hexdigest() != digest:
-                raise ValueError("Kaynak kopyası hazırlık sırasında değişti.")
+                raise ValueError("The source copy changed during preparation.")
             target = paths.output(relative + "/" + name)
             target.parent.mkdir(parents=True, exist_ok=True)
             with target.open("xb") as stream:

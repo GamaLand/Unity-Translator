@@ -2,12 +2,19 @@
 
 import argparse
 import json
-import re
 import tarfile
-import tomllib
 import zipfile
 from hashlib import sha256
 from pathlib import Path, PurePosixPath
+
+from release_rules import (
+    LANGUAGES,
+    SOURCE,
+    check_release_label,
+    private_reason,
+    project_version,
+    unsafe_path,
+)
 
 
 def main() -> int:
@@ -16,59 +23,28 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     parser.add_argument("--dist-dir", type=Path, default=root / "dist")
     args = parser.parse_args()
-    label = args.label
+    label = check_release_label(args.label)
     directory = args.dist_dir
-    if not re.fullmatch(r"[a-z][a-z0-9.-]{0,39}", label):
-        raise ValueError("Invalid source delivery label")
-    version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
-        "version"
-    ]
+    version = project_version(root)
     source = directory / f"unitytranslator-{version}.tar.gz"
     target = directory / f"UnityTranslator-{version}-{label}.zip"
     if target.exists():
         raise ValueError("Source delivery already exists; preserve it and choose a new version.")
     files = {}
     seen = set()
-    private = {
-        ".local",
-        ".cache",
-        ".venv",
-        ".python",
-        "deployment",
-        "obj",
-        "bin",
-        ".agents",
-        ".codex",
-        ".claude",
-        ".cursor",
-    }
-    names = {
-        "agents.md",
-        "goal.md",
-        "technical_design.md",
-        "technical.design.md",
-        "claude.md",
-        "gemini.md",
-        ".env",
-    }
     with tarfile.open(source, "r:gz") as archive:
         for member in archive.getmembers():
             if member.isdir():
                 continue
             if not member.isfile():
                 raise ValueError("Source archive must contain regular files only")
+            if unsafe_path(member.name):
+                raise ValueError("Invalid source entry: " + member.name)
             relative = PurePosixPath(*PurePosixPath(member.name).parts[1:])
             if (
                 not relative.parts
-                or relative.is_absolute()
-                or ".." in relative.parts
-                or any(part.casefold() in private for part in relative.parts)
-                or relative.name.casefold() in names
-                or relative.name.casefold().endswith("_ren.py")
-                or ":" in str(relative)
-                or relative.suffix.lower() in {
-                    ".dll", ".exe", ".gguf", ".assets", ".sqlite3", ".rpa", ".rpyc", ".rpy"
-                }
+                or unsafe_path(str(relative))
+                or private_reason(str(relative), SOURCE) is not None
                 or str(relative).casefold() in seen
             ):
                 raise ValueError("Private or invalid source entry: " + str(relative))
@@ -78,7 +54,16 @@ def main() -> int:
             files[str(relative)] = stream.read()
             seen.add(str(relative).casefold())
     assert {"README.md", "LICENSE", ".gitignore", ".gitattributes"} <= files.keys()
-    for code in ("en", "tr", "de", "fr", "es", "pt", "ru", "zh"):
+    assert "src/unitytranslator/resources/locales/legacy-messages.json" in files
+    # Recipient installers are generated from these resources at export time.
+    for script in (
+        "recipient-core.ps1",
+        "patch-installer.ps1",
+        "renpy-copy.ps1",
+        "renpy-additive.ps1",
+    ):
+        assert "src/unitytranslator/resources/" + script in files
+    for code in LANGUAGES:
         assert "guide/" + code + ".md" in files
         assert "src/unitytranslator/resources/locales/" + code + ".json" in files
     with zipfile.ZipFile(target, "x", compression=zipfile.ZIP_DEFLATED) as archive:

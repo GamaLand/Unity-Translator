@@ -2,7 +2,6 @@
 
 import json
 import re
-import subprocess
 import sys
 from collections import Counter
 from collections.abc import Callable
@@ -12,6 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 from unitytranslator.capabilities import discovery_capabilities
+from unitytranslator.diagnostics import Diagnostic
 from unitytranslator.engines import engine_evidence, renpy_inputs
 from unitytranslator.filesystem import ProjectPaths, checked_path, hash_file
 from unitytranslator.profiles import match_profile
@@ -81,9 +81,9 @@ def scan(paths: ProjectPaths, *, engine: str = "auto") -> dict[str, Any]:
         "extraction": "unknown",
         "application": "unknown",
         "uncertainties": [
-            "Dosya adayları metin kaynağı olduğunu kanıtlamaz.",
-            "Runtime göstergeleri kesin çalışma uyumluluğu değildir.",
-            "Haricî dil/mod ve font desteği henüz doğrulanmadı.",
+            "File candidates do not prove that they are text sources.",
+            "Runtime indicators do not establish definite runtime compatibility.",
+            "External language/mod and font support is not yet verified.",
         ],
         "recommendations": recommendations,
         "engine_report": engines,
@@ -98,22 +98,71 @@ def scan(paths: ProjectPaths, *, engine: str = "auto") -> dict[str, Any]:
     return report
 
 
+_I2_UNIT_TEXT = (
+    "unit_id", "original_key", "source_file", "source_language", "source_text", "source_hash",
+)
+
+
+_I2_REPORT_FIELDS = frozenset({
+    "reader", "reader_version", "unity_versions", "objects", "i2_scripts", "i2_candidates",
+    "units", "errors", "diagnostics",
+})
+
+
+def _i2_unit_shape(unit: Any) -> bool:
+    """Exactly the record fields, with types, before any record is constructed."""
+    return (
+        isinstance(unit, dict)
+        and set(_I2_UNIT_TEXT) | {"source_object"} <= set(unit)
+        <= set(_I2_UNIT_TEXT) | {"source_object", "category", "context"}
+        and all(isinstance(unit[name], str) for name in _I2_UNIT_TEXT)
+        and type(unit["source_object"]) is int
+        and -(1 << 63) <= unit["source_object"] < (1 << 63)
+        and all(isinstance(unit.get(name, ""), str) for name in ("category", "context"))
+    )
+
+
+def _i2_report_shape(result: dict[str, Any]) -> bool:
+    """Only the Unity worker's own fields; later stages add every other report field."""
+
+    def records(name: str, required: bool = False) -> bool:
+        value = result.get(name, None if required else [])
+        return isinstance(value, list) and all(isinstance(item, dict) for item in value)
+
+    objects = result.get("objects", {})
+    return (
+        set(result) <= _I2_REPORT_FIELDS
+        and all(isinstance(result.get(name, ""), str) for name in ("reader", "reader_version"))
+        and isinstance(result.get("unity_versions", []), list)
+        and all(isinstance(item, str) for item in result.get("unity_versions", []))
+        and isinstance(objects, dict)
+        and all(type(count) is int for count in objects.values())
+        and records("units", True) and records("errors", True)
+        and records("diagnostics") and records("i2_scripts") and records("i2_candidates")
+        and all(_i2_unit_shape(unit) for unit in result["units"])
+        and all(isinstance(item.get("code"), str) for item in result.get("diagnostics", []))
+    )
+
+
 def _probe_i2_source(
-    paths: ProjectPaths, relative: str, timeout: float = 120, *, source_language: str = "en"
+    paths: ProjectPaths, relative: str, timeout: float = 120, *, source_language: str = "en",
+    cancelled: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
+    from unitytranslator.worker_process import run_json_worker
+
     part = Path(relative)
     if part.is_absolute() or part.drive:
-        raise ValueError("Kaynak yolu oyun köküne göreli olmalı.")
+        raise ValueError("Source path must be relative to the game root.")
     source = checked_path(paths.game / part)
     if not source.is_relative_to(paths.game) or not source.is_file():
-        raise ValueError("Kaynak oyun klasöründe bir dosya olmalı.")
+        raise ValueError("Source must be a file in the game folder.")
     before = hash_file(source)
     worker = (
         [sys.executable, "--unity-worker"]
         if getattr(sys, "frozen", False)
         else [sys.executable, "-m", "unitytranslator.workers.unity_probe"]
     )
-    completed = subprocess.run(
+    result = run_json_worker(
         [
             *worker,
             str(source),
@@ -121,22 +170,17 @@ def _probe_i2_source(
             str(paths.game),
             source_language,
         ],
-        capture_output=True,
-        stdin=subprocess.DEVNULL,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         timeout=timeout,
-        check=False,
+        cancelled=cancelled or (lambda: False),
+        max_output=32 * 1024 * 1024,
     )
     if hash_file(source) != before:
-        raise ValueError("Kaynak hash'i inceleme sırasında değişti; sonuç kabul edilmedi.")
-    if completed.returncode:
-        raise ValueError(f"Unity okuma alt süreci başarısız: {completed.returncode}")
-    if len(completed.stdout) > 32 * 1024 * 1024:
-        raise ValueError("Keşif IPC boyut sınırı aşıldı.")
-    result: dict[str, Any] = json.loads(completed.stdout)
+        raise ValueError("Source hash changed during inspection; the result was not accepted.")
+    if not _i2_report_shape(result):
+        raise ValueError("Unity reader worker returned an invalid result.")
     ids = [unit["unit_id"] for unit in result["units"]]
     if len(set(ids)) != len(ids):
-        raise ValueError("Belirsiz kaynak kümesi: yinelenen mantıksal kimlik.")
+        raise ValueError("Ambiguous source set: duplicate logical ID.")
     result.update(
         {
             "format_version": 1,
@@ -249,8 +293,8 @@ def validate_source_selection(repository: ProjectRepository, report: dict[str, A
         ) if row["profile_id"] in profiles
     }
     if missing := existing - incoming:
-        raise ValueError(
-            "Previously active Ren'Py templates are missing: " + ", ".join(sorted(missing))
+        raise Diagnostic(
+            "Previously active Ren'Py templates are missing: {p0}", p0=", ".join(sorted(missing))
         )
     if report["adapter_id"] == "renpy-scripts":
         payloads = {payload["logical_id"]: payload for payload in report["payloads"]}
@@ -269,7 +313,8 @@ def validate_source_selection(repository: ProjectRepository, report: dict[str, A
 
 
 def extract_to_project(
-    paths: ProjectPaths, relative: str, *, engine: str = "auto"
+    paths: ProjectPaths, relative: str, *, engine: str = "auto",
+    format_rules: str | None = None,
 ) -> dict[str, Any]:
     # Hold the writer lock during extraction, but no transaction while the worker runs.
     with ProjectRepository(paths) as repository:
@@ -278,13 +323,15 @@ def extract_to_project(
         )
         output = save_report(paths, "extract", report)
         if report["extraction"] != "supported":
-            raise ValueError(f"Çıkarma tamamlanamadı; tanı raporu: {output}")
+            raise Diagnostic(
+                "Extraction could not be completed; diagnostic report: {p0}", p0=output
+            )
         from unitytranslator.reader_adapters import result_from_report
 
         validate_source_selection(repository, report)
         snapshot = repository.ingest_reader_result(result_from_report(
             report, replace_source_set=report.get("complete_source_set") is True
-        ))[0]
+        ), format_rules=format_rules)[0]
         return {
             "snapshot": snapshot,
             "report": str(output),

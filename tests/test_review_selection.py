@@ -50,7 +50,7 @@ def test_all_approval_rejects_changed_preview_atomically(review_repo, change):
             row["unit_id"], row["source_revision"], row["version"], "Taslak", 0
         )
     before = repo.count(status="approved")
-    with pytest.raises(ValueError, match="değişti"):
+    with pytest.raises(ValueError, match="translation list changed"):
         approve_all(repo, preview, user_action=True, confirmation="3 çeviriyi onayla")
     assert repo.count(status="approved") == before
 
@@ -87,7 +87,7 @@ def test_all_approval_session_requires_preview_token_and_exact_confirmation(revi
                 "confirmation": "3 çeviriyi onayla",
             }
             assert (await session.dispatch("approve_all", confirmed))["approved"] == 3
-            with pytest.raises(ValueError, match="geçersiz"):
+            with pytest.raises(ValueError, match="approval preview is invalid"):
                 await session.dispatch("approve_all", confirmed)
         finally:
             await session.close()
@@ -205,9 +205,9 @@ def test_group_approval_is_explicit_and_does_not_edit_translation_revisions(revi
     repo = review_repo
     frozen = records(repo)
     for consent in (False, 1, "true"):
-        with pytest.raises(ValueError, match="açık kullanıcı"):
+        with pytest.raises(ValueError, match="explicit user selection and human review"):
             approve_selection(repo, frozen, user_action=consent, reviewed=True)
-    with pytest.raises(ValueError, match="açık kullanıcı"):
+    with pytest.raises(ValueError, match="explicit user selection and human review"):
         approve_selection(repo, frozen, user_action=True, reviewed=False)
     assert repo.count(status="approved") == 0
     assert approve_selection(repo, frozen, user_action=True, reviewed=True) == 3

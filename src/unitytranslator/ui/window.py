@@ -3,6 +3,7 @@ import os
 import sys
 from importlib.resources import files
 from pathlib import Path
+from typing import Any, cast
 from uuid import uuid4
 
 from PySide6.QtCore import QAbstractTableModel, Qt, QTimer, QUrl
@@ -13,6 +14,7 @@ from PySide6.QtGui import (
     QFontDatabase,
     QKeySequence,
     QShortcut,
+    QStandardItemModel,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -44,9 +46,11 @@ from PySide6.QtWidgets import (
 )
 
 from unitytranslator import __version__
+from unitytranslator.diagnostics import describe
 from unitytranslator.jobs import MAX_PARALLEL_REQUESTS
 from unitytranslator.language import DEFAULT_STYLE, LANGUAGE_NAMES
-from unitytranslator.review_selection import canonical_all_confirmation
+from unitytranslator.providers import reasoning_supported
+from unitytranslator.repository import REVIEW_PAGE_SIZE
 from unitytranslator.ui.bridge import BackendBridge
 from unitytranslator.ui.components import (
     ActionMenu,
@@ -58,6 +62,7 @@ from unitytranslator.ui.components import (
     WorkflowTabs,
     editor_panel,
     scroll_page,
+    table_item,
 )
 from unitytranslator.ui.components import (
     WrappingButton as QPushButton,
@@ -70,6 +75,7 @@ from unitytranslator.ui.i18n import (
     LANGUAGES,
     active_language,
     diagnostic,
+    localize,
     preferred_language,
     save_language,
     tr,
@@ -77,6 +83,7 @@ from unitytranslator.ui.i18n import (
 from unitytranslator.ui.i18n import (
     localized_issue_label as issue_label,
 )
+from unitytranslator.ui.pages import STOP, CompletionRegistry, Page
 from unitytranslator.ui.text_editor import DataTextEdit
 from unitytranslator.ui.theme import apply_theme
 from unitytranslator.validation import (
@@ -115,11 +122,11 @@ class ReviewModel(QAbstractTableModel):
         ("issues_json", tr("Checks")),
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.rows = []
+        self.rows: list[dict[str, Any]] = []
 
-    def set_rows(self, rows):
+    def set_rows(self, rows: list[dict[str, Any]]) -> None:
         self.beginResetModel()
         self.rows = rows
         self.endResetModel()
@@ -167,8 +174,8 @@ class PluralEditorDialog(QDialog):
             )
         self.value = None
         self.is_current = is_current
-        self.sources = {}
-        self.edits = {}
+        self.sources: dict[str, QTextEdit] = {}
+        self.edits: dict[str, DataTextEdit] = {}
         self.setWindowTitle(tr("Review and edit plural branches"))
         self.resize(1050, 600)
         layout = QVBoxLayout(self)
@@ -187,16 +194,16 @@ class PluralEditorDialog(QDialog):
         for form, text in self.branches.items():
             tab = QWidget()
             row = QHBoxLayout(tab)
-            for heading, content, read_only, fields in (
-                (tr("Source"), text, True, self.sources),
-                (tr("Translation"), targets.get(form, ""), False, self.edits),
+            self.sources[form] = QTextEdit()
+            self.edits[form] = DataTextEdit(reference=text)
+            for heading, content, read_only, editor in (
+                (tr("Source"), text, True, self.sources[form]),
+                (tr("Translation"), targets.get(form, ""), False, self.edits[form]),
             ):
                 column = QVBoxLayout()
                 column.addWidget(QLabel(heading))
-                editor = QTextEdit() if read_only else DataTextEdit(reference=text)
                 editor.setReadOnly(read_only)
                 editor.setPlainText(content)
-                fields[form] = editor
                 column.addWidget(editor)
                 row.addLayout(column)
             self.tabs.addTab(tab, self.labels[form])
@@ -250,7 +257,7 @@ class PluralEditorDialog(QDialog):
 
 
 class CandidateHistoryDialog(QDialog):
-    def __init__(self, history, parent=None):
+    def __init__(self, history: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.history = history
         self.chosen = None
@@ -399,7 +406,7 @@ class RuntimeSelectionDialog(QDialog):
                 for key in ("unit_id", "source_revision", "translation_revision", "version")
             }
             for index, row in enumerate(self.rows)
-            if self.table.item(index, 0).checkState() == Qt.CheckState.Checked
+            if table_item(self.table, index, 0).checkState() == Qt.CheckState.Checked
         ]
 
     def update_selection(self):
@@ -489,13 +496,13 @@ class BatchReviewDialog(QDialog):
                 for key in ("unit_id", "source_revision", "translation_revision", "version")
             }
             for index, row in enumerate(self.rows)
-            if self.table.item(index, 0).checkState() == Qt.CheckState.Checked
+            if table_item(self.table, index, 0).checkState() == Qt.CheckState.Checked
         ]
 
     def select_records(self, selected):
         self.table.blockSignals(True)
         for index in range(len(self.rows)):
-            self.table.item(index, 0).setCheckState(
+            table_item(self.table, index, 0).setCheckState(
                 Qt.CheckState.Checked if selected else Qt.CheckState.Unchecked
             )
         self.table.blockSignals(False)
@@ -527,7 +534,7 @@ class BatchReviewDialog(QDialog):
 
 
 class AllApprovalDialog(QDialog):
-    def __init__(self, preview, parent=None):
+    def __init__(self, preview: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Approve all translations · 1 / 2"))
         self.resize(600, 330)
@@ -604,7 +611,7 @@ class AllApprovalDialog(QDialog):
 
 
 class InstallationReviewDialog(QDialog):
-    def __init__(self, review, parent=None):
+    def __init__(self, review: dict[str, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Game installation plan"))
         self.resize(950, 440)
@@ -669,11 +676,14 @@ class MainWindow(QMainWindow):
                 font = fonts / name
                 if font.is_file():
                     QFontDatabase.addApplicationFont(str(font))
-        QApplication.instance().setFont(QFont("Segoe UI", 10))
-        apply_theme(QApplication.instance())
+        app = QApplication.instance()
+        assert isinstance(app, QApplication)  # A main window exists only in a QApplication.
+        app.setFont(QFont("Segoe UI", 10))
+        apply_theme(app)
         self.resize(1360, 900)
         self.setMinimumSize(900, 740)
         self.bridge = bridge or BackendBridge()
+        self.page_controllers = CompletionRegistry(self)
         self.bridge.completed.connect(self.completed)
         self.bridge.failed.connect(self.failed)
         self.bridge.progress.connect(self.on_progress)
@@ -720,7 +730,9 @@ class MainWindow(QMainWindow):
         shell.setContentsMargins(0, 0, 0, 0)
         shell.setSpacing(0)
         self.tabs = WorkflowTabs({
-            0: tr("Preparation"), 4: tr("Translation workspace"), 6: tr("Delivery"),
+            Page.PROJECT: tr("Preparation"),
+            Page.TRANSLATION: tr("Translation workspace"),
+            Page.EXPORT: tr("Delivery"),
         })
         shell.addWidget(self.tabs.sidebar)
         workspace = QWidget()
@@ -759,11 +771,11 @@ class MainWindow(QMainWindow):
         self.export_tab()
         self.installation_tab()
         self.tabs.finish(tr("Local processing • Telemetry off"))
-        self.page_changed(0)
+        self.page_changed(Page.PROJECT)
         for text_label in body.findChildren(QLabel):
             text_label.setTextFormat(Qt.TextFormat.PlainText)
             text_label.setWordWrap(True)
-        for index in range(1, self.tabs.count()):
+        for index in range(Page.SOURCES, self.tabs.count()):
             self.tabs.setTabEnabled(index, False)
         self.setCentralWidget(body)
         help_menu = self.menuBar().addMenu(tr("Help"))
@@ -818,18 +830,18 @@ class MainWindow(QMainWindow):
             self.output_tokens.valueChanged,
             self.temperature.valueChanged,
             self.structured.toggled,
-            self.disable_reasoning.toggled,
+            self.reasoning.currentIndexChanged,
             self.dialogue_context.toggled,
         ):
             signal.connect(self.schedule_bulk_readiness)
         self.dialogue_context.toggled.connect(self.refresh)
-        for key, action in (
+        for key, slot in (
             (QKeySequence.StandardKey.Open, self.open_existing_project),
             (QKeySequence.StandardKey.Save, self.save_edit),
             (QKeySequence.StandardKey.Find, self.focus_search),
         ):
             shortcut = QShortcut(QKeySequence(key), self)
-            shortcut.activated.connect(action)
+            shortcut.activated.connect(slot)
 
     def page_changed(self, index):
         self.page_heading.setText(self.tabs.tabText(index).split(" · ", 1)[-1])
@@ -1018,7 +1030,19 @@ class MainWindow(QMainWindow):
         self.temperature.setValue(0.2)
         self.structured = QCheckBox(tr("Constrain output with JSON Schema"))
         self.structured.setChecked(True)
-        self.disable_reasoning = QCheckBox(tr("Disable model reasoning (LM Studio)"))
+        self.reasoning = QComboBox()
+        for label, mode in (
+            (tr("Server default"), "default"),
+            (tr("Adaptive budget (llama.cpp)"), "adaptive"),
+            (tr("Off"), "none"),
+        ):
+            self.reasoning.addItem(label, mode)
+        self.reasoning.setToolTip(tr(
+            "Adaptive budget lets the model reason in proportion to each record: short "
+            "interface text gets little, long text and verified neighbouring dialogue get "
+            "more. Off may lower quality for context-dependent text. Changing this setting "
+            "requires a matching reviewed pilot."
+        ))
         self.dialogue_context = QCheckBox(tr("Use verified neighbouring dialogue"))
         self.dialogue_context.setToolTip(tr(
             "Use up to two source utterances on each side within a verified Ren'Py segment. "
@@ -1029,7 +1053,8 @@ class MainWindow(QMainWindow):
         settings.addRow(tr("Output token budget"), self.output_tokens)
         settings.addRow(tr("Generation diversity"), self.temperature)
         settings.addRow(self.structured)
-        settings.addRow(self.disable_reasoning)
+        settings.addRow(tr("Model reasoning"), self.reasoning)
+        self.sync_reasoning_options()
         settings.addRow(self.dialogue_context)
         layout.addWidget(advanced)
         layout.addStretch()
@@ -1082,9 +1107,10 @@ class MainWindow(QMainWindow):
         self.style_category.addItem(tr("Default"), "default")
         self.style_category.currentIndexChanged.connect(self.style_selected)
         layout.addWidget(self.style_category)
-        self.style = QTextEdit(DEFAULT_STYLE)
-        self.style.setMaximumHeight(120)
-        layout.addWidget(self.style)
+        # Not named "style": that would shadow QWidget.style().
+        self.style_editor = QTextEdit(DEFAULT_STYLE)
+        self.style_editor.setMaximumHeight(120)
+        layout.addWidget(self.style_editor)
         save = QPushButton(tr("Save glossary / style version"))
         save.clicked.connect(self.save_policy)
         layout.addWidget(save)
@@ -1282,9 +1308,9 @@ class MainWindow(QMainWindow):
         records_layout.addWidget(self.table, 1)
         pagination = QHBoxLayout()
         self.previous_page = QPushButton(tr("Previous 200"))
-        self.previous_page.clicked.connect(lambda: self.change_page(-200))
+        self.previous_page.clicked.connect(lambda: self.change_page(-REVIEW_PAGE_SIZE))
         self.next_page = QPushButton(tr("Next 200"))
-        self.next_page.clicked.connect(lambda: self.change_page(200))
+        self.next_page.clicked.connect(lambda: self.change_page(REVIEW_PAGE_SIZE))
         self.previous_page.setEnabled(False)
         self.next_page.setEnabled(False)
         self.page_label = QLabel(tr("0 records"))
@@ -1532,7 +1558,9 @@ class MainWindow(QMainWindow):
         try:
             save_language(code)
         except (OSError, ValueError) as exc:
-            QMessageBox.warning(self, tr("Could not complete the operation"), str(exc))
+            QMessageBox.warning(
+                self, tr("Could not complete the operation"), localize(describe(exc)),
+            )
             for action in self.language_actions.actions():
                 action.setChecked(action.data() == preferred_language())
             return
@@ -1618,7 +1646,7 @@ class MainWindow(QMainWindow):
         self.installation_details.setReadOnly(True)
         layout.addWidget(self.installation_details)
 
-    def refresh_installation(self):
+    def refresh_installation(self) -> None:
         if self.project_open:
             self.deployment_status_token = uuid4().hex
             self.bridge.submit(
@@ -1721,15 +1749,14 @@ class MainWindow(QMainWindow):
         )
         self.statusBar().showMessage(tr("Opening project…"))
 
-    def model_data(self):
+    def model_data(self) -> dict[str, Any]:
         return {
             "provider": self.provider.currentData(),
             "address": self.address.text(),
             "model": self.model.currentText(),
             "structured_output": self.structured.isChecked(),
-            **({"reasoning_effort": "none"}
-               if self.provider.currentData() == "lm-studio" and self.disable_reasoning.isChecked()
-               else {}),
+            **({"reasoning_effort": self.reasoning_mode()}
+               if self.reasoning_mode() != "default" else {}),
         }
 
     def profile(self):
@@ -1742,7 +1769,7 @@ class MainWindow(QMainWindow):
                if self.dialogue_context.isChecked() else {}),
         }
 
-    def apply_profile(self, profile):
+    def apply_profile(self, profile: dict[str, Any]) -> None:
         self.provider.setCurrentIndex(max(0, self.provider.findData(profile["provider"])))
         self.address.setText(profile["address"])
         self.model.setCurrentText(profile["model"])
@@ -1750,7 +1777,10 @@ class MainWindow(QMainWindow):
         self.output_tokens.setValue(profile["output_tokens"])
         self.temperature.setValue(profile["temperature"])
         self.structured.setChecked(profile["structured_output"])
-        self.disable_reasoning.setChecked(profile.get("reasoning_effort") == "none")
+        self.reasoning.setCurrentIndex(
+            max(0, self.reasoning.findData(profile.get("reasoning_effort", "default")))
+        )
+        self.sync_reasoning_options()
         self.dialogue_context.setChecked(profile.get("dialogue_context") == "source-window-v1")
 
     def use_pilot_profile(self):
@@ -1774,8 +1804,24 @@ class MainWindow(QMainWindow):
         if isinstance(value, dict) and value.get("context_tokens"):
             self.context_tokens.setValue(value["context_tokens"])
 
+    def reasoning_mode(self):
+        """The selected reasoning mode, or the server default where it is unsupported."""
+        mode = self.reasoning.currentData()
+        return mode if reasoning_supported(self.provider.currentData(), mode) else "default"
+
+    def sync_reasoning_options(self):
+        """Offer only modes the selected provider supports; never show an unsent mode."""
+        # QComboBox always creates a QStandardItemModel; the stub returns the base model.
+        reasoning_items = cast(QStandardItemModel, self.reasoning.model())
+        for index in range(self.reasoning.count()):
+            reasoning_items.item(index).setEnabled(
+                reasoning_supported(self.provider.currentData(), self.reasoning.itemData(index))
+            )
+        if self.reasoning_mode() != self.reasoning.currentData():
+            self.reasoning.setCurrentIndex(self.reasoning.findData("default"))
+
     def provider_selected(self):
-        self.disable_reasoning.setEnabled(self.provider.currentData() == "lm-studio")
+        self.sync_reasoning_options()
         if self.address.text().strip() in ("http://127.0.0.1:1234", "http://127.0.0.1:8080"):
             self.address.setText(
                 "http://127.0.0.1:1234"
@@ -1787,15 +1833,15 @@ class MainWindow(QMainWindow):
 
     def focus_search(self):
         if self.project_open:
-            self.tabs.setCurrentIndex(5)
+            self.tabs.setCurrentIndex(Page.REVIEW)
             self.search.setFocus()
             self.search.selectAll()
 
     def go_next_step(self):
         if self.project_open:
-            self.tabs.setCurrentIndex(self.next_step.property("target_tab") or 1)
+            self.tabs.setCurrentIndex(self.next_step.property("target_tab") or Page.SOURCES)
 
-    def update_next_step(self):
+    def update_next_step(self) -> None:
         counts = self.project_totals
         if not counts or not self.project_open:
             return
@@ -1810,25 +1856,28 @@ class MainWindow(QMainWindow):
             )
         )
         if not counts["total"]:
-            text, tab = tr("Next: extract game text"), 1
+            text, tab = tr("Next: extract game text"), Page.SOURCES
         elif counts["translated"] > counts["approved"]:
-            text, tab = tr("Next: review translations"), 5
+            text, tab = tr("Next: review translations"), Page.REVIEW
         elif counts["approved"] == counts["total"]:
             if self.installation_kit_available and not (
                 self.deployment and self.deployment["status"] != "removed"
             ):
-                text, tab = tr("Next: prepare installation plan for approved translations"), 7
+                text, tab = (
+                    tr("Next: prepare installation plan for approved translations"),
+                    Page.INSTALLATION,
+                )
             else:
-                text, tab = tr("Next: export the translation project"), 6
+                text, tab = tr("Next: export the translation project"), Page.EXPORT
         elif not self.model.currentText().strip():
-            text, tab = tr("Next: select your local model"), 2
+            text, tab = tr("Next: select your local model"), Page.MODEL
         else:
-            text, tab = tr("Next: continue translating"), 4
+            text, tab = tr("Next: continue translating"), Page.TRANSLATION
         self.next_step.setText(text)
-        self.next_step.setProperty("target_tab", tab)
+        self.next_step.setProperty("target_tab", int(tab))
         self.next_step.setEnabled(True)
 
-    def add_rule(self, value=None):
+    def add_rule(self, value: dict[str, Any] | None = None) -> None:
         value = value or {}
         row = self.glossary.rowCount()
         self.glossary.insertRow(row)
@@ -1843,23 +1892,25 @@ class MainWindow(QMainWindow):
     def save_policy(self):
         rules = []
         for row in range(self.glossary.rowCount()):
+            # add_rule places a QComboBox in column 2; cellWidget() is typed as QWidget.
+            kind = cast(QComboBox, self.glossary.cellWidget(row, 2))
             rules.append(
                 {
-                    "source": self.glossary.item(row, 0).text(),
-                    "target": self.glossary.item(row, 1).text(),
-                    "kind": self.glossary.cellWidget(row, 2).currentData(),
-                    "category": self.glossary.item(row, 3).text() or None,
+                    "source": table_item(self.glossary, row, 0).text(),
+                    "target": table_item(self.glossary, row, 1).text(),
+                    "kind": kind.currentData(),
+                    "category": table_item(self.glossary, row, 3).text() or None,
                     "case_sensitive": False,
                     "word_boundary": True,
                 }
             )
-        self.styles[self.style_key] = self.style.toPlainText()
+        self.styles[self.style_key] = self.style_editor.toPlainText()
         self.bridge.submit("set_policies", {"glossary": rules, "styles": self.styles.copy()})
 
     def style_selected(self):
-        self.styles[self.style_key] = self.style.toPlainText()
+        self.styles[self.style_key] = self.style_editor.toPlainText()
         self.style_key = self.style_category.currentData() or "default"
-        self.style.setPlainText(self.styles.get(self.style_key, ""))
+        self.style_editor.setPlainText(self.styles.get(self.style_key, ""))
 
     def retranslate_selected(self):
         if self.current_item:
@@ -1877,7 +1928,7 @@ class MainWindow(QMainWindow):
     def start_pilot(self):
         self.submit_translation("create_job", {"kind": "pilot", "profile": self.profile()})
 
-    def set_job_preparing(self, active):
+    def set_job_preparing(self, active: bool) -> None:
         self.job_preparing = active
         self.pilot_button.setEnabled(
             not active and (self.project_totals or {}).get("pilot_eligible", 0) > 0
@@ -1931,7 +1982,7 @@ class MainWindow(QMainWindow):
         self.status_filter.setCurrentIndex(0)
         self.category_filter.setCurrentIndex(0)
         self.affected_filter.setChecked(True)
-        self.tabs.setCurrentIndex(5)
+        self.tabs.setCurrentIndex(Page.REVIEW)
         self.filter_changed()
 
     def job_selected(self):
@@ -1939,7 +1990,7 @@ class MainWindow(QMainWindow):
         if self.current_job in self.job_summaries:
             self.on_progress(self.job_summaries[self.current_job])
 
-    def refresh(self):
+    def refresh(self) -> None:
         if self.project_open:
             self.page_pending = True
             self.previous_page.setEnabled(False)
@@ -1971,13 +2022,13 @@ class MainWindow(QMainWindow):
     def change_page(self, change):
         if self.page_pending or not self.review_count:
             return
-        last_offset = ((self.review_count - 1) // 200) * 200
+        last_offset = ((self.review_count - 1) // REVIEW_PAGE_SIZE) * REVIEW_PAGE_SIZE
         target = min(last_offset, max(0, self.offset + change))
         if target != self.offset:
             self.offset = target
             self.refresh()
 
-    def selection_changed(self):
+    def selection_changed(self) -> None:
         indexes = self.table.selectionModel().selectedRows()
         self.current_item = self.review_model.rows[indexes[0].row()] if indexes else None
         identity = (self.current_item or {}).get("original_key", "")
@@ -1998,7 +2049,7 @@ class MainWindow(QMainWindow):
             self.editor_loading = False
         try:
             supported_plural = (
-                bool(self.current_item)
+                entry is not None
                 and entry.get("format_rules", "protected-i2-v4") == "protected-i2-v4"
                 and len(plural_branches(entry["source_text"])) > 1
             )
@@ -2033,11 +2084,12 @@ class MainWindow(QMainWindow):
             self.drafts.update(self.current_item, self.translation_editor.value())
 
     def draft_state_changed(self):
-        entry = self.drafts.entries.get(self.current_item["unit_id"]) if self.current_item else None
-        stale = entry and (
-            entry["source_revision"] != self.current_item["source_revision"]
-            or entry["base_version"] != self.current_item["version"]
-        )
+        item = self.current_item
+        entry = self.drafts.entries.get(item["unit_id"]) if item else None
+        stale = bool(entry and item and (
+            entry["source_revision"] != item["source_revision"]
+            or entry["base_version"] != item["version"]
+        ))
         if entry and entry.get("error"):
             note = (
                 tr("Could not save the draft; the text remains on screen. Retry or copy it.")
@@ -2130,7 +2182,7 @@ class MainWindow(QMainWindow):
             source = self.drafts.entries[self.current_item["unit_id"]]["source_text"]
             dialog = PluralEditorDialog(source, draft, self, is_current)
         except ValueError as error:
-            self.failed("plural_edit", str(error))
+            self.failed("plural_edit", describe(error, command="plural_edit"))
             return
         if dialog.exec() and dialog.value is not None:
             self.translation_editor.setPlainText(dialog.value)
@@ -2195,7 +2247,7 @@ class MainWindow(QMainWindow):
             "action": action, "filters": self.matching_review_filters(),
         })
 
-    def confirm_matching_review(self, result):
+    def confirm_matching_review(self, result: dict[str, Any]) -> None:
         self.bulk_review_button.setEnabled(True)
         if result["filters"] != self.matching_review_filters():
             self.matching_review_token = None
@@ -2319,7 +2371,7 @@ class MainWindow(QMainWindow):
             },
         )
 
-    def schedule_bulk_readiness(self):
+    def schedule_bulk_readiness(self) -> None:
         self.bulk_readiness_token = None
         self.reviewed_pilot_id = None
         self.pilot_profile_button.setVisible(False)
@@ -2357,7 +2409,7 @@ class MainWindow(QMainWindow):
             {"project_id": self.current_project_id, "request_token": self.shareable_export_token},
         )
 
-    def update_renpy_actions(self):
+    def update_renpy_actions(self) -> None:
         enabled = self.renpy_available and bool(self.renpy_language.text().strip())
         self.renpy_export_button.setEnabled(enabled)
         self.renpy_package_button.setEnabled(enabled)
@@ -2390,7 +2442,7 @@ class MainWindow(QMainWindow):
             },
         )
 
-    def show_capabilities(self, report):
+    def show_capabilities(self, report: dict[str, Any] | None) -> None:
         if not report:
             return
         labels = {
@@ -2408,717 +2460,9 @@ class MainWindow(QMainWindow):
         )
 
     def completed(self, command, result):
-        if command == "open":
-            self.renpy_language.clear()
-            self.renpy_available = False
-            self.renpy_export_group.setVisible(False)
-            self.current_item = None
-            self.current_project_id = result["project_id"]
-            self.drafts.reset(self.current_project_id)
-            self.review_model.set_rows([])
-            self.draft_refresh_pending = False
-            self.setEnabled(True)
-            self.game_process_token = None
-            self.runtime_export_token = None
-            self.shareable_export_token = None
-            self.shareable_available = False
-            self.shareable_export_button.setEnabled(False)
-            self.pilot_button.setEnabled(False)
-            self.deployment_token = None
-            self.deployment_status_token = None
-            self.deployment = None
-            self.installation_kit_available = False
-            self.installation_details.clear()
-            self.installation_log.clear()
-            self.installation_log_reviewed.setChecked(False)
-            self.approve_selection_token = None
-            self.approve_all_token = None
-            self.approve_all_button.setEnabled(True)
-            self.bulk_readiness_token = None
-            self.matching_review_token = None
-            self.bulk_review_button.setEnabled(True)
-            self.game_process_status.setText(tr("Game process state has not been checked."))
-            self.project_open = True
-            self.current_job = None
-            self.job_summaries = {}
-            self.job_status.setText(tr("No job selected yet."))
-            self.job_progress.setRange(0, 1)
-            self.job_progress.setValue(0)
-            self.job_progress.setFormat(tr("No jobs yet"))
-            self.project_totals = None
-            self.next_step.setEnabled(False)
-            self.open_project_folder = result.get("project_path", self.project_path.text())
-            self.project_path.setText(self.open_project_folder)
-            self.game_path.setText(result.get("game_path", self.game_path.text()))
-            self.project_folder_button.setEnabled(True)
-            for index in range(1, self.tabs.count()):
-                self.tabs.setTabEnabled(index, True)
-            self.source_language.setCurrentText(result["source_language"])
-            self.target_language.setCurrentText(result["target_language"])
-            self.summary.setText(
-                tr(
-                    "Project open · {p1} → {p3} · Game files are read-only",
-                    p1=f"{result['source_language']}",
-                    p3=f"{result['target_language']}",
-                )
-            )
-            self.offset = 0
-            self.category_filter.blockSignals(True)
-            self.category_filter.clear()
-            self.category_filter.addItem(tr("All categories"), None)
-            self.category_filter.blockSignals(False)
-            profile = result.get("last_profile")
-            if profile:
-                self.apply_profile(profile)
-            self.refresh()
-            self.bridge.submit("policies")
-            self.bridge.submit("jobs")
-            self.refresh_installation()
-            self.schedule_bulk_readiness()
-        elif command in ("matching_review_preview", "matching_review_apply"):
-            if result["project_id"] != self.current_project_id or (
-                result["request_token"] != self.matching_review_token
-            ):
-                return
-            if command == "matching_review_preview":
-                self.confirm_matching_review(result)
-                return
-            self.bulk_review_button.setEnabled(True)
-            self.matching_review_token = None
-            self.refresh()
-            self.refresh_installation()
-            self.bridge.submit("policies")
-            self.review_details.setText(tr("Updated {p0} records.", p0=str(result["changed"])))
-        elif command == "approve_all_preview":
-            if (
-                result["project_id"] != self.current_project_id
-                or result["request_token"] != self.approve_all_token
-            ):
-                return
-            self.approve_all_button.setEnabled(True)
-            if not result["count"]:
-                QMessageBox.information(
-                    self,
-                    tr("All translations"),
-                    tr("No pending translations are eligible for approval."),
-                )
-                return
-            dialog = AllApprovalDialog(result, self)
-            if (
-                dialog.exec()
-                and dialog.stage == 2
-                and dialog.confirmation.text() == dialog.phrase
-                and result["project_id"] == self.current_project_id
-            ):
-                self.approve_all_button.setEnabled(False)
-                self.bridge.submit(
-                    "approve_all",
-                    {
-                        "project_id": self.current_project_id,
-                        "request_token": self.approve_all_token,
-                        "token": result["token"],
-                        "user_action": True,
-                        "confirmation": canonical_all_confirmation(result["count"]),
-                    },
-                )
-        elif command in ("approve_selection", "approve_all"):
-            if result["project_id"] != self.current_project_id or result["request_token"] != (
-                self.approve_all_token if command == "approve_all" else self.approve_selection_token
-            ):
-                return
-            if command == "approve_all":
-                self.approve_all_button.setEnabled(True)
-                self.approve_all_token = None
-            self.refresh()
-            self.refresh_installation()
-            self.bridge.submit("policies")
-            self.review_details.setText(
-                tr("Approved {p0} selected translations.", p0=f"{result['approved']}")
-            )
-        elif command == "bulk_readiness":
-            if (
-                result["project_id"] != self.current_project_id
-                or result["request_token"] != self.bulk_readiness_token
-            ):
-                return
-            self.bulk_button.setEnabled(result["allowed"] and not self.job_preparing)
-            self.reviewed_pilot_id = result.get("pilot_job_id")
-            self.pilot_profile_button.setVisible(bool(self.reviewed_pilot_id))
-            self.pilot_profile_button.setEnabled(bool(self.reviewed_pilot_id))
-            self.bulk_note.setText(
-                tr("Bulk job ready: the pilot was reviewed for this profile and sources.")
-                if result["allowed"]
-                else tr("Bulk job unavailable: review the pilot for this profile/sources.")
-            )
-            if result.get("reason") == "profile_changed":
-                fields = set(result.get("different_fields", ()))
-                settings = []
-                if fields & {"glossary_version", "style_version"}:
-                    settings.append(tr("Glossary / style"))
-                if fields - {"glossary_version", "style_version"}:
-                    settings.append(tr("Model / generation"))
-                self.bulk_note.setText(tr(
-                    "Bulk job unavailable: settings changed after pilot review ({settings}).",
-                    settings=", ".join(settings),
-                ))
-            elif result.get("reason") == "source_changed":
-                self.bulk_note.setText(tr(
-                    "Bulk job unavailable: source records changed after pilot review."
-                ))
-        elif command == "use_pilot_profile":
-            if result["project_id"] != self.current_project_id or result.get("request_token") != (
-                self.pilot_profile_token
-            ):
-                return
-            self.pilot_profile_token = None
-            self.apply_profile(result["profile"])
-            self.bridge.submit("policies")
-            self.schedule_bulk_readiness()
-        elif command.startswith("deployment_"):
-            expected_token = (
-                self.deployment_status_token
-                if command == "deployment_status"
-                else self.deployment_token
-            )
-            if (
-                result["project_id"] != self.current_project_id
-                or result["request_token"] != expected_token
-                or self.closing
-            ):
-                return
-            if command != "deployment_status":
-                self.setEnabled(True)
-            if command == "deployment_status":
-                self.deployment = result["deployment"]
-                self.installation_kit_available = result["kit_available"]
-                self.update_next_step()
-                active = bool(self.deployment and self.deployment["status"] != "removed")
-                self.prepare_installation.setEnabled(
-                    result["kit_available"] and result["approved"] > 0 and not active
-                )
-                self.remove_installation.setEnabled(active)
-                self.installation_log.setEnabled(not result["baseline_exists"])
-                self.installation_log_reviewed.setEnabled(not result["baseline_exists"])
-                self.installation_state.setText(
-                    (tr("Installation recorded. ") if active else tr("No active installation. "))
-                    + tr("{p0} current approved translations. ", p0=f"{result['approved']}")
-                    + (
-                        tr(
-                            "Experimental Krypta FM installation is available. "
-                            "Remaining screens and text layout require in-game review."
-                        ) if result.get("adapter_kind") == "krypta" and result["kit_available"]
-                        else diagnostic(result["kit_reason"])
-                    )
-                )
-                if result["exclusions"]:
-                    self.installation_log.setText(
-                        ", ".join(item["path"] for item in result["exclusions"])
-                    )
-                if self.deployment and not self.installation_details.toPlainText():
-                    self.installation_details.setPlainText(
-                        tr("Status: ")
-                        + {
-                            "installed": tr("Active (experimental)"),
-                            "removed": tr("Removed"),
-                            "installing": tr("Partial installation"),
-                            "recovery_required": tr("Recovery required"),
-                        }.get(self.deployment["status"], self.deployment["status"])
-                        + "\n"
-                        + "\n".join(item["target"] for item in self.deployment["files"])
-                    )
-            elif command == "deployment_prepare":
-                dialog = InstallationReviewDialog(result, self)
-                if dialog.exec() and dialog.reviewed.isChecked():
-                    self.setEnabled(False)
-                    self.installation_state.setText(
-                        tr("Checking installation and original file hashes…")
-                    )
-                    self.bridge.submit(
-                        "deployment_install",
-                        {
-                            "project_id": self.current_project_id,
-                            "request_token": self.deployment_token,
-                            "review_id": result["review_id"],
-                            "user_action": True,
-                            "experimental_reviewed": True,
-                        },
-                    )
-                else:
-                    self.refresh_installation()
-            else:
-                if command == "deployment_install":
-                    self.installation_details.setPlainText(
-                        tr(
-                            "Installation completed; original files are unchanged. Start "
-                            "the game with your usual launcher. Runtime files remain in "
-                            "the project folder; do not move the project while installed."
-                        )
-                    )
-                else:
-                    self.installation_details.setPlainText(
-                        tr(
-                            (
-                                "Removed additions: {p1}; preserved additions: {p3}. Changed "
-                                "original files: {p5}. Translations remain in the project "
-                                "folder.\n"
-                            ),
-                            p1=f"{len(result['removed'])}",
-                            p3=f"{len(result['preserved'])}",
-                            p5=f"{len(result['original_changes'])}",
-                        )
-                        + "\n".join(result["preserved"])
-                    )
-                self.refresh_installation()
-        elif command == "game_process":
-            if (
-                result["project_id"] != self.current_project_id
-                or result["request_token"] != self.game_process_token
-            ):
-                return  # A stale session/request result must not replace the current status.
-            labels = {
-                "closed": tr("The game was observed closed."),
-                "running": tr("The game is running. Close it before installing/removing files."),
-                "unknown": tr("Could not verify that the game is closed."),
-            }
-            reasons = {
-                "no_executable_identity": tr("Could not identify the game executable."),
-                "game_entry_limit": tr("Game file scan limit exceeded."),
-                "process_or_path_inspection_failed": tr("Process or path query could not finish."),
-            }
-            self.game_process_status.setText(
-                labels.get(result["status"], labels["unknown"])
-                + " "
-                + reasons.get(result["reason"], "")
-                + tr("\nObservation time (UTC): {p1}", p1=f"{result['observed_at']}")
-                + tr(
-                    "\nThis observation is not installation approval. In-game "
-                    "application is not yet verified."
-                )
-            )
-        elif command == "page":
-            if (
-                result.get("project_id") != self.current_project_id
-                or result.get("request_token") != self.page_token
-            ):
-                return
-            self.page_pending = False
-            self.offset = result["offset"]
-            self.review_count = result["count"]
-            self.previous_page.setEnabled(self.offset > 0)
-            self.next_page.setEnabled(self.offset + len(result["rows"]) < result["count"])
-            self.project_totals = result.get("totals")
-            adapters = set(result.get("source_adapters", ()))
-            self.renpy_available = bool({"renpy-templates", "renpy-scripts"} & set(adapters))
-            self.renpy_export_group.setVisible(self.renpy_available)
-            self.export_note.setVisible(not self.renpy_available)
-            self.update_renpy_actions()
-            self.textasset_export_button.setEnabled("krypta-textassets" in adapters)
-            self.runtime_export_button.setEnabled(
-                adapters in ({"i2"}, {"krypta-textassets"})
-            )
-            eligible = (self.project_totals or {}).get("pilot_eligible", 0)
-            self.pilot_button.setEnabled(eligible > 0 and not self.job_preparing)
-            self.pilot_button.setToolTip(
-                "" if eligible else tr(
-                    "No untranslated records remain. Review or export existing translations."
-                )
-            )
-            shareable = result.get("shareable_available", True)
-            self.shareable_available = shareable
-            self.shareable_note.setVisible(not shareable and not self.renpy_available)
-            self.shareable_export_button.setVisible(not self.renpy_available)
-            self.shareable_export_button.setEnabled(shareable)
-            self.shareable_export_button.setToolTip(
-                "" if shareable else tr(
-                    "Shareable installation ZIPs are unavailable for this source adapter. "
-                    "Use approved game-text export; it is not an installation package."
-                )
-            )
-            if not eligible and not self.current_job and not self.job_preparing:
-                self.job_status.setText(tr(
-                    "No untranslated records remain. Review or export existing translations."
-                ))
-            self.update_next_step()
-            self.draft_refresh_pending = False
-            selected = self.current_item["unit_id"] if self.current_item else None
-            self.review_model.set_rows(result["rows"])
-            self.retranslate_page_button.setEnabled(
-                bool(result["rows"]) and self.job_combo.isEnabled()
-            )
-            self.selection_changed()
-            if selected is not None:
-                for index, row in enumerate(result["rows"]):
-                    if row["unit_id"] == selected:
-                        self.table.selectRow(index)
-                        break
-            self.page_label.setText(
-                tr(
-                    "{p0} records · {p2}–{p4}",
-                    p0=f"{result['count']}",
-                    p2=f"{(result['offset'] + 1 if result['rows'] else 0)}",
-                    p4=f"{result['offset'] + len(result['rows'])}",
-                )
-            )
-            if self.category_filter.count() == 1:
-                self.category_filter.blockSignals(True)
-                for category in result["categories"]:
-                    self.category_filter.addItem(category, category)
-                self.category_filter.blockSignals(False)
-                self.style_category.blockSignals(True)
-                for category in result["categories"]:
-                    if self.style_category.findData(category) < 0:
-                        self.style_category.addItem(category, category)
-                self.style_category.blockSignals(False)
-        elif command == "scan":
-            report = result["result"]
-            self.source_file.clear()
-            engine = report.get("engine_report", {}).get("engine", "unknown")
-            templates = [
-                item for item in report.get("renpy_inputs", {}).get("source_candidates", ())
-                if item["kind"] == "translation_template_candidate"
-            ]
-            candidates = list(report["source_candidates"]) if engine != "renpy" else []
-            if engine != "unity":
-                candidates.extend(templates)
-                candidates.extend(
-                    item for item in report.get("renpy_inputs", {}).get("source_candidates", ())
-                    if item["kind"] in ("archive", "loose_script", "renpy_python_source")
-                )
-            self.source_file.addItems(
-                [
-                    item["path"]
-                    for item in sorted(candidates, key=lambda i: i["size"])
-                ]
-            )
-            if report.get("recommendations") and engine != "renpy":
-                self.source_file.setCurrentText(report["recommendations"][0]["source"])
-            self.discovery.setPlainText(
-                tr(
-                    (
-                        "Runtime indicators: {p1} · {p3} source candidates. Text "
-                        "extraction: not yet verified. Game application: not yet "
-                        "verified. Report: {p5}"
-                    ),
-                    p1=f"{', '.join(report['runtime_indicators']) or tr('Unknown')}",
-                    p3=f"{len(candidates)}",
-                    p5=f"{result['report']}",
-                )
-            )
-            self.discovery.append(tr(
-                "Engine evidence: {engine}. Ren'Py template candidates: {count}.",
-                engine={"unity": "Unity", "renpy": "Ren'Py",
-                        "ambiguous": "Unity / Ren'Py"}.get(engine, tr("Unknown")),
-                count=str(len(templates)),
-            ))
-            if report.get("recommendations") and engine != "renpy":
-                self.discovery.append(
-                    tr(
-                        "The first source candidate for this game profile was "
-                        "selected. The reader will verify its structure."
-                    )
-                )
-            self.show_capabilities(report.get("capabilities"))
-        elif command == "extract":
-            self.show_capabilities(result.get("capabilities"))
-            if result.get("counts", {}).get("sources"):
-                self.discovery.append(tr(
-                    "Verified game-text sources: {sources}. Reviewed exclusions: {excluded}. "
-                    "Additional text may remain outside this profile.",
-                    sources=str(result["counts"]["sources"]),
-                    excluded=str(sum(bool(item.get("excluded_reason"))
-                                     for item in result.get("coverage", []))),
-                ))
-            self.discovery.append(
-                tr(
-                    (
-                        "Extraction complete: {p1} records, {p3} characters. Source "
-                        "hashes match before/after. {p5}"
-                    ),
-                    p1=f"{result['counts']['records']}",
-                    p3=f"{result['counts']['characters']}",
-                    p5=f"{result['report']}",
-                )
-            )
-            self.refresh()
-            self.schedule_bulk_readiness()
-        elif command == "models":
-            previous_model = self.model.currentText()
-            self.model.clear()
-            for model in result:
-                self.model.addItem(model["id"], model)
-            previous_index = self.model.findText(previous_model)
-            if previous_index >= 0:
-                self.model.setCurrentIndex(previous_index)
-            self.model_status.setText(
-                tr("Model list received. Loaded state: ")
-                + ", ".join(
-                    f"{item['id']}: "
-                    + {True: tr("Loaded"), False: tr("Not loaded")}.get(
-                        item["loaded"], "bilinmiyor"
-                    )
-                    for item in result
-                )
-            )
-        elif command == "connection_test":
-            self.model_status.setText(
-                tr(
-                    (
-                        "Generation and format check passed: {p1}. No human quality "
-                        "approval was granted."
-                    ),
-                    p1=f"{result['translation']}",
-                )
-            )
-        elif command == "policies":
-            self.glossary.setRowCount(0)
-            for value in result["glossary"]:
-                self.add_rule(value)
-            self.styles = result["styles"].copy()
-            if not self.styles:
-                self.styles = {"default": DEFAULT_STYLE}
-            self.style.setPlainText(self.styles.get(self.style_key, ""))
-            self.impact_note.setText(
-                tr(
-                    (
-                        "{p0} records affected by policy changes; regeneration "
-                        "requires user action. Approved text is preserved."
-                    ),
-                    p0=f"{len(result['impacted'])}",
-                )
-            )
-            self.affected_job_button.setEnabled(bool(result["impacted"]))
-        elif command == "set_policies":
-            self.bridge.submit("policies")
-            self.schedule_bulk_readiness()
-        elif command in ("create_job", "create_affected_job", "create_page_job"):
-            self.set_job_preparing(False)
-            if self.closing:
-                return
-            if result.get("reason") == "preparation_cancelled":
-                self.job_status.setText(tr(
-                    "Preparation cancelled. Existing translations are kept."
-                ))
-                self.job_progress.setRange(0, 1)
-                self.job_progress.setValue(0)
-                self.bridge.submit("jobs")
-                self.schedule_bulk_readiness()
-                return
-            if result.get("reason") == "no_eligible_records":
-                self.job_status.setText(tr(
-                    "No untranslated records remain. Review or export existing translations."
-                ))
-                return
-            self.current_job = result["job_id"]
-            if command == "create_page_job":
-                self.tabs.setCurrentIndex(4)
-            self.job_status.setText(tr("Job prepared for {p0} records.", p0=f"{result['count']}"))
-            self.job_progress.setRange(0, 0)
-            self.job_progress.setFormat(tr("Waiting for the first response…"))
-            self.job_combo.setEnabled(False)
-            self.parallel_requests.setEnabled(False)
-            self.pause_button.setEnabled(True)
-            self.resume_button.setEnabled(False)
-            self.cancel_button.setEnabled(True)
-            self.bridge.submit(
-                "run_job",
-                {
-                    "job_id": self.current_job,
-                    "parallel_requests": self.parallel_requests.value(),
-                    "model_selection": self.model_data(),
-                },
-            )
-        elif command == "run_job":
-            self.on_progress(result)
-            self.bridge.submit("jobs")
-            self.refresh()
-            self.schedule_bulk_readiness()
-        elif command in ("pause", "cancel"):
-            self.bridge.submit("jobs")
-            self.refresh()
-        elif command == "job_report":
-            dialog = PilotReportDialog(result["report"], result["path"], self)
-            outcome = dialog.exec()
-            if outcome == QDialog.DialogCode.Accepted and dialog.acknowledged:
-                self.bridge.submit("pilot_seen", {"job_id": result["report"]["job_id"]})
-            elif outcome == 2:
-                self.bridge.submit("job_report", {"job_id": result["report"]["job_id"]})
-        elif command == "pilot_seen":
-            self.bulk_note.setText(
-                tr("Pilot review saved. Bulk jobs are available for the same profile and sources.")
-            )
-            self.schedule_bulk_readiness()
-        elif command == "jobs":
-            self.job_summaries = {job["job_id"]: job for job in result}
-            selected = self.current_job
-            self.job_combo.blockSignals(True)
-            self.job_combo.clear()
-            for job in result:
-                self.job_combo.addItem(
-                    f"{job['job_id'][:8]} · {JOB_STATUS.get(job['status'], job['status'])}",
-                    job["job_id"],
-                )
-            index = self.job_combo.findData(selected)
-            self.job_combo.setCurrentIndex(max(0, index))
-            self.job_combo.blockSignals(False)
-            self.current_job = self.job_combo.currentData()
-            if self.current_job in self.job_summaries:
-                self.on_progress(self.job_summaries[self.current_job])
-        elif command == "history":
-            dialog = CandidateHistoryDialog(result, self)
-            if dialog.exec() and dialog.chosen:
-                self.bridge.submit(
-                    "select_candidate",
-                    {
-                        "unit_id": result["unit_id"],
-                        "version": result["current"]["version"],
-                        "revision": dialog.chosen,
-                        "replace_approved": dialog.replace.isChecked(),
-                    },
-                )
-        elif command == "quality_audit":
-            self.review_details.setText(
-                tr(
-                    (
-                        "Checked {p0} translations; {p2} records have warnings. "
-                        "Record states and approvals are preserved.\n"
-                    ),
-                    p0=f"{result['audited_current_translations']}",
-                    p2=f"{result['flagged_records']}",
-                )
-                + result["html_path"]
-            )
-            self.export_status.setPlainText(
-                tr("Recheck reports:\n") + result["html_path"] + "\n" + result["json_path"]
-            )
-        elif command in ("edit", "approve", "select_candidate", "import_apply", "import_restore"):
-            self.refresh()
-            self.refresh_installation()
-            if command == "approve":
-                self.bridge.submit("policies")
-            if command == "import_apply":
-                self.export_status.setPlainText(
-                    tr(
-                        "Imported {p0} translation candidates. Existing approvals are preserved.",
-                        p0=f"{result['applied']}",
-                    )
-                )
-                self.import_button.setEnabled(False)
-            if command == "import_restore":
-                self.export_status.setPlainText(
-                    tr(
-                        (
-                            "Restored {p0} records with history. Imported approvals "
-                            "remain archive information; review and approve translations "
-                            "again in this project."
-                        ),
-                        p0=f"{result['restored_units']}",
-                    )
-                )
-                self.restore_button.setEnabled(False)
-                self.bridge.submit("policies")
-        elif command == "export":
-            self.export_status.setPlainText(tr("Translation project exported:\n") + result)
-        elif command == "renpy_export":
-            if result.get("project_id") != self.current_project_id:
-                return
-            self.export_status.setPlainText(tr(
-                "Staged {files} Ren'Py files with {approved} approved translations. "
-                "Files remain in the project. Folder: {folder}",
-                files=str(result["files"]), approved=str(result["approved_translations"]),
-                folder=result["folder"],
-            ))
-        elif command == "renpy_package":
-            if result.get("project_id") != self.current_project_id:
-                return
-            self.export_status.setPlainText(tr(
-                "Created a Ren'Py ZIP with {records} approved translations. "
-                "Install.cmd adds the patch to the selected game without copying it. ZIP: {path}",
-                records=str(result["records"]), path=result["path"],
-            ))
-        elif command == "textasset_export":
-            if result.get("project_id") != self.current_project_id:
-                return
-            self.export_status.setPlainText(tr(
-                "Exported {sources} payloads with {approved} approved translations. "
-                "Staged data only; use Apply to game for a reviewed installation. Folder: {folder}",
-                sources=str(result["sources"]), approved=str(result["approved_translations"]),
-                folder=result["folder"],
-            ))
-        elif command == "shareable_export":
-            if (
-                result.get("project_id") != self.current_project_id
-                or result.get("request_token") != self.shareable_export_token
-            ):
-                return
-            self.shareable_export_button.setEnabled(self.shareable_available)
-            self.export_status.setPlainText(
-                tr(
-                    (
-                        "Shareable ZIP ready: {p1} · {p3} approved records · {p5} MiB"
-                        " ZIP. The recipient extracts the ZIP and selects the game "
-                        "folder with Kur.cmd. UnityTranslator, Python or a model is "
-                        "not required. Existing files are not overwritten. "
-                        "Compatibility is experimental; the game version is checked "
-                        "on installation."
-                    ),
-                    p1=f"{result['path']}",
-                    p3=f"{result['records']}",
-                    p5=f"{result['bytes'] / 1048576:.1f}",
-                )
-            )
-        elif command == "backup":
-            self.setEnabled(True)
-            self.export_status.setPlainText(
-                tr("Data backup created and integrity verified:\n")
-                + result["folder"]
-                + tr(
-                    "\nIncludes translations, approvals, drafts and job history. "
-                    "This is not a backup of the game installation or generated "
-                    "packages. Open this backup folder with Open existing "
-                    "project."
-                )
-            )
-        elif command == "runtime_export":
-            if (
-                result["project_id"] != self.current_project_id
-                or result["request_token"] != self.runtime_export_token
-            ):
-                return
-            self.export_status.setPlainText(
-                tr(
-                    (
-                        "Trial data prepared for {p0} approved translations: {p2}. "
-                        "In-game application is not yet verified. This file is not an"
-                        " installation package. No files were added to the game "
-                        "folder."
-                    ),
-                    p0=f"{result['records']}",
-                    p2=f"{result['path']}",
-                )
-            )
-        elif command == "import_preview":
-            self.export_status.setPlainText(
-                tr(
-                    (
-                        "Eligible: {p1} · Conflicting human approvals: {p3} · "
-                        "Different source revisions: {p5} · Missing: {p7} · "
-                        "Importable history: {p9} · Archive ID conflicts: {p11}. "
-                        "Approved records are not automatically overwritten. Restore "
-                        "requires an empty project; imported approvals are not local "
-                        "approvals."
-                    ),
-                    p1=f"{len(result['applicable'])}",
-                    p3=f"{len(result['approved_conflicts'])}",
-                    p5=f"{len(result['source_conflicts'])}",
-                    p7=f"{len(result['unknown'])}",
-                    p9=f"{len(result['archive_applicable'])}",
-                    p11=f"{len(result['archive_conflicts'])}",
-                )
-            )
-            self.import_button.setEnabled(
-                bool(result["applicable"] or result["archive_applicable"])
-            )
-            self.restore_button.setEnabled(result["restore_available"])
+        handler = self.page_controllers.handler(command)
+        if handler is not None and handler(command, result) is STOP:
+            return
         actions = {
             "open": tr("Project opened. Continue in Texts."),
             "scan": tr("Scan complete. Select the source and extract text."),
@@ -3132,7 +2476,7 @@ class MainWindow(QMainWindow):
         if command not in ("page", "policies", "jobs", "bulk_readiness", "deployment_status"):
             self.statusBar().showMessage(actions.get(command, tr("Operation completed.")), 8000)
 
-    def on_progress(self, result):
+    def on_progress(self, result: dict[str, Any]) -> None:
         if result.get("kind") == "preparation":
             if not self.closing:
                 self.set_job_preparing(True)
@@ -3211,6 +2555,10 @@ class MainWindow(QMainWindow):
             descriptions = {
                 "timeout": tr("The model response exceeded the timeout. Reduce parallel requests."),
                 "connection": tr("Could not connect to the local model server."),
+                "server_unavailable": tr(
+                    "The local model server stayed unavailable. Resume when it is ready."
+                ),
+                "shutdown": tr("The job was paused when the project closed. Resume to continue."),
                 "out_of_memory": tr("Model server out of memory."),
                 "not_found": tr("The selected model or endpoint was not found."),
                 "unauthorized": tr("The model server denied access."),
@@ -3238,7 +2586,7 @@ class MainWindow(QMainWindow):
         if command == "use_pilot_profile":
             self.pilot_profile_token = None
             self.schedule_bulk_readiness()
-        message = diagnostic(message)
+        message = localize(message)
         if command in ("approve_all_preview", "approve_all"):
             self.approve_all_button.setEnabled(True)
             self.approve_all_token = None
@@ -3263,7 +2611,7 @@ class MainWindow(QMainWindow):
             if not self.project_open:
                 self.current_item = None
                 self.review_model.set_rows([])
-                for index in range(1, self.tabs.count()):
+                for index in range(Page.SOURCES, self.tabs.count()):
                     self.tabs.setTabEnabled(index, False)
         if command == "backup":
             self.setEnabled(True)
@@ -3292,7 +2640,9 @@ class MainWindow(QMainWindow):
 
 
 class PilotReportDialog(QDialog):
-    def __init__(self, report, path, parent=None):
+    def __init__(
+        self, report: dict[str, Any], path: str, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Pilot measurements and source / translation review"))
         self.resize(1100, 750)

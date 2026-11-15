@@ -3,12 +3,18 @@
 import argparse
 import json
 import os
-import re
 import tempfile
-import tomllib
 import zipfile
 from hashlib import sha256
-from pathlib import Path, PurePosixPath
+from pathlib import Path
+
+from release_rules import (
+    STANDALONE,
+    check_release_label,
+    private_reason,
+    project_version,
+    unsafe_path,
+)
 
 from unitytranslator.filesystem import checked_path, hash_file
 
@@ -19,16 +25,12 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     parser.add_argument("--output-root", type=Path, default=root / "dist/windows")
     args = parser.parse_args()
-    label = args.label
-    if not re.fullmatch(r"[a-z][a-z0-9.-]{0,39}", label):
-        raise ValueError("Geçersiz paket etiketi.")
+    label = check_release_label(args.label)
     output = checked_path(args.output_root)
     if not output.is_relative_to(root / "dist"):
         raise ValueError("Package output must be under the workspace dist folder.")
     package = checked_path(output / "UnityTranslator.dist")
-    version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
-        "version"
-    ]
+    version = project_version(root)
     destination = checked_path(output / f"UnityTranslator-{version}-{label}-win-x64.zip")
     digest_path = checked_path(Path(str(destination) + ".sha256"))
     if destination.exists() or digest_path.exists():
@@ -37,18 +39,10 @@ def main() -> int:
     paths = {}
     for entry in entries:
         name = entry["path"]
-        relative = PurePosixPath(name)
         if (
             name in paths
-            or relative.is_absolute()
-            or ".." in relative.parts
-            or "\\" in name
-            or ":" in name
-            or any(
-                part.casefold() in {".local", ".cache", ".python", ".venv", "deployment"}
-                for part in relative.parts
-            )
-            or relative.suffix.casefold() in {".gguf", ".assets", ".sqlite3", ".ress"}
+            or unsafe_path(name)
+            or private_reason(name, STANDALONE) is not None
             or name == "PACKAGE-MANIFEST.json"
         ):
             raise ValueError("Paket envanteri güvenli değil.")

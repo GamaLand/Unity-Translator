@@ -170,6 +170,15 @@ def test_shutdown_during_resumed_cold_context_settles_job_without_model_requests
             bridge.shutdown()
             bridge.thread.join(timeout=3)
     with sqlite3.connect(paths.project / "project.sqlite3") as db:
-        assert db.execute("SELECT status FROM jobs WHERE id=?", (job,)).fetchone()[0] == "cancelled"
+        # Shutdown pauses instead of cancelling: the queue stays intact for an explicit resume.
+        assert db.execute("SELECT status FROM jobs WHERE id=?", (job,)).fetchone()[0] == "paused"
+        assert db.execute(
+            "SELECT value FROM project_settings WHERE key=?", ("pause_reason:" + job,)
+        ).fetchone()[0] == "shutdown"
         assert db.execute("SELECT status FROM translation_runs").fetchall() == [("cancelled",)]
+        assert {row[0] for row in db.execute(
+            "SELECT status FROM job_items WHERE job_id=?", (job,)
+        )} == {"queued"}
+        assert db.execute("SELECT sum(attempts) FROM job_items").fetchone()[0] == 0
+        assert not db.execute("SELECT 1 FROM work_items WHERE status='processing'").fetchone()
         assert db.execute("SELECT count(*) FROM translation_revisions").fetchone()[0] == 0

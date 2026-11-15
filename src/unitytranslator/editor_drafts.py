@@ -35,10 +35,10 @@ class EditorDraftStore:
             or expected_revision < 0
             or not isinstance(text, str)
         ):
-            raise ValueError("Geçersiz düzenleme taslağı.")
+            raise ValueError("Invalid edit draft.")
         size = len(text.encode("utf-8"))
         if size > MAX_DRAFT_BYTES:
-            raise ValueError("Düzenleme taslağı boyut sınırını aşıyor.")
+            raise ValueError("The edit draft exceeds the size limit.")
         with self.repo.transaction() as db:
             base = db.execute(
                 "SELECT w.version FROM work_items w JOIN source_revisions s "
@@ -46,22 +46,24 @@ class EditorDraftStore:
                 (unit_id, source_revision),
             ).fetchone()
             if base is None or base_version > base["version"]:
-                raise ValueError("Taslağın kaynak/sürüm kimliği geçersiz.")
+                raise ValueError("Invalid draft source or version identity.")
             old = self.get(unit_id)
             if (old["revision"] if old else 0) != expected_revision:
-                raise ValueError("Taslak değişti; güncel taslağı yeniden açın.")
+                raise ValueError("The draft changed; reopen the current draft.")
             if old and (old["source_revision"], old["base_version"]) != (
                 source_revision,
                 base_version,
             ):
-                raise ValueError("Eski taslağı açıkça kaldırmadan temel sürüm değiştirilemez.")
+                raise ValueError(
+                    "The base version cannot change without explicitly removing the old draft."
+                )
             total = db.execute(
                 "SELECT COALESCE(sum(length(CAST(text AS BLOB))),0) FROM editor_drafts "
                 "WHERE unit_id<>?",
                 (unit_id,),
             ).fetchone()[0]
             if total + size > MAX_TOTAL_DRAFT_BYTES:
-                raise ValueError("Projenin toplam taslak boyut sınırı aşıldı.")
+                raise ValueError("The project's total draft size limit was exceeded.")
             if old and old["text"] == text:
                 return old
             # AUTOINCREMENT never reuses a removed draft token.
@@ -78,20 +80,20 @@ class EditorDraftStore:
 
     def discard(self, unit_id: str, expected_revision: int) -> None:
         if type(expected_revision) is not int or expected_revision <= 0:
-            raise ValueError("Geçersiz taslak belirteci.")
+            raise ValueError("Invalid draft token.")
         with self.repo.transaction() as db:
             row = self.get(unit_id)
             if row is None or row["revision"] != expected_revision:
-                raise ValueError("Taslak değişti; kaldırma reddedildi.")
+                raise ValueError("The draft changed; removal was refused.")
             db.execute("DELETE FROM editor_drafts WHERE unit_id=?", (unit_id,))
 
     def commit(self, unit_id: str, expected_revision: int) -> bool:
         if type(expected_revision) is not int or expected_revision <= 0:
-            raise ValueError("Geçersiz taslak belirteci.")
+            raise ValueError("Invalid draft token.")
         with self.repo.transaction() as db:
             row = self.get(unit_id)
             if row is None or row["revision"] != expected_revision:
-                raise ValueError("Taslak değişti; kaydetme reddedildi.")
+                raise ValueError("The draft changed; saving was refused.")
             current = db.execute(
                 "SELECT u.source_revision,u.active,w.version FROM text_units u "
                 "JOIN work_items w USING(unit_id) WHERE u.unit_id=?",
@@ -103,7 +105,9 @@ class EditorDraftStore:
                 or current["source_revision"] != row["source_revision"]
                 or current["version"] != row["base_version"]
             ):
-                raise ValueError("Kaynak veya çeviri değişti; taslak korundu, kaydedilmedi.")
+                raise ValueError(
+                    "The source or translation changed; the draft was preserved and not saved."
+                )
             changed = self.repo.edit(unit_id, row["base_version"], row["text"])
             db.execute("DELETE FROM editor_drafts WHERE unit_id=?", (unit_id,))
             return changed

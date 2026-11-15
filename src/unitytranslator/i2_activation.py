@@ -16,7 +16,7 @@ def prepare_activation_review(
     repo: ProjectRepository, trial_relative: str, service: DeploymentService
 ) -> dict[str, Any]:
     if service.repository is not repo or service.read_baseline() is None:
-        raise ValueError("Aynı proje oturumunda hazır özgün envanter gerekli.")
+        raise ValueError("A prepared original inventory is required in the same project session.")
     validate_i2_trial(repo, trial_relative)
     trial_path = repo.paths.output(trial_relative)
     before = hash_file(trial_path)
@@ -39,7 +39,7 @@ def prepare_activation_review(
     )
     validate_i2_trial(repo, trial_relative)
     if hash_file(trial_path) != before:
-        raise ValueError("Deneme önizlemesi hazırlık sırasında değişti.")
+        raise ValueError("The trial preview changed during preparation.")
     review = {
         "format_version": 1,
         "purpose": "i2mono-active-trial-review",
@@ -62,7 +62,9 @@ def validate_activation_review(
     repo: ProjectRepository, review_relative: str, service: DeploymentService
 ) -> DeploymentPlan:
     if service.repository is not repo:
-        raise ValueError("Deneme ve koruma servisi aynı proje oturumunda olmalı.")
+        raise ValueError(
+            "The trial and the protection service must belong to the same project session."
+        )
     review = _read_manifest(repo.paths.output(review_relative))
     if (
         review["format_version"] != 1
@@ -74,11 +76,11 @@ def validate_activation_review(
         or review["application_verified"] is not False
         or review["process_launch_authorized"] is not False
     ):
-        raise ValueError("Etkin deneme inceleme kimliği geçersiz.")
+        raise ValueError("The active trial review identity is invalid.")
     trial_relative = review["trial_manifest"]
     validate_i2_trial(repo, trial_relative)
     if hash_file(repo.paths.output(trial_relative)) != review["trial_sha256"]:
-        raise ValueError("İncelenen deneme önizlemesi değişti.")
+        raise ValueError("The reviewed trial preview changed.")
     trial = _read_manifest(repo.paths.output(trial_relative))
     value = review["plan"]
     plan = DeploymentPlan(
@@ -90,7 +92,7 @@ def validate_activation_review(
     )
     baseline = service.read_baseline()
     if baseline is None or plan.fingerprint != baseline["fingerprint"]:
-        raise ValueError("Deneme planı özgün envanterle eşleşmiyor.")
+        raise ValueError("The trial plan does not match the original inventory.")
     recorded = _read_manifest(repo.paths.output(f"artifacts/plans/{plan.id}.json"))
     winhttp = next(item for item in trial["proposed_game_files"] if item["target"] == "winhttp.dll")
     ini_relative = Path(review_relative).parent.as_posix() + "/doorstop_config.ini"
@@ -109,7 +111,7 @@ def validate_activation_review(
         or repo.paths.output(ini_relative).read_bytes()
         != doorstop_config_bytes(preloader, enabled=True)
     ):
-        raise ValueError("Etkin deneme dosya planı veya ayar içeriği değişti.")
+        raise ValueError("The active trial file plan or settings content changed.")
     return plan
 
 
@@ -122,7 +124,7 @@ def install_reviewed_trial(
     experimental_trial_reviewed: bool,
 ) -> dict[str, Any]:
     if user_action is not True or experimental_trial_reviewed is not True:
-        raise ValueError("İncelenen deneysel kurulum açık kullanıcı seçimi gerektirir.")
+        raise ValueError("The reviewed experimental installation requires an explicit user choice.")
     plan = validate_activation_review(repo, review_relative, service)
     return service.install_experimental_trial(
         plan, user_action=user_action, experimental_trial_reviewed=experimental_trial_reviewed

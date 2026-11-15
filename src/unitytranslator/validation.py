@@ -10,7 +10,10 @@ from pydantic import BaseModel, ConfigDict, StrictStr
 
 from unitytranslator.json_boundary import strict_json
 from unitytranslator.language import turkish_lower
-from unitytranslator.renpy_format import RENPY_FORMAT
+from unitytranslator.renpy_format import (
+    RENPY_FORMATS,
+    RENPY_STRING_FORMAT,
+)
 from unitytranslator.renpy_format import format_matches as renpy_format_matches
 from unitytranslator.renpy_format import tokens as renpy_tokens
 from unitytranslator.renpy_format import visible_text as renpy_visible_text
@@ -81,16 +84,16 @@ def plural_branches(text: str) -> dict[str, str]:
     """Parse verified I2 Plural/One/Zero branches; the model never selects tags."""
     matches = list(PLURAL_MARKER.finditer(text))
     if "[i2" in PLURAL_MARKER.sub("", text).lower():
-        raise ValueError("Doğrulanmamış I2 çoğul biçimi.")
+        raise ValueError("Unverified I2 plural format.")
     branches = {"Plural": text[: matches[0].start()] if matches else text}
     for index, match in enumerate(matches):
         form = match.group(1)
         if form in branches:
-            raise ValueError("Yinelenen I2 çoğul dalı.")
+            raise ValueError("Duplicate I2 plural branch.")
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         branches[form] = text[match.end() : end]
     if any(not branch.strip() for branch in branches.values()):
-        raise ValueError("Boş I2 çoğul/metin dalı.")
+        raise ValueError("Empty I2 plural or text branch.")
     return branches
 
 
@@ -100,7 +103,7 @@ def join_plural_branches(branches: dict[str, str]) -> str:
         or next(iter(branches)) != "Plural"
         or not set(branches) <= {"Plural", "One", "Zero"}
     ):
-        raise ValueError("Çoğul dal kümesi geçersiz.")
+        raise ValueError("Invalid plural branch set.")
     return branches["Plural"] + "".join(
         "[i2p_" + form + "]" + text for form, text in branches.items() if form != "Plural"
     )
@@ -177,15 +180,15 @@ class Envelope(BaseModel):
 
 def parse_reply(raw: str, expected: set[str]) -> dict[str, str]:
     if len(raw.encode("utf-8")) > 1024 * 1024:
-        raise ValueError("Model cevabı boyut sınırını aşıyor.")
+        raise ValueError("Model response exceeds the size limit.")
 
     payload = strict_json(raw)
     envelope = Envelope.model_validate(payload)
     ids = [item.id for item in envelope.translations]
     if len(set(ids)) != len(ids) or set(ids) != expected:
-        raise ValueError("Model cevabındaki kayıt kimlikleri tam ve tekil eşleşmiyor.")
+        raise ValueError("Record IDs in the model response are not a complete and unique match.")
     if any(not item.text.strip() for item in envelope.translations):
-        raise ValueError("Boş çeviri kabul edilmiyor.")
+        raise ValueError("Empty translations are not accepted.")
     return {item.id: item.text for item in envelope.translations}
 
 
@@ -196,10 +199,10 @@ def check_format(text: str) -> None:
 
 def check_plain_format(text: str) -> None:
     if "__UT_" in text:
-        raise ValueError("Korumalı belirteç önekiyle çakışma.")
+        raise ValueError("Conflict with the protected token prefix.")
     remainder = TOKEN.sub("", text)
     if any(character in remainder for character in "{}<>") or "[i2" in text.lower():
-        raise ValueError("Bilinmeyen korumalı biçim; okuyucu kuralı gerekiyor.")
+        raise ValueError("Unknown protected format; a reader rule is required.")
     stack: list[str] = []
     for match in TOKEN.finditer(text):
         token = match.group()
@@ -207,17 +210,17 @@ def check_plain_format(text: str) -> None:
             continue
         attribute = re.sub(PARAMETER, "", token)
         if "{" in attribute or "}" in attribute:
-            raise ValueError("Etiket içinde bilinmeyen değişken biçimi.")
+            raise ValueError("Unknown variable format inside a tag.")
         name = re.split(r"[=>]", token.lstrip("</"))[0]
         if "=" in token and (token.startswith("</") or name in ("b", "i")):
-            raise ValueError("Desteklenmeyen etiket parametresi.")
+            raise ValueError("Unsupported tag parameter.")
         if token.startswith("</"):
             if not stack or stack.pop() != name:
-                raise ValueError("Etiket dengesi/sırası bozuk.")
+                raise ValueError("Unbalanced or misordered tags.")
         else:
             stack.append(name)
     if stack:
-        raise ValueError("Kapanmamış etiket.")
+        raise ValueError("Unclosed tag.")
 
 
 @dataclass(frozen=True)
@@ -227,42 +230,46 @@ class MaskedText:
     rules: str = PROTECTED_FORMAT_VERSION
 
     def restore(self, translated: str) -> str:
-        if self.rules not in (PROTECTED_FORMAT_VERSION, LITERAL_LINE_FORMAT, RENPY_FORMAT):
+        if self.rules not in (PROTECTED_FORMAT_VERSION, LITERAL_LINE_FORMAT, *RENPY_FORMATS):
             raise ValueError("Unknown source format rules.")
-        if self.rules == RENPY_FORMAT:
+        if self.rules in RENPY_FORMATS:
+            printf = self.rules == RENPY_STRING_FORMAT
             if Counter(MARKER.findall(translated)) != Counter(self.replacements.keys()):
                 raise ValueError("Missing, duplicate or damaged Ren'Py protection marker.")
             for marker, original in self.replacements.items():
                 translated = translated.replace(marker, original)
-            if [t.text for t in renpy_tokens(translated)] != list(self.replacements.values()):
-                raise ValueError("Ren'Py interpolation, tag or escape tokens changed.")
+            source = self.text
+            for marker, original in self.replacements.items():
+                source = source.replace(marker, original)
+            if not renpy_format_matches(source, translated, printf=printf):
+                raise ValueError("Ren'Py interpolation, tag, escape or format tokens changed.")
             return translated
         if self.rules == LITERAL_LINE_FORMAT:
             if not literal_line_valid(translated) or "__UT_" in translated:
                 raise ValueError("Literal translation must remain one nonempty physical line.")
             return translated
         if len(plural_branches(translated)) != 1:
-            raise ValueError("Tek dala yeni çoğul etiketi eklenemez.")
+            raise ValueError("A new plural tag cannot be added to a single branch.")
         found = Counter(MARKER.findall(translated))
         if found != Counter(self.replacements.keys()):
-            raise ValueError("Korumalı belirteç eksik/fazla/bozuk.")
+            raise ValueError("Missing, extra or damaged protected token.")
         for marker, original in self.replacements.items():
             translated = translated.replace(marker, original)
         if "__UT_" in translated:
-            raise ValueError("Bilinmeyen/bozuk koruma belirteci.")
+            raise ValueError("Unknown or damaged protection marker.")
         check_format(translated)
         if Counter(TOKEN.findall(translated)) != Counter(self.replacements.values()):
-            raise ValueError("Geri yüklenen değişken/etiket kümesi uyuşmuyor.")
+            raise ValueError("Restored variables or tags do not match the source.")
         return translated
 
 
 def mask(text: str, *, rules: str = PROTECTED_FORMAT_VERSION) -> MaskedText:
-    if rules == RENPY_FORMAT:
+    if rules in RENPY_FORMATS:
         prefix = uuid4().hex[:8]
         renpy_replacements: dict[str, str] = {}
         output: list[str] = []
         cursor = 0
-        for token in renpy_tokens(text):
+        for token in renpy_tokens(text, printf=rules == RENPY_STRING_FORMAT):
             marker = f"__UT_{prefix}_{len(renpy_replacements)}__"
             renpy_replacements[marker] = token.text
             output.extend((text[cursor:token.start], marker))
@@ -277,9 +284,9 @@ def mask(text: str, *, rules: str = PROTECTED_FORMAT_VERSION) -> MaskedText:
         raise ValueError("Unknown source format rules.")
     check_format(text)
     if len(plural_branches(text)) != 1:
-        raise ValueError("Çoğul metin dallar halinde maskelenmeli.")
+        raise ValueError("Plural text must be masked by branch.")
     if "__UT_" in text:
-        raise ValueError("Kaynak korumalı belirteç önekiyle çakışıyor.")
+        raise ValueError("Source conflicts with the protected token prefix.")
     prefix = uuid4().hex[:8]
     replacements: dict[str, str] = {}
 
@@ -296,10 +303,10 @@ def review_issues(
     rules: str = PROTECTED_FORMAT_VERSION,
 ) -> list[str]:
     """Numeric checks and narrow en-to-tr hints; not semantic or approval proof."""
-    if rules not in (PROTECTED_FORMAT_VERSION, LITERAL_LINE_FORMAT, RENPY_FORMAT):
+    if rules not in (PROTECTED_FORMAT_VERSION, LITERAL_LINE_FORMAT, *RENPY_FORMATS):
         return ["unsupported_format"]
     try:
-        if rules in (LITERAL_LINE_FORMAT, RENPY_FORMAT):
+        if rules in (LITERAL_LINE_FORMAT, *RENPY_FORMATS):
             original_branches, target_branches = {"Plural": source}, {"Plural": translated}
         else:
             original_branches = plural_branches(source)
@@ -328,9 +335,13 @@ def review_issues(
         (source, translated) if rules == LITERAL_LINE_FORMAT
         else (TOKEN.sub(" ", source), TOKEN.sub(" ", translated))
     )
-    if rules == RENPY_FORMAT:
+    if rules in RENPY_FORMATS:
+        printf = rules == RENPY_STRING_FORMAT
         try:
-            original_text, result_text = renpy_visible_text(source), renpy_visible_text(translated)
+            original_text, result_text = (
+                renpy_visible_text(source, printf=printf),
+                renpy_visible_text(translated, printf=printf),
+            )
         except ValueError:
             return ["unsupported_or_unbalanced_format"]
     if numeric_mismatch(original_text, result_text, source_language, target_language):
@@ -362,11 +373,11 @@ def review_issues(
 def format_issues(
     source: str, translated: str, *, rules: str = PROTECTED_FORMAT_VERSION
 ) -> list[str]:
-    if rules == RENPY_FORMAT:
+    if rules in RENPY_FORMATS:
         try:
-            return (
-                [] if renpy_format_matches(source, translated) else ["protected_content_mismatch"]
-            )
+            return [] if renpy_format_matches(
+                source, translated, printf=rules == RENPY_STRING_FORMAT
+            ) else ["protected_content_mismatch"]
         except ValueError:
             return ["unsupported_or_unbalanced_format"]
     if rules == LITERAL_LINE_FORMAT:

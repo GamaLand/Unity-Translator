@@ -35,6 +35,11 @@ your choice applies when you reopen the app. It does not change the game's trans
 5. **Translate:** run and review the representative pilot before starting the bulk job.
    Select 1–36 parallel requests according to server capacity. Minimized translation continues.
    Pause stops new requests and waits for active ones; cancel stops client tasks.
+   Closing the app or opening another project pauses a running job; resume it explicitly.
+   If the model server stays unavailable, the job pauses without using up record attempts.
+   Ren'Py interface strings with `%d`, `%s` or `%(name)s` placeholders must keep them;
+   older projects enable this check by re-extracting with
+   `--format-rules renpy-text-v2`.
 6. **Review:** compare source and translation, save edits, then approve. Draft autosave
    does not grant approval. Page approval affects selected eligible records on that page.
    **Approve all translations** covers the project: review the count/warnings, acknowledge,
@@ -65,7 +70,7 @@ checks do not guarantee translation quality. Some technical diagnostics retain o
 
 Game translation languages: source and target are separate from the interface language. Enter ja for Japanese, it for Italian or pt-BR for Brazilian Portuguese; other language codes can also be entered. The source must exist in the game. Missing or ambiguous source columns are rejected. The model must support the pair. Existing project languages, approvals and custom styles are preserved; review old language-specific styles. Check fonts, RTL layout and plural forms in a small patch before sharing. English can also be a target.
 
-In advanced model settings, you can optionally disable model reasoning for LM Studio requests. This may leave more output budget for the translation. Support depends on the loaded model/server; an unsupported option can stop the job. Defaults and server-wide settings are preserved.
+In advanced model settings, **Model reasoning** controls the model's thinking step. Server default keeps the server's behaviour. Adaptive budget (llama.cpp) lets the model think in proportion to each record: short interface text gets a small thinking budget, while long text and verified neighbouring dialogue get more. This can make jobs much faster without switching reasoning off. Off disables thinking for LM Studio and llama.cpp and may lower quality for context-dependent text. Support depends on the loaded model and server; an unsupported option can stop the job. The pilot report shows how much the model reasoned. Changing this setting requires a matching reviewed pilot.
 
 ## Engine inspection and Ren'Py translation
 

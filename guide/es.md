@@ -37,6 +37,12 @@ de origen y destino del proyecto.
    trabajo completo. Selecciona de 1 a 36 solicitudes paralelas según la capacidad del
    servidor. Minimizar no detiene la traducción. La pausa espera las solicitudes activas;
    cancelar interrumpe las tareas del cliente.
+   Cerrar la aplicación o abrir otro proyecto pausa el trabajo en curso; reanúdalo
+   explícitamente. Si el servidor del modelo sigue sin estar disponible, el trabajo se
+   pausa sin gastar los intentos de los registros.
+   Los marcadores `%d`, `%s` o `%(name)s` de los textos de interfaz de Ren'Py deben
+   conservarse; los proyectos antiguos activan esta comprobación al volver a extraer con
+   `--format-rules renpy-text-v2`.
 6. **Revisión:** compara, corrige, guarda y aprueba. Guardar un borrador no lo aprueba.
    La aprobación por página afecta solo a los registros aptos seleccionados. Para aprobar
    todas las traducciones, acepta primero el alcance y las advertencias; después escribe
@@ -69,7 +75,7 @@ Para la versión compatible de Krypta FM, elija origen `en` y destino `tr`. El p
 
 Tras revisar y aprobar las traducciones, cierre el juego y revise en «Aplicar al juego» el plan de los dos archivos nuevos: `winhttp.dll` y `doorstop_config.ini`. El runtime experimental permanece en el proyecto separado; no se sustituyen archivos originales. Retire los añadidos desde el mismo proyecto. La exportación de textos no es un instalador; los ZIP de instalación también admiten la versión Krypta en→tr verificada. El destinatario ejecuta Install.cmd, revisa el plan y escribe INSTALL; Uninstall.cmd elimina solo los añadidos propios sin cambios. La combinación portátil tiene pruebas sintéticas; su prueba específica dentro del juego queda pendiente. Se observaron inicio/menú, opciones, entrada al juego, pausa y subtítulos. Otras pantallas, cambios de idioma y disposición del texto requieren revisión manual; una etiqueta larga puede superponerse a su explicación.
 
-En los ajustes avanzados puedes desactivar opcionalmente el razonamiento para las solicitudes de LM Studio. Esto puede dejar más presupuesto de salida para la traducción. La compatibilidad depende del modelo y servidor; una opción no admitida puede detener el trabajo. Se conservan los valores predeterminados y los ajustes globales del servidor.
+En la configuración avanzada del modelo, "Razonamiento del modelo" controla el paso de pensamiento del modelo. "Predeterminado del servidor" mantiene el comportamiento del servidor. "Presupuesto adaptativo (llama.cpp)" permite que el modelo piense en proporción a cada registro: el texto de interfaz corto recibe un presupuesto de pensamiento pequeño, mientras que el texto largo y el diálogo vecino verificado reciben más. Esto puede hacer que los trabajos sean mucho más rápidos sin cambiar el razonamiento a "Desactivado". "Desactivado" deshabilita el pensamiento para LM Studio y llama.cpp y puede reducir la calidad del texto que depende del contexto. El soporte depende del modelo y el servidor cargados; una opción no compatible puede detener el trabajo. El informe piloto muestra cuánto razonó el modelo. Cambiar esta configuración requiere un piloto revisado correspondiente.
 
 ## Traducción Ren'Py
 
